@@ -13,7 +13,7 @@
 //
 //   - No silent success. When the supervisor is unreachable, recording is
 //     unavailable and the agent is TOLD so: by default the call passes through
-//     with an explicit additionalContext notice (unmanaged_mode "notice"); the
+//     with an explicit notice appended to the tool result (unmanaged_mode "notice"); the
 //     operator may configure unmanaged_mode "block" to deny with reason
 //     daemon_unavailable instead.
 //   - No invented price. A reservation is quoted only from a published price
@@ -414,6 +414,18 @@ function slashMessage(result: SlashResult): string {
 
 const pendingSettles = new Map<string, PendingSettle>();
 
+// Notices for the model (an unmetered action, a new penalty cue, the settlement receipt). OMP's `tool_call` result has no field the
+// model reads, so they are queued per tool call and appended to that call's result content by `tool_result`, which OMP documents
+// as able to patch content (docs/extensions.md "Tool lifecycle"; verified in a real omp 18.2.11, adapters/omp/README.md "Verified in a real omp").
+const queuedNotices = new Map<string, string[]>();
+
+function queueNotice(toolCallId: string, notice: string | undefined): void {
+  if (!notice) return;
+  const notices = queuedNotices.get(toolCallId) ?? [];
+  notices.push(notice);
+  queuedNotices.set(toolCallId, notices);
+}
+
 // ---------------------------------------------------------------------------
 // Extension factory
 // ---------------------------------------------------------------------------
@@ -441,14 +453,16 @@ export default function biczOmpAdapter(pi: ExtensionAPI) {
     `(${config ? "unmanaged_mode is " + (config.unmanaged_mode ?? "notice") : "no bicz config found"})`;
 
   const passThroughOrBlock = (
+    toolCallId: string,
     mode: "notice" | "block" | undefined,
     denyReason: string,
     notice: string,
-  ): { block: true; reason: string } | { additionalContext: string } => {
+  ): { block: true; reason: string } | undefined => {
     if (mode === "block") {
       return { block: true, reason: denyReason };
     }
-    return { additionalContext: notice };
+    queueNotice(toolCallId, notice);
+    return undefined;
   };
 
   const fetchProjection = async (config: BiczConfig): Promise<string | undefined> => {
@@ -532,7 +546,7 @@ export default function biczOmpAdapter(pi: ExtensionAPI) {
     const sessionAlias = ctx?.cwd ? `omp:${ctx.cwd}` : "omp-session";
 
     if (!config) {
-      return passThroughOrBlock("notice", "daemon_unavailable", noticeForUnmanaged(undefined));
+      return passThroughOrBlock(event.toolCallId, "notice", "daemon_unavailable", noticeForUnmanaged(undefined));
     }
 
     const tool = event.toolName;
@@ -542,7 +556,7 @@ export default function biczOmpAdapter(pi: ExtensionAPI) {
     const q = quote(config, tool);
     if (q.state === "no_schedule") {
       const notice = `bicz: ${q.reason}; this action is NOT being metered and no charge is recorded.`;
-      return passThroughOrBlock(config.no_schedule_mode, "no_published_price_schedule", notice);
+      return passThroughOrBlock(event.toolCallId, config.no_schedule_mode, "no_published_price_schedule", notice);
     }
 
     const argsDigest = evidenceDigest({ tool, input: event.input });
@@ -564,6 +578,7 @@ export default function biczOmpAdapter(pi: ExtensionAPI) {
       });
     } catch (err) {
       return passThroughOrBlock(
+        event.toolCallId,
         config.unmanaged_mode,
         "daemon_unavailable",
         noticeForUnmanaged(config) + ` The ${tool} call that was about to run was not charged.`,
@@ -572,7 +587,7 @@ export default function biczOmpAdapter(pi: ExtensionAPI) {
 
     if (response.error) {
       const code = response.error.code ?? "daemon_unavailable";
-      return passThroughOrBlock(config.unmanaged_mode, code, `bicz: ${response.error.message ?? code}`);
+      return passThroughOrBlock(event.toolCallId, config.unmanaged_mode, code, `bicz: ${response.error.message ?? code}`);
     }
 
     switch (response.decision) {
@@ -588,7 +603,8 @@ export default function biczOmpAdapter(pi: ExtensionAPI) {
           response.notice ??
           "bicz: unobserved — no authorization granted and no spend metered for this path";
         const cue = takeAccountability(authorizeProjection(response), false);
-        return { additionalContext: cue ? `${notice}\n${cue}` : notice };
+        queueNotice(event.toolCallId, cue ? `${notice}\n${cue}` : notice);
+        return undefined;
       }
       case "allow": {
         const reservationId = response.reservation_id ?? authKey;
@@ -603,59 +619,63 @@ export default function biczOmpAdapter(pi: ExtensionAPI) {
         // told: it rides on the projection the authorize already returned, so it
         // costs no extra call and no extra model turn.
         const cue = takeAccountability(authorizeProjection(response), false);
-        return cue ? { additionalContext: cue } : undefined;
+        queueNotice(event.toolCallId, cue);
+        return undefined;
       }
       default:
-        return { additionalContext: "bicz: unexpected supervisor decision; no charge is recorded" };
+        queueNotice(event.toolCallId, "bicz: unexpected supervisor decision; no charge is recorded");
+        return undefined;
     }
   });
 
   pi.on("tool_result", async (event) => {
+    const notices = queuedNotices.get(event.toolCallId) ?? [];
+    queuedNotices.delete(event.toolCallId);
     const pending = pendingSettles.get(event.toolCallId);
-    if (!pending) return;
     pendingSettles.delete(event.toolCallId);
     const config = loadConfig();
-    if (!config) return;
-
-    // Classification from observable evidence only: the harness error flag and
-    // adapter facts. Never a model self-report.
-    const classification = classify({
-      toolError: event.isError,
-      repeatedForbidden: false,
-      unsupportedSuccess: false,
-      tamperingEvidence: false,
-      unauthorizedTarget: false,
-    });
-
-    const digest =
-      classification.evidenceRequired
-        ? evidenceDigest({ toolCallId: event.toolCallId, toolName: pending.toolName, input: event.input, content: event.content })
-        : "";
-    try {
-      const response = await rpc(config.socket, "settle", `omp:settle:${event.toolCallId}`, {
-        reservation_id: pending.reservationId,
-        observed_usage: pending.charge,
-        outcome: classification.outcome,
-        evidence_digest: digest,
-        class: classification.className,
+    if (pending && config) {
+      // Classification from observable evidence only: the harness error flag and
+      // adapter facts. Never a model self-report.
+      const classification = classify({
+        toolError: event.isError,
+        repeatedForbidden: false,
+        unsupportedSuccess: false,
+        tamperingEvidence: false,
+        unauthorizedTarget: false,
       });
-      if (response.error) {
-        return {
-          additionalContext: `bicz: settlement unavailable (${response.error.code ?? "error"}); no charge is recorded for this action`,
-        };
+
+      const digest =
+        classification.evidenceRequired
+          ? evidenceDigest({ toolCallId: event.toolCallId, toolName: pending.toolName, input: event.input, content: event.content })
+          : "";
+      // Only a breach class is declared on the wire; an ordinary completion or honest failure declares none, so the receipt
+      // reports "completed" for a call that completed (mirror of hooks.breachClass).
+      const declared = classification.className === "ordinary_failure" ? "" : classification.className;
+      try {
+        const response = await rpc(config.socket, "settle", `omp:settle:${event.toolCallId}`, {
+          reservation_id: pending.reservationId,
+          observed_usage: pending.charge,
+          outcome: classification.outcome,
+          evidence_digest: digest,
+          class: declared,
+        });
+        if (response.error) {
+          notices.push(`bicz: settlement unavailable (${response.error.code ?? "error"}); no charge is recorded for this action`);
+        } else {
+          const state = (response.state ?? {}) as Record<string, unknown>;
+          const receipt = (state.receipt ?? {}) as Record<string, unknown>;
+          notices.push(
+            `bicz receipt: ${receipt.class ?? (classification.outcome === "completed" ? "completed" : classification.className)}, charged ${receipt.charged ?? pending.charge} mc, ` +
+            `fine 0${receipt.outstanding_loss ? `, outstanding loss shortfall ${receipt.outstanding_loss} mc` : ""}`,
+          );
+        }
+      } catch {
+        notices.push("bicz: settlement unavailable — no supervisor is reachable; no charge is recorded for this action");
       }
-      const state = (response.state ?? {}) as Record<string, unknown>;
-      const receipt = (state.receipt ?? {}) as Record<string, unknown>;
-      return {
-        additionalContext:
-          `bicz receipt: ${receipt.class ?? classification.className}, charged ${receipt.charged ?? pending.charge} mc, ` +
-          `fine 0${receipt.outstanding_loss ? `, outstanding loss shortfall ${receipt.outstanding_loss} mc` : ""}`,
-      };
-    } catch {
-      return {
-        additionalContext: "bicz: settlement unavailable — no supervisor is reachable; no charge is recorded for this action",
-      };
     }
+    if (notices.length === 0) return;
+    return { content: [...(Array.isArray(event.content) ? event.content : []), { type: "text" as const, text: notices.join("\n") }] };
   });
 
   pi.on("session.compacting", async () => {

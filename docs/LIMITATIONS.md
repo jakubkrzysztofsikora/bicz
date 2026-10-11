@@ -20,6 +20,9 @@ Moved out of the top-level README, which keeps a short "What it isn't" section a
   hosted tools that skip hooks, subagent/MCP internals, and (for Codex) fail-open on hook error or
   timeout are **unobserved** paths. `bicz doctor` lists them. "Observed" means bicz is in the call
   path, not that anything is enforced.
+- **Codex failures are not classified.** Codex 0.162.1's PostToolUse hook payload carries no exit code or
+  error flag, so a failed Codex shell command is recorded as `completed` (same charge, fine 0). bicz does
+  not infer failure from output text; this needs an exit field from Codex (`RUNTIME_HOOKS.md` §3.4a).
 - **Not authentication.** The operator is "the local OS user running the CLI", recorded as an
   **unsigned** record. There is no signature, password or token. Setting `BICZ_AUTHORITY`,
   `BICZ_ACTOR` or `BICZ_OPERATOR` makes state-changing commands refuse with `untrusted_authority`.

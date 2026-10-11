@@ -81,7 +81,7 @@ its own `hooks.state` mechanism and a local mock model ran all four bicz hooks, 
 timeout (`docs/RUNTIME_HOOKS.md` section 3).
 
 **Still not verified:** the interactive Codex TUI, Codex `apply_patch`/MCP tool names and compaction;
-Claude `PreCompact` and mutating tools; OMP tool-call hooks in a real OMP agent session (only the `/bicz` command was run in real `omp --mode rpc`) and any real OpenCode process; latency under real
+Claude `PreCompact` and mutating tools; OMP `session.compacting`, `unmanaged_mode: block` and the interactive OMP/OpenCode TUIs (OMP tool hooks ran in a real `omp --mode rpc` 18.2.11 with a mock provider: `adapters/omp/README.md`); latency under real
 harness load.
 
 **OpenCode ([`docs/RUNTIME_OPENCODE.md`](RUNTIME_OPENCODE.md)):** `adapters/opencode/v2/bicz.ts`

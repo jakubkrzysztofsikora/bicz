@@ -104,6 +104,13 @@ tree was missing `internal/protocol/coverage.go` (swallowed by a `coverage.*` ig
   next request's system context, `/bicz` with no provider request) and in the ABI fixture. The fixture's
   stub context gained `ctx.command` and `ctx.session.synthetic` (it had not been updated for `/bicz`).
 
+- **OMP extension** fixes found only by running a real `omp --mode rpc` 18.2.11 (temp agent dir, mock
+  provider): a successful tool call was settled with class `ordinary_failure` (the ledger and receipt
+  called a success a failure; now only a breach class is declared, so it is `completed`), and the
+  receipt, the unmetered notice and the penalty cue were returned as `additionalContext`, which OMP does
+  not read, so they never reached the model; they are now appended to the tool result in `tool_result`.
+  The OMP mock-harness checks were rewritten to match.
+
 ### Known limitations (release blockers for behavioral claims)
 
 - **Phase B** (human, real-consequence, dedicated test identity) has not been run.
@@ -117,7 +124,11 @@ tree was missing `internal/protocol/coverage.go` (swallowed by a `coverage.*` ig
 - Codex hooks were run live in `codex-cli 0.162.1` (`codex exec`, mock model server, temp home): field
   names verified, nothing left unverified except the interactive TUI, `apply_patch`/MCP tool names and
   compaction (`docs/RUNTIME_HOOKS.md` section 3).
-- Claude Code 2.1.286 was driven live in headless mode (`docs/RUNTIME_HOOKS.md`); OMP's `/bicz` command was run in a real `omp --mode rpc` 18.2.11 but its tool-call hooks have no real session.
+- Claude Code 2.1.286 was driven live in headless mode (`docs/RUNTIME_HOOKS.md`). OMP 18.2.11 was run in
+  `omp --mode rpc` with a mock provider: `/bicz`, reserve/settle, deny, projection/receipt/cue; its
+  `session.compacting` and interactive TUI were not exercised (`adapters/omp/README.md`).
+- A failed Codex shell command is recorded as `completed`: Codex 0.162.1's hook payload has no exit code
+  (`docs/RUNTIME_HOOKS.md` §3.4a).
 - Windows binaries cross-compile and `go vet` cleanly; the Windows test suite has not been observed
   passing (CI job is advisory until it is).
 - No code signing, notarization or SBOM.

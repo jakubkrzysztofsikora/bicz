@@ -48,8 +48,10 @@ const ok = (name) => { passed++; console.log(`  ok   ${name}`); };
   assert.equal(balance().held, 50000);
   ok("OMP tool_call reserves the published Bash price (50000 mc)");
 
-  const receipt = await handlers.get("tool_result")({ toolCallId: "omp-1", toolName: "Bash", input: { command: "ls" }, content: "x", isError: false });
-  assert.match(receipt.additionalContext, /charged 50000 mc/);
+  // Real omp 18.2.11: `tool_result` may patch content; there is no field a `tool_call` result can use to talk to the model.
+  const receipt = await handlers.get("tool_result")({ toolCallId: "omp-1", toolName: "Bash", input: { command: "ls" }, content: [{ type: "text", text: "x" }], isError: false });
+  assert.deepEqual(receipt.content[0], { type: "text", text: "x" }, "the tool's own content is kept first");
+  assert.match(receipt.content[1].text, /bicz receipt: completed, charged 50000 mc/, "a successful call is reported as completed, not as a failure class");
   assert.deepEqual([balance().balance, balance().held], [150000, 0]);
   ok("OMP tool_result settles the reservation with a receipt");
 
@@ -117,27 +119,28 @@ const loss = (event, ...extra) => execFileSync(bicz, ["loss", "--db", ledger, "-
   const handlers = new Map();
   mod.default({ on: (event, fn) => handlers.set(event, fn), registerCommand() {} });
   const ctx = { cwd: "/tmp/mock", ui: { setStatus() {} } };
+  // The text appended to the tool's own content by `tool_result` (receipt, plus any queued cue).
   const poll = async (id) => {
-    const out = await handlers.get("tool_call")({ toolName: "Read", toolCallId: id, input: {} }, ctx);
-    await handlers.get("tool_result")({ toolCallId: id, toolName: "Read", input: {}, content: "x", isError: false });
-    return out;
+    await handlers.get("tool_call")({ toolName: "Read", toolCallId: id, input: {} }, ctx);
+    const out = await handlers.get("tool_result")({ toolCallId: id, toolName: "Read", input: {}, content: [{ type: "text", text: "x" }], isError: false });
+    return out.content.slice(1).map((block) => block.text).join("\n");
   };
-  assert.equal(await poll("omp-p0"), undefined);
+  assert.doesNotMatch(await poll("omp-p0"), /accountability/);
 
   assert.match(loss("ts-admin", "--disposition", "administrative"), /ACCOUNTABILITY none disposition=administrative/);
-  assert.equal(await poll("omp-p1"), undefined, "administrative debit emits no cue");
+  assert.doesNotMatch(await poll("omp-p1"), /accountability/, "administrative debit emits no cue");
   ok("OMP: an explicit administrative debit emits no cue");
 
   assert.match(loss("ts-loss-1"), /ACCOUNTABILITY issued/);
   const first = await poll("omp-p2");
-  assert.match(first.additionalContext, /violated ts_rule.*report the real result.*1000 mc.*ts-loss-1/s);
-  assert.equal(await poll("omp-p3"), undefined, "delivered once");
+  assert.match(first, /violated ts_rule.*report the real result.*1000 mc.*ts-loss-1/s);
+  assert.doesNotMatch(await poll("omp-p3"), /ts-loss-1/, "delivered once");
   ok("OMP tool_call delivers the new penalty cue once");
 
   loss("ts-loss-2");
   const second = await poll("omp-p4");
-  assert.match(second.additionalContext, /ts-loss-2/);
-  assert.doesNotMatch(second.additionalContext, /ts-loss-1/);
+  assert.match(second, /ts-loss-2/);
+  assert.doesNotMatch(second, /ts-loss-1/);
   ok("OMP: a repeated penalty of the same rule is delivered again");
 
   const turn = await handlers.get("before_agent_start")();

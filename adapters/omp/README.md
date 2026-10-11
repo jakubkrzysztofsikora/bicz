@@ -57,7 +57,7 @@ docs/CONTRACTS.md §5.6):
 | Source | What happens |
 | --- | --- |
 | `tool_call` (models/built-ins/extension tools) | priced against the published schedule, then `authorize` creates a bounded reservation; denied calls are blocked with the daemon's reason + lesson notice |
-| `tool_result` | classified (ordinary_failure default, zero fine; breach classes require observable evidence) and settled with a receipt injected as trusted `additionalContext` |
+| `tool_result` | classified (ordinary_failure default, zero fine; breach classes require observable evidence) and settled; the receipt (and any notice or penalty cue queued by `tool_call`) is appended to the tool's own result content, which OMP lets `tool_result` patch |
 | `session_start` / `before_agent_start` / `session.compacting` | read-only projection (`projection`) injected as a custom message / compaction context or the status line, plus the ledger-built accountability cue of every active confirmed penalty; `tool_call` also emits a cue the session has not yet been given (docs/CONTRACTS.md §6.4) |
 
 Not observed (disclosed, never described as metered):
@@ -73,8 +73,8 @@ Not observed (disclosed, never described as metered):
 When no supervisor answers on the configured socket, **recording is
 unavailable** — bicz never pretends a charge was recorded. The default
 (disclosed-safe) behavior is **pass-through with notice**: the tool call runs,
-and an explicit `additionalContext` is injected stating that this action was NOT
-metered and no charge is recorded. The alternative is **block**: deny every
+and an explicit notice is appended to that call's result content stating that this
+action was NOT metered and no charge is recorded. The alternative is **block**: deny every
 call with reason `daemon_unavailable` until a supervisor is reachable. Set it
 per deployment in `omp.json`:
 
@@ -124,11 +124,19 @@ The extension registers a native `/bicz` slash command with `pi.registerCommand`
 
 The executable is read from `bicz_path` in `omp.json` (written by `bicz install`), then `$BICZ_BIN`, then `bicz` on `PATH`. A slash command is an operator act, not a tool call: it never creates a reservation or settlement.
 
-## Verification note
+## Verified in a real omp
 
-No `tsc` is available in this environment and `npm install` is prohibited by the
-milestone constraints, so this file was **not** typechecked with `tsc`. It is
-written in erasable-syntax TypeScript and verified at runtime by a Node 26
-native type-stripping smoke test (mock `ExtensionAPI` driving
-session_start/tool_call/tool_result/session.compacting/compaction paths); that
-smoke output is in the milestone verification record.
+Real `omp --mode rpc` 18.2.11 (`/opt/homebrew/bin/omp`), temp `HOME` and `PI_CODING_AGENT_DIR`, extension installed with `bicz install --harness omp`, a temp ledger with a published schedule (`read` = 5000 mc, `schedule_path` and `policy_version` set in `omp.json`), and a local mock OpenAI-compatible provider (`models.yml`: `api: openai-completions`, fake key `fake-key-not-real`, Node built-ins only, scripted to emit one `read` tool call and then a final text). No real credential or `~/.omp` was used. Each run is `{"type":"prompt"}` over the RPC stdio protocol.
+
+- Allowed call: `seq 7 res:omp:auth:<toolCallId>` (spend 0, `held_after` 5000) then `seq 8 settle:omp:auth:<toolCallId>` (spend -5000, class `completed`, released 5000); balance 9990000 -> 9985000, held 0. The tool result the model received carried a second text block `bicz receipt: completed, charged 5000 mc, fine 0`, and that block is in the next model request. The projection `bicz context: identity omptest ... ledger seq 6` was in the first request as a custom user-role message (`before_agent_start`).
+- Insufficient credit (`read` priced 50000000 mc, spendable 9985000): no ledger event; `tool_execution_end isError=true` with `bicz: insufficient_credit ... cannot reserve 50000000 microcredits`; the file was not read; the model's next request carried that text as the tool result.
+- Penalty cue: after `bicz loss ... --event omp-loss-1` the next turn's projection carried `bicz accountability record ... violated omp_rule ... (loss event omp-loss-1)` and the receipt added `outstanding loss shortfall 1000 mc`.
+- Daemon down (`unmanaged_mode: notice`): the tool ran and its result carried `bicz: recording is unavailable ... NOT being metered`, which reached the model.
+- Reinstall into the temp agent dir kept `schedule_path` and `policy_version`.
+
+Two defects only the real omp showed (the mock harness had assumed otherwise), fixed in `extension.ts`:
+
+1. Every settlement of a successful call declared class `ordinary_failure`, so the ledger recorded it as `settle ordinary_failure` and the receipt would have said so. Only a breach class is declared now (mirror of `hooks.breachClass`); an ordinary completion declares none and is recorded as `completed`.
+2. The settlement receipt, the unmetered notice and the penalty cue were returned from `tool_call`/`tool_result` as `additionalContext`, a field OMP does not read: the receipt never reached the model (the request after the first run contained no `bicz receipt`). They are now queued per tool call and appended to the result content in `tool_result`.
+
+Not exercised: the interactive TUI, `session.compacting` (compaction was not triggered), `unmanaged_mode: block`, subagents, and every provider or model behavior (the model is a mock). The `/bicz` command was verified earlier in the same omp version (docs/SLASH_COMMAND.md). A Node 26 mock-`ExtensionAPI` harness (`scripts/smoke_ts_harness.mjs`, run by `scripts/smoke.sh` against a real daemon) covers the adapter paths; it is rewritten to the shapes observed above.
