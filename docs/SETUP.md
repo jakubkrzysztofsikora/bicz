@@ -116,3 +116,29 @@ schedule change cannot alter an in-flight charge. Per-adapter detail: [`adapters
 [`adapters/opencode`](../adapters/opencode/README.md). Set `unmanaged_mode` / `no_schedule_mode` to
 `"block"` to deny instead of notice; either way a user can still turn hooks off, which is disclosed,
 not prevented.
+
+## Run at login (macOS)
+
+`bicz serve` in a terminal or under `nohup` dies on reboot. A launchd user agent starts it at login and
+restarts it if it exits. The template is [`scripts/bicz.launchd.plist`](../scripts/bicz.launchd.plist):
+`RunAtLoad`, `KeepAlive`, `bicz serve --db ~/.bicz/ledger.sqlite`, stdout and stderr to `~/.bicz/serve.log`.
+launchd does not expand `~` or `$HOME`, so fill in `@HOME@`:
+
+```sh
+mkdir -p ~/.bicz
+sed "s#@HOME@#$HOME#g" scripts/bicz.launchd.plist > ~/Library/LaunchAgents/dev.bicz.supervisor.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/dev.bicz.supervisor.plist
+launchctl print gui/$(id -u)/dev.bicz.supervisor | grep -E 'state|pid'   # state = running
+bicz status --db ~/.bicz/ledger.sqlite                                     # DAEMON status=recording
+```
+
+Edit the `--db` path and the `bicz` path if yours differ (the ledger path must be the one `bicz install
+--ledger` used, because the socket name is derived from it). Stop a foreground or `nohup` supervisor first:
+only one supervisor can hold a ledger's lock. Remove it with
+`launchctl bootout gui/$(id -u)/dev.bicz.supervisor && rm ~/Library/LaunchAgents/dev.bicz.supervisor.plist`.
+
+The socket lives under `$TMPDIR/bicz`. launchd gives user agents the same per-user `TMPDIR` your shell has,
+so the daemon and the adapter configs agree with no extra setting. If you pinned the location with
+`BICZ_RUNTIME_DIR` when you ran `bicz install`, add the same variable to the plist under
+`EnvironmentVariables`. Adapters default to `notice` mode, so a stopped daemon never blocks work; it only
+means calls are not metered until it is back.

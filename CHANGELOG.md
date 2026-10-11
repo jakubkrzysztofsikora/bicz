@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ### Added
 
+- macOS launchd template `scripts/bicz.launchd.plist` and a "Run at login (macOS)" section in `docs/SETUP.md`.
 - Codex runtime verification (`docs/RUNTIME_HOOKS.md` section 3): real `codex-cli 0.162.1` `codex exec`
   runs, hooks trusted via Codex's own `hooks.state` mechanism (no bypass flag), temp home/ledger, local mock
   model server. `$bicz status`, `reward` and a no-correction `loss` were answered by the hook with 0 model
