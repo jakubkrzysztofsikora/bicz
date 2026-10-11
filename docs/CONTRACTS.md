@@ -522,9 +522,8 @@ null effect ships the product as **accounting-only**.
 
 ## 9. UNRESOLVED
 
-1. **Repository slug** — the authorized GitHub owner/repo is not yet verified;
-   publication is blocked until it is chosen and confirmed. (Tracked in
-   `docs/REPO-SLUG-TODO.md`.)
+1. **Repository slug** — resolved: `github.com/jakubkrzysztofsikora/bicz` (public), matching the
+   `go.mod` module path.
 2. **OpenCode V2 fixture details** — config-mapping strings, event-payload
    schema, server path parity, per-client-route coverage, and the exact V2
    artifact/install channel are not fixture-verified. Plugin/hook **names** are

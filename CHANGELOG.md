@@ -59,4 +59,4 @@ Pre-release. The mechanism is shipped; **its behavioral effect is unmeasured** (
  the generated `hooks.json` but its hook-trust gate blocked a live run; OMP's `/bicz` command was run in a real `omp --mode rpc` 18.2.11 but its tool-call hooks and OpenCode have no real session.
 - Windows binaries cross-compile and `go vet` cleanly; the Windows test suite has not been observed
   passing (CI job is advisory until it is).
-- No code signing, notarization or SBOM. Repository owner/slug is unverified.
+- No code signing, notarization or SBOM.

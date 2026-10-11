@@ -39,7 +39,8 @@ corrupted or swapped archive; it is not a signature. Release archives also carry
 provenance attestation (`gh attestation verify <file> --repo OWNER/REPO`).
 
 `go install github.com/jakubkrzysztofsikora/bicz/cmd/bicz@<tag>` works only once the repository is
-published at exactly that module path. The owner/slug is **unverified** (`docs/REPO-SLUG-TODO.md`).
+published at exactly that module path. The repository is public at
+`https://github.com/jakubkrzysztofsikora/bicz`, matching `go.mod`; no tag has been cut yet.
 
 ## Quickstart (five minutes, reproducible, no model session)
 

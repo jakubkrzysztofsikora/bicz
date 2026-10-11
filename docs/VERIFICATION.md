@@ -140,8 +140,8 @@ hand against the code with reproduction before fixing. Bugs reproduced and fixed
 
 1. **Phase B** real-consequence run on a dedicated test identity (`docs/REHEARSAL.md`).
 2. **OpenCode V2 live engine** run on a pinned V2 binary (the ABI fixture is done; the engine is not).
-3. A verified public repository owner/slug (`docs/REPO-SLUG-TODO.md`); the workflows use
-   `github.repository` and the installers take `BICZ_REPO`, so nothing is hard-coded.
+3. ~~Public repository owner/slug~~: resolved, `jakubkrzysztofsikora/bicz` is public and matches `go.mod`;
+   the workflows use `github.repository` and the installers take `BICZ_REPO`, so nothing is hard-coded.
 4. First green runs of `ci.yml` and `release.yml` on GitHub, including `windows-latest`.
 5. Real Claude Code / Codex / Oh My Pi / OpenCode sessions (live credentials) to confirm hook field
    names and ordering. No signing/notarization or SBOM.
