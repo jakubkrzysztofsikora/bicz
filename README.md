@@ -27,7 +27,7 @@ A local, same-user credit ledger and supervisor for coding-agent harnesses (Clau
 - **Not a sandbox, not anti-tamper.** bicz runs as your OS user. An agent running as that user could edit the ledger, disable the hooks or route around the adapter. The hash chain and optional anchor make tampering detectable, not impossible.
 - **Not authentication, not billing.** `/bicz` is recorded as an unsigned action by the local OS user. Credits are internal; bicz does not meter or cap your provider spend.
 - **Not shown to change model behavior yet.** Nothing here claims an agent feels anything. The cue is a message built from ledger facts. Two small agent-run Claude Code trials were inconclusive ([one](docs/PHASE_B_RESULTS.md): no rule was ever breached, so no consequence was delivered; [two](docs/LOSS_EXPOSURE_RESULTS.md): n = 4 per arm, within chance). The human-run release gate has not been run.
-- **Pre-release.** `v0.1.0` is a GitHub pre-release. Full list: [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
+- **Pre-release.** `v0.1.1` is a GitHub pre-release. Full list: [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
 ## Install
 
@@ -39,7 +39,7 @@ curl -fsSL https://raw.githubusercontent.com/jakubkrzysztofsikora/bicz/main/scri
 
 Windows (PowerShell): `irm https://raw.githubusercontent.com/jakubkrzysztofsikora/bicz/main/scripts/install.ps1 | iex`
 
-It downloads the latest [GitHub release](https://github.com/jakubkrzysztofsikora/bicz/releases), verifies its SHA256 (a mismatch aborts, nothing is installed) and installs `~/.local/bin/bicz`. It prints a PATH hint if that directory is not on your `PATH`. `BICZ_VERSION=v0.1.0` pins a version, `BICZ_INSTALL_DIR` changes the target.
+It downloads the latest [GitHub release](https://github.com/jakubkrzysztofsikora/bicz/releases), verifies its SHA256 (a mismatch aborts, nothing is installed) and installs `~/.local/bin/bicz`. It prints a PATH hint if that directory is not on your `PATH`. `BICZ_VERSION=v0.1.1` pins a version, `BICZ_INSTALL_DIR` changes the target.
 
 Have Go 1.27+? `go install github.com/jakubkrzysztofsikora/bicz/cmd/bicz@latest` (no cgo, installs to `$(go env GOBIN)` or `~/go/bin`).
 

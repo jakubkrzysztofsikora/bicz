@@ -4,10 +4,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-10-11
+## [0.1.1] - 2026-10-11
 
-First tagged release, published as a GitHub **pre-release**. The mechanism is shipped; **its
-behavioral effect is unmeasured** (Phase B not run).
+First published release, as a GitHub **pre-release**. The mechanism is shipped; **its behavioral
+effect is unmeasured** (Phase B not run). `v0.1.0` was withdrawn before any release was built: its
+tree was missing `internal/protocol/coverage.go` (swallowed by a `coverage.*` ignore rule, now
+`/coverage.*`), so it did not compile from a clean checkout.
 
 ### Install without cloning
 
@@ -17,7 +19,7 @@ behavioral effect is unmeasured** (Phase B not run).
   SHA256 and fails loudly on a mismatch.
 - Release archives (`bicz_<os>_<arch>.tar.gz`, `.zip` on Windows; darwin, linux, windows x amd64, arm64)
   plus `SHA256SUMS`, built by the tag-triggered workflow; release notes come from this file.
-- `go install github.com/jakubkrzysztofsikora/bicz/cmd/bicz@v0.1.0`.
+- `go install github.com/jakubkrzysztofsikora/bicz/cmd/bicz@v0.1.1`.
 
 ### Added
 

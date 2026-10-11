@@ -33,7 +33,7 @@ __pycache__/
 # Coverage / profiling
 *.cover
 *.prof
-coverage.*
+/coverage.*
 
 # Editor / OS cruft
 .DS_Store

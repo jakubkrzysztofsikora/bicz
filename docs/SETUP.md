@@ -42,7 +42,7 @@ Assets per release: `bicz_{darwin,linux}_{amd64,arm64}.tar.gz`, `bicz_windows_{a
 **2. `go install`** (Go version from `go.mod`; no cgo):
 
 ```sh
-go install github.com/jakubkrzysztofsikora/bicz/cmd/bicz@latest      # or @v0.1.0
+go install github.com/jakubkrzysztofsikora/bicz/cmd/bicz@latest      # or @v0.1.1
 ```
 
 The binary lands in `$(go env GOBIN)`, or `$(go env GOPATH)/bin` (`~/go/bin`) when `GOBIN` is unset.
