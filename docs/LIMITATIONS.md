@@ -4,8 +4,9 @@ Moved out of the top-level README, which keeps a short "What it isn't" section a
 
 > **Status: pre-release.** The mechanics are built and tested. Two things are **not** done and are
 > release blockers, not footnotes: the human-run **Phase B real-consequence test**
-> (`REHEARSAL.md`) and a live **OpenCode V2 engine** run (the plugin ABI is checked against the
-> published package; no V2 engine was available, `RUNTIME_OPENCODE.md`). **No behavioral effect on any
+> (`REHEARSAL.md`) and the **OpenCode V2 tool-hook path** (`/bicz` and plugin loading were run in a real
+> `opencode v2.0.26` engine; `execute.before/after`, `context` and `compaction` need a model turn and were
+> run only against the published package, `RUNTIME_OPENCODE.md`). **No behavioral effect on any
 > model has been measured**: the mechanism is shipped, its effect is unmeasured. Two small agent-run
 > Claude Code trials exist and are inconclusive: [`PHASE_B_RESULTS.md`](PHASE_B_RESULTS.md) (no rule was
 > breached in either arm, so no consequence was ever delivered) and

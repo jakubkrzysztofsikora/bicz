@@ -7,14 +7,14 @@
 | Generation | Observed | Unobserved |
 | --- | --- | --- |
 | V1 | `tool.execute.before` authorize/deny, `tool.execute.after` settlement, configured session events for projection | `--pure` disables external plugins; desktop/ACP/web per-route coverage has no fixture; provider calls, subagent internals, and unmanaged launches |
-| V2 | `ctx.tool.hook("execute.before"/"execute.after")`; `ctx.session.hook("context"/"compaction")` appends bicz system context | actual V2 engine's installed-binary callback delivery and per-client route coverage are not validated; provider calls, subagent internals, and unmanaged launches |
+| V2 | `/bicz` command (`ctx.command.transform`) and plugin load in a real V2 engine (`opencode v2.0.26`); `ctx.tool.hook("execute.before"/"execute.after")` and `ctx.session.hook("context"/"compaction")` against the published package only | tool and session hooks have not run in the engine (no model-free way to trigger them; needs a provider turn); per-client route coverage (desktop/web/ACP); provider calls, subagent internals, and unmanaged launches |
 
 Hooks are cooperative, not an OS security boundary. No adapter claims metering of paths it cannot observe. Plugin-disabled `--pure` runs are specifically unobserved.
 
 ## Compatibility
 
 - V1: the stable `1.x` line (`opencode-ai` on npm); tested here only against a mock harness.
-- V2: the beta `2.0` line of `anomalyco/opencode`; the plugin ABI is pinned to `@opencode/plugin@2.0.26` (Promise API is its default entrypoint). V2 has no per-tag GitHub releases and no stable 2.x on the legacy `opencode-ai` package, so the installed generation is detected from `opencode --version` and can be forced with `--generation`.
+- V2: the beta `2.0` line of `anomalyco/opencode`, published on npm as `@opencode/cli@2.0.26` (binary `opencode`, `opencode2`); the plugin ABI is pinned to `@opencode/plugin@2.0.26` (Promise API is its default entrypoint). There is no GitHub release for `v2.0.26` and no 2.x on the legacy `opencode-ai` package. The installed generation is detected from `opencode --version` (`opencode v2.0.26` resolves to 2) and can be forced with `--generation`.
 - Hooks fire only for tools routed through the plugin; `--pure` mode and desktop/ACP/web routes without a fixture are unobserved (see Coverage above).
 
 ## Install and uninstall
@@ -33,9 +33,9 @@ V1 uses `opencode1:auth:<callID>` and `opencode1:settle:<callID>`. V2 scopes sta
 
 | Generation | Route | Model involvement |
 | --- | --- | --- |
-| V2 | `ctx.command.transform` registers a `bicz` command; its `execute` runs the CLI and posts the result with `ctx.session.synthetic({ resume: false })` | none: the result is a synthetic session message and no turn is resumed |
+| V2 | `ctx.command.transform` registers a `bicz` command; its `execute` runs the CLI and posts the result with `ctx.session.synthetic({ resume: false })` | none: verified in a real v2.0.26 engine. The result is admitted to the session inbox as a `synthetic` item (`delivery: steer`); no turn runs, no provider request is made, and it becomes a session message only when the session's next turn starts |
 | V1 (weaker) | the plugin `config` hook adds a `bicz` command with an inert template; `command.execute.before` runs the CLI with the raw arguments and replaces the prompt parts with the result | the ledger write happens before any model sees the turn, but V1 still sends the replaced parts as a prompt, so a model turn relays the result |
 
 ## V2 ABI status
 
-The V2 plugin's callback arity and mutable session-system injection are verified against the published `@opencode/plugin@2.0.26` package. The local V2 CLI/runtime was not available: installed `opencode` is 1.18.31 and `opencode-ai@2.0.26` is unpublished. The actual package loader and plugin setup were exercised with the official package, but this is not proof of the V2 engine's hook-dispatch behavior or client-route coverage. See `docs/RUNTIME_OPENCODE.md`.
+The V2 plugin's callback arity and mutable session-system injection are verified against the published `@opencode/plugin@2.0.26` package. The plugin was then run in a real V2 engine (`@opencode/cli@2.0.26`, `opencode v2.0.26`, isolated HOME/config/ledger): the engine loaded `plugins/bicz.ts`, listed the `bicz` command, and `/bicz status`, `reward 3 "x"` and a no-correction `loss` ran through `POST /api/session/:id/command` (the route V2 clients use), with matching ledger events (status and needs_input wrote nothing; reward wrote one event), `needs_input` posted as a synthetic inbox item, no assistant message, zero tokens and no provider request. Not exercised in the engine: `execute.before/after` (reserve/settle), `context` and `compaction`, which run only inside a model turn; they remain verified against the published package only. See `docs/RUNTIME_OPENCODE.md`.

@@ -80,13 +80,16 @@ tree was missing `internal/protocol/coverage.go` (swallowed by a `coverage.*` ig
 ### Known limitations (release blockers for behavioral claims)
 
 - **Phase B** (human, real-consequence, dedicated test identity) has not been run.
-- **OpenCode V2**: the adapter typechecks against the published `@opencode/plugin@2.0.26` and loads
-  through its real `Host.load` against a real daemon (`docs/RUNTIME_OPENCODE.md`). No V2 engine was
-  available (`opencode-ai@2.0.26` is not on npm; the installed CLI is V1), so engine loading, hook
-  dispatch, denial propagation and live context mutation are unverified.
+- **OpenCode V2**: run in a real engine, `opencode v2.0.26` from `@opencode/cli@2.0.26`, on a temp
+  HOME/ledger (`docs/RUNTIME_OPENCODE.md`): the plugin loads, and `/bicz status`, `reward` and a
+  no-correction `loss` work through the engine's session command route with matching ledger events,
+  no model turn and no provider request; the result is a synthetic inbox item, materialized as a
+  message only at the session's next turn. `execute.before/after` (reserve/settle), `context` and
+  `compaction` were **not** run in the engine (they need a model turn); they are verified only against
+  the published `@opencode/plugin@2.0.26` and a real daemon.
 - Codex hook field names are **unverified** against a running Codex (`codex-cli 0.162.1` recorded).
 - Claude Code 2.1.286 was driven live in headless mode (`docs/RUNTIME_HOOKS.md`); Codex 0.162.1 parses
- the generated `hooks.json` but its hook-trust gate blocked a live run; OMP's `/bicz` command was run in a real `omp --mode rpc` 18.2.11 but its tool-call hooks and OpenCode have no real session.
+ the generated `hooks.json` but its hook-trust gate blocked a live run; OMP's `/bicz` command was run in a real `omp --mode rpc` 18.2.11 but its tool-call hooks have no real session, and OpenCode V1 has no real engine run.
 - Windows binaries cross-compile and `go vet` cleanly; the Windows test suite has not been observed
   passing (CI job is advisory until it is).
 - No code signing, notarization or SBOM.

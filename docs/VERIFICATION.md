@@ -89,10 +89,14 @@ typechecks against the real `@opencode/plugin@2.0.26` declarations, and
 against a real temp `bicz serve`: allow/receipt, insufficient-credit throw, duplicate settle once,
 same call id independent per session, `system` projection/receipt, compaction mutation, settlement
 retry after daemon recovery, daemon-down notice/block. The embedded copy is byte-identical to the
-source. **ABI verified; engine absent:** the callback registry in the fixture is not OpenCode, no V2
-CLI exists on npm or locally, so engine loading, hook dispatch, denial propagation and live context
-mutation are not shown. The `scripts/smoke.sh` 23-check pass predates this V2 change (V1 + OMP
-scope); it was not re-run or recertified.
+source. **Engine run (`opencode v2.0.26` from `@opencode/cli@2.0.26`, temp HOME/ledger):** the engine loads
+the plugin, lists `bicz`, and `/bicz status`, `reward 3 "x"` and a no-correction `loss` ran through the
+engine's `POST /api/session/:id/command` route with matching ledger events (1 -> 2 events, only the
+reward wrote), a synthetic inbox item, no message, zero tokens and no provider request (capture proxy saw
+only the `models.opencode.ai` catalog fetch). **Not run in the engine:** `execute.before/after`,
+`context`, `compaction`; they need a model turn, so denial propagation and live context mutation are
+shown only by the callback-registry fixture. The `scripts/smoke.sh` 23-check pass predates this V2 change
+(V1 + OMP scope); it was not re-run or recertified.
 
 ## 4. Installers and release build
 
