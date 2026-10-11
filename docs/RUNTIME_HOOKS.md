@@ -157,10 +157,29 @@ and then a final `MOCK-DONE` message. No hosted model, no credentials.
 | Run | Observed |
 | --- | --- |
 | `echo hi` (`codex-rt`) | `command_execution` ran, `exit_code:0`, output `hi`. Ledger 122000000 to **121950000**, held 0, events 3 to 5. Pre stdout empty (allow prints nothing). Post stdout `{"hookSpecificOutput":{"additionalContext":"bicz receipt: completed, charged 50000 mc, fine 0","hookEventName":"PostToolUse"}}` |
-| command exiting non-zero | Codex still sent **PostToolUse** (so the earlier "PostToolUse only after a successful result" claim was wrong). The payload carries no exit code or error flag: `tool_response` is the bare output string. bicz settled it as `completed`, charged 50000 mc: 121950000 to 121900000, held 0 |
+| command exiting non-zero (`echo oops-on-stderr >&2; echo partial; exit 3`, re-run) | Codex's own event: `"exit_code":3,"status":"failed"`. Codex still sent **PostToolUse** (so the earlier "PostToolUse only after a successful result" claim was wrong), but the payload has **no exit code and no error flag**: `"tool_response":"partial\noops-on-stderr\n"`. bicz settled it as `completed`, charged 50000 mc (124900000 to 124850000, held 0); receipt `bicz receipt: completed, charged 50000 mc, fine 0`, hook exit 0. See 3.4a: this cannot be classified as `ordinary_failure` from the payload |
 | under-funded account (`codex-poor`, 1000 mc), `touch CANARY` | Codex logged `Command blocked by PreToolUse hook: bicz: insufficient_credit ... cannot reserve 50000 microcredits (spendable=1000)`; the model received that text as the tool result; **CANARY not created** (workspace-write sandbox); no PostToolUse fired; ledger unchanged (1000, held 0) |
 | PreToolUse hook exits 7 | tool **ran**, CANARY created: **fail-open on hook error observed** |
 | PreToolUse hook sleeps 5 s with `timeout: 1` | tool **ran**, CANARY created: **fail-open on hook timeout observed** |
+
+### 3.4a Why a non-zero exit is settled as `completed` (source: `rust-v0.162.1`)
+
+- `codex-rs/core/src/tools/context.rs`, `ExecCommandToolOutput::post_tool_use_response`: the hook gets
+  `JsonValue::String(truncated_output)` and nothing else. The `Process exited with code N` line exists
+  only in `response_header()` (what the model sees and what is logged), not in the hook payload. The
+  same type reports `success_for_logging() == true` always.
+- The PostToolUse input schema (`hooks/schema/generated/post-tool-use.command.input.schema.json`) has
+  `session_id, turn_id, transcript_path, cwd, hook_event_name, model, permission_mode, tool_name,
+  tool_input, tool_response, tool_use_id, agent_id, agent_type` and no exit, status or error field.
+- Only `exec_command` (as `Bash`), `apply_patch` (text) and MCP tools build a PostToolUse payload in
+  this tag; none carries an exit code.
+
+So a failure is not unambiguously present in the payload. Any rule over the output text would be a
+guess: a command can print "Exit code: 3" and succeed, or fail silently. bicz therefore keeps
+`completed` (same charge, fine 0) and does not infer failure from text.
+`TestCodexRealPayloadsReserveAndSettle` pins this with the captured exit-3 payload and with output
+text that imitates an exit-code line. The honesty cost is real: a failed Codex shell command is
+recorded as completed. It can be fixed only if Codex adds an exit field to the hook payload.
 
 ### 3.5 Real field names vs `CodexSpec.Fields`
 

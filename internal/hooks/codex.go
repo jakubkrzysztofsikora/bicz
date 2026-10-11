@@ -18,8 +18,11 @@ import (
 // Observed Codex behaviors that bound what this adapter can see (coverage table; never
 // described as enforced): hooks fail open on hook error or timeout (observed), hosted tools do
 // not run hooks, and Codex has no PostToolUseFailure event: PostToolUse also fires for a shell
-// command that exited non-zero, but its payload carries no exit code, so bicz settles it as
-// completed (same charge). Codex 0.162.1 does list PreCompact and PostCompact events, but their
+// command that exited non-zero, but tool_response is only the output text (rust-v0.162.1
+// ExecCommandToolOutput::post_tool_use_response; the exit code lives in the model-facing header,
+// not in the hook payload) and the input schema has no exit or error field. Failure is not
+// unambiguous, so bicz never infers it from text: it settles as completed (same charge). Codex
+// 0.162.1 does list PreCompact and PostCompact events, but their
 // output schema carries no additionalContext, so bicz cannot restore a projection through them;
 // compaction restoration relies on SessionStart with source "compact" (not exercised live). Only
 // SessionStart, PreToolUse, PostToolUse and UserPromptSubmit are installed.

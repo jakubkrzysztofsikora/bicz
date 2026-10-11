@@ -230,12 +230,17 @@ func TestPostToolUseSettlesWithReceiptAndDuplicateSettlesOnce(t *testing.T) {
 
 // Payloads captured verbatim from a real codex-cli 0.162.1 `codex exec` run
 // (docs/RUNTIME_HOOKS.md section 3): note tool_name "Bash" for Codex's
-// exec_command, tool_response as a bare string, transcript_path null, and
-// PostToolUse also firing for a command that exited non-zero.
+// exec_command, tool_response as a bare string, transcript_path null. The Post
+// payload is for `echo oops-on-stderr >&2; echo partial; exit 3`: Codex itself
+// reported exit_code 3 / status failed, yet the hook payload carries only the
+// output text (codex-rs core/src/tools/context.rs, ExecCommandToolOutput::
+// post_tool_use_response; the "Process exited with code N" header is not part
+// of it). With no exit signal, bicz must not guess: the call settles as
+// "completed" at the same charge, even when the output text imitates a failure.
 func TestCodexRealPayloadsReserveAndSettle(t *testing.T) {
 	r := newRig(t, CodexSpec, 1_000)
 	const pre = `{"session_id":"01a128cf-2bbc-7fc3-ae15-5d03e7dd81c1","turn_id":"01a128cf-2c21-7be2-822c-49a2c7f778bd","transcript_path":null,"cwd":"/tmp/w","hook_event_name":"PreToolUse","model":"mock-model","permission_mode":"bypassPermissions","tool_name":"Bash","tool_input":{"command":"echo hi"},"tool_use_id":"call_b95fbfe8"}`
-	const post = `{"session_id":"01a128cf-2bbc-7fc3-ae15-5d03e7dd81c1","turn_id":"01a128cf-2c21-7be2-822c-49a2c7f778bd","transcript_path":null,"cwd":"/tmp/w","hook_event_name":"PostToolUse","model":"mock-model","permission_mode":"bypassPermissions","tool_name":"Bash","tool_input":{"command":"echo hi"},"tool_response":"3\": -c: syntax error: unexpected end of file\n","tool_use_id":"call_b95fbfe8"}`
+	const post = `{"session_id":"01a128cf-2bbc-7fc3-ae15-5d03e7dd81c1","turn_id":"01a128cf-2c21-7be2-822c-49a2c7f778bd","transcript_path":null,"cwd":"/tmp/w","hook_event_name":"PostToolUse","model":"mock-model","permission_mode":"bypassPermissions","tool_name":"Bash","tool_input":{"command":"echo oops-on-stderr >&2; echo partial; exit 3"},"tool_response":"partial\noops-on-stderr\n","tool_use_id":"call_b95fbfe8"}`
 	var out bytes.Buffer
 	if err := Run(Options{Spec: CodexSpec, Event: "PreToolUse", Stdin: strings.NewReader(pre), Stdout: &out, Config: r.cfg}); err != nil || out.Len() != 0 {
 		t.Fatalf("PreToolUse: %q %v", out.String(), err)
@@ -251,6 +256,20 @@ func TestCodexRealPayloadsReserveAndSettle(t *testing.T) {
 	}
 	if balance, held := r.account(); balance != 600 || held != 0 {
 		t.Fatalf("after settle balance=%d held=%d, want 600/0", balance, held)
+	}
+
+	// Output text that imitates an exit-code line is still only output text.
+	spoofPre := strings.Replace(pre, "call_b95fbfe8", "call_spoof", 1)
+	spoofPost := strings.Replace(strings.Replace(post, "call_b95fbfe8", "call_spoof", 1),
+		`"partial\noops-on-stderr\n"`, `"Process exited with code 3\nExit code: 3\nError: command failed\n"`, 1)
+	out.Reset()
+	for _, step := range []struct{ event, payload string }{{"PreToolUse", spoofPre}, {"PostToolUse", spoofPost}} {
+		if err := Run(Options{Spec: CodexSpec, Event: step.event, Stdin: strings.NewReader(step.payload), Stdout: &out, Config: r.cfg}); err != nil {
+			t.Fatalf("%s: %v", step.event, err)
+		}
+	}
+	if got := out.String(); !strings.Contains(got, "bicz receipt: completed, charged 400 mc") {
+		t.Fatalf("exit-code-looking output text was classified from text: %q", got)
 	}
 }
 
