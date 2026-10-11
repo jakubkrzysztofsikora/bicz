@@ -25,7 +25,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 )
 
 //go:embed embed/omp_extension.ts
@@ -271,10 +270,16 @@ func (p *Plan) Apply() error {
 	for _, change := range p.Changes {
 		switch change.Kind {
 		case ChangeWriteModule:
+			if err := writeBackup(change); err != nil {
+				return err
+			}
 			if err := writeModule(change.Path, change.Backup); err != nil {
 				return err
 			}
 		case ChangeWriteConfig:
+			if err := writeBackup(change); err != nil {
+				return err
+			}
 			if err := writeFileAtomic(change.Path, p.ConfigBody, change.Backup); err != nil {
 				return err
 			}
@@ -283,10 +288,8 @@ func (p *Plan) Apply() error {
 				return fmt.Errorf("install: remove %s: %w", change.Path, err)
 			}
 		case ChangeWriteHooks:
-			if change.Prior != nil {
-				if err := os.WriteFile(change.Backup, change.Prior, change.Mode); err != nil {
-					return fmt.Errorf("install: write backup %s: %w", change.Backup, err)
-				}
+			if err := writeBackup(change); err != nil {
+				return err
 			}
 			if err := writeFileAtomicMode(change.Path, change.Body, change.Backup, change.Mode); err != nil {
 				return err
@@ -344,11 +347,8 @@ func planModuleWrite(changes []Change, path string) ([]Change, error) {
 	if bytesEqual(existing, ompExtensionModule) {
 		return changes, nil // idempotent second install: no change
 	}
-	backup, err := stageBackup(path, existing)
-	if err != nil {
-		return nil, err
-	}
-	return append(changes, Change{Kind: ChangeWriteModule, Path: path, Backup: backup,
+	// The backup is named now but written by Apply, so a dry run leaves nothing on disk.
+	return append(changes, Change{Kind: ChangeWriteModule, Path: path, Backup: backupName(path), Prior: existing,
 		Detail: "existing bicz-owned module differs from the deployed version; backed up before rewriting"}), nil
 }
 
@@ -371,11 +371,7 @@ func planConfigWrite(changes []Change, path string, body []byte) ([]Change, erro
 	if bytesEqual(existing, body) {
 		return changes, nil
 	}
-	backup, err := stageBackup(path, existing)
-	if err != nil {
-		return nil, err
-	}
-	return append(changes, Change{Kind: ChangeWriteConfig, Path: path, Backup: backup,
+	return append(changes, Change{Kind: ChangeWriteConfig, Path: path, Backup: backupName(path), Prior: existing,
 		Detail: "existing bicz-owned config differs from the requested one; backed up before rewriting"}), nil
 }
 
@@ -601,14 +597,21 @@ func envRelocates(path string) bool {
 	return false
 }
 
-// stageBackup copies existing bicz-owned bytes to a timestamped sibling. The
-// timestamp is sortable so the newest backup is the one uninstall restores.
-func stageBackup(path string, content []byte) (string, error) {
-	backup := path + ".bak-" + time.Now().UTC().Format("20060102T150405.000000000Z")
-	if err := os.WriteFile(backup, content, 0o644); err != nil {
-		return "", fmt.Errorf("install: write backup %s: %w", backup, err)
+// writeBackup writes the exact bytes a change replaces to its named backup. Planning only names the backup (backupName), so a dry
+// run writes nothing; Apply calls this before it replaces the file. The timestamp is sortable, so the newest backup is the one
+// uninstall restores.
+func writeBackup(change Change) error {
+	if change.Prior == nil || change.Backup == "" {
+		return nil
 	}
-	return backup, nil
+	mode := change.Mode
+	if mode == 0 {
+		mode = 0o644
+	}
+	if err := os.WriteFile(change.Backup, change.Prior, mode); err != nil {
+		return fmt.Errorf("install: write backup %s: %w", change.Backup, err)
+	}
+	return nil
 }
 
 // newestBackup finds the lexicographically newest sibling backup of a target,

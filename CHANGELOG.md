@@ -94,6 +94,9 @@ tree was missing `internal/protocol/coverage.go` (swallowed by a `coverage.*` ig
   settled as an ordinary failure via `message.part.updated` (V1 never calls `tool.execute.after` then);
   `/bicz` replaced `output.parts` by assignment, which V1 ignores, so it now mutates the array. The
   V1 mock-harness checks were rewritten to the observed hook shapes.
+- `bicz install --dry-run` now writes nothing for every harness: the OMP module and config planners staged
+  their backups on disk while planning (a dry run left `.bak-*` files); backups are now named at plan
+  time and written by Apply, as the OpenCode, Claude, Codex and asset planners already did.
 - **OpenCode and OMP installers** now keep operator-set keys of an existing bicz-owned adapter config
   (`schedule_path`, `policy_version`, `unmanaged_mode`, `no_schedule_mode`, ...) on reinstall, refreshing
   only identity, ledger, socket and `bicz_path`. Claude and Codex already did; OpenCode and OMP rebuilt

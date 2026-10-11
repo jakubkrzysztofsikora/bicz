@@ -769,8 +769,8 @@ func (p *Plan) cleanHookBackups() {
 	}
 }
 
-// backupName is a sortable timestamped sibling of path, the same shape
-// stageBackup uses so newestBackup and allBackups agree.
+// backupName is a sortable timestamped sibling of path; newestBackup and allBackups rely on the format. It only names the file:
+// Apply writes it (writeBackup).
 func backupName(path string) string {
 	return path + ".bak-" + time.Now().UTC().Format("20060102T150405.000000000Z")
 }

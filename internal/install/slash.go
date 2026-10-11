@@ -187,10 +187,8 @@ func planSlashUninstall(changes []Change, harness string, target hookTarget) ([]
 // writeAsset applies a ChangeWriteAsset: the previous bicz-owned bytes go to the
 // backup first, then the new body replaces the file atomically.
 func writeAsset(change Change) error {
-	if change.Prior != nil {
-		if err := os.WriteFile(change.Backup, change.Prior, change.Mode); err != nil {
-			return fmt.Errorf("install: write backup %s: %w", change.Backup, err)
-		}
+	if err := writeBackup(change); err != nil {
+		return err
 	}
 	return writeFileAtomicMode(change.Path, change.Body, change.Backup, change.Mode)
 }

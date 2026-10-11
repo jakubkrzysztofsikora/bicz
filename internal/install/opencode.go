@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 )
 
 //go:embed embed/opencode_v1.ts
@@ -122,7 +121,7 @@ func planOpenCodeFile(changes []Change, path string, content []byte, marker stri
 	if bytesEqual(existing, content) {
 		return changes, nil
 	}
-	backup := path + ".bak-" + time.Now().UTC().Format("20060102T150405.000000000Z")
+	backup := backupName(path)
 	return append(changes, Change{Kind: ChangeWriteHooks, Path: path, Body: content, Prior: existing, Backup: backup, Mode: 0644, Detail: "replacing bicz-owned OpenCode plugin; prior version backed up"}), nil
 }
 
@@ -142,7 +141,7 @@ func planOpenCodeConfigWrite(changes []Change, path string, content []byte) ([]C
 	if bytesEqual(existing, content) {
 		return changes, nil
 	}
-	backup := path + ".bak-" + time.Now().UTC().Format("20060102T150405.000000000Z")
+	backup := backupName(path)
 	return append(changes, Change{Kind: ChangeWriteHooks, Path: path, Body: content, Prior: existing, Backup: backup, Mode: 0644, Detail: "replacing bicz-owned OpenCode config; prior version backed up"}), nil
 }
 

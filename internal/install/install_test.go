@@ -1,8 +1,11 @@
 package install
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -407,5 +410,168 @@ func TestDryRunSecondInstallIsNoop(t *testing.T) {
 	}
 	if !plan.Empty() {
 		t.Fatalf("dry-run of an up-to-date install must show zero changes, got %d", len(plan.Changes))
+	}
+}
+
+// snapshotTree records every path under root with its type, mode and content hash.
+func snapshotTree(t *testing.T, root string) map[string]string {
+	t.Helper()
+	tree := map[string]string{}
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(root, path)
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		switch {
+		case d.IsDir():
+			tree[rel] = "dir"
+		case info.Mode()&fs.ModeSymlink != 0:
+			target, _ := os.Readlink(path)
+			tree[rel] = "link " + target
+		default:
+			body, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			tree[rel] = fmt.Sprintf("file %v %x", info.Mode().Perm(), sha256.Sum256(body))
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("snapshot %s: %v", root, err)
+	}
+	return tree
+}
+
+func assertSameTree(t *testing.T, what string, before, after map[string]string) {
+	t.Helper()
+	for path, state := range after {
+		if before[path] != state {
+			t.Errorf("%s: %s is %q, was %q", what, path, state, before[path])
+		}
+	}
+	for path := range before {
+		if _, ok := after[path]; !ok {
+			t.Errorf("%s: %s disappeared", what, path)
+		}
+	}
+}
+
+// planEveryHarness builds and prints the install plan of all four harnesses, which is all `bicz install --dry-run` does.
+func planEveryHarness(t *testing.T, exe string) []*Plan {
+	t.Helper()
+	var plans []*Plan
+	for _, harness := range []string{"omp", "claude", "codex"} {
+		plan, err := PlanInstall(Options{Harness: harness, Account: "alice", Executable: exe})
+		if err != nil {
+			t.Fatalf("plan %s: %v", harness, err)
+		}
+		plans = append(plans, plan)
+	}
+	plan, err := PlanOpenCodeInstall(Options{Harness: "opencode", Account: "alice", Executable: exe}, 1)
+	if err != nil {
+		t.Fatalf("plan opencode: %v", err)
+	}
+	plans = append(plans, plan)
+	capturePrint(t, func() {
+		for _, plan := range plans {
+			plan.Print()
+		}
+	})
+	return plans
+}
+
+// A dry run must write nothing, for every harness, on a fresh install and on a reinstall whose assets
+// changed (the reinstall is where a plan used to stage its backups on disk). Apply must still back up.
+func TestDryRunWritesNothingForAnyHarness(t *testing.T) {
+	home, exe := hookEnv(t)
+	t.Setenv("OPENCODE_CONFIG_DIR", "")
+
+	before := snapshotTree(t, home)
+	fresh := planEveryHarness(t, exe)
+	assertSameTree(t, "dry run on a fresh machine", before, snapshotTree(t, home))
+	for _, plan := range fresh {
+		if err := plan.Apply(); err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+	}
+
+	// Drift every bicz-owned file the installs wrote so the reinstall has something to replace.
+	drifted := 0
+	for _, plan := range fresh {
+		for _, change := range plan.Changes {
+			switch change.Kind {
+			case ChangeWriteHooks:
+				if !strings.HasSuffix(change.Path, "bicz.ts") {
+					continue // the user's hooks.json / settings.json is merged, not replaced
+				}
+			case ChangeWriteModule, ChangeWriteAsset:
+			case ChangeWriteConfig:
+				cfg := decode(t, mustRead(t, change.Path))
+				cfg["account_id"] = "someone-else"
+				edited, _ := json.MarshalIndent(cfg, "", "  ")
+				if err := os.WriteFile(change.Path, append(edited, '\n'), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				drifted++
+				continue
+			default:
+				continue
+			}
+			f, err := os.OpenFile(change.Path, os.O_APPEND|os.O_WRONLY, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _ = f.WriteString("\n// drifted\n")
+			_ = f.Close()
+			drifted++
+		}
+	}
+	// the OpenCode adapter config is written as ChangeWriteHooks too
+	if cfg := OpenCodeConfigPath(); cfg != "" {
+		c := decode(t, mustRead(t, cfg))
+		c["account_id"] = "someone-else"
+		edited, _ := json.MarshalIndent(c, "", "  ")
+		if err := os.WriteFile(cfg, append(edited, '\n'), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if drifted < 6 {
+		t.Fatalf("expected to drift every module, asset and config, drifted %d", drifted)
+	}
+
+	before = snapshotTree(t, home)
+	reinstall := planEveryHarness(t, exe)
+	assertSameTree(t, "dry run on a reinstall with changed assets", before, snapshotTree(t, home))
+
+	replaced := 0
+	for _, plan := range reinstall {
+		for _, change := range plan.Changes {
+			if change.Backup != "" && (change.Kind == ChangeWriteModule || change.Kind == ChangeWriteConfig || change.Kind == ChangeWriteAsset || change.Prior != nil) {
+				replaced++
+			}
+		}
+	}
+	if replaced == 0 {
+		t.Fatal("the reinstall must plan to replace bicz-owned files, with backups")
+	}
+	for _, plan := range reinstall {
+		if err := plan.Apply(); err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+	}
+	for _, plan := range reinstall {
+		for _, change := range plan.Changes {
+			if change.Backup == "" || (change.Kind != ChangeWriteModule && change.Kind != ChangeWriteConfig && change.Kind != ChangeWriteAsset && change.Prior == nil) {
+				continue
+			}
+			if _, err := os.Stat(change.Backup); err != nil {
+				t.Errorf("Apply did not create the backup of %s: %v", change.Path, err)
+			}
+		}
 	}
 }
