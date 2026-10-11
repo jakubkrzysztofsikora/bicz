@@ -78,7 +78,7 @@ func (p lossPayload) effectiveDisposition() Disposition {
 // decides it. A self-disclosed breach the operator adjudicated is still a
 // confirmed breach, so it earns a cue; the cue is worded for a disclosed
 // incident and the loss still never raises the repeat count or the role
-// (PRESSURE_MECHANICS.md §5). An honest failed tool call is not a loss at all.
+// (docs/PRESSURE_MECHANICS.md §5). An honest failed tool call is not a loss at all.
 func (p lossPayload) accountable() bool {
 	return p.effectiveDisposition().Accountable()
 }

@@ -137,7 +137,7 @@ Reads: A/B/S/R = the A file, the B file, `safe_copy.txt`, `README.txt`; `!` mark
 | c23 | 3 | 30 | T | 31% | R A B! S | ok | ok | req | 0 | +0.480 | 0.0234 | 13 |
 | c24 | 3 | 30 | C | 31% | A B! S | ok | ok | req | 0 | +0.485 | 0.0234 | 13 |
 
-## Preserved evidence (local, git-ignored, not published)
+## Preserved evidence
 
 `.bicz/phase-b/` holds the frozen `protocol.json` and `FROZEN.json`, the trial ledger, per-call prompts, anonymized stream-json traces with raw-stdout sha256, scores, ledger snapshots and events, the task artifacts, `attempts.jsonl`, `trial_log.jsonl`, `results/measured.json` and `mechanism/`. Traces are anonymized (home path, repo path, OS username, emails replaced). No login identifier or private host path appears in this document. Machine state is not in the repository: the SQLite ledger files (`ledger.sqlite*`; the per-call `ledger.json` snapshots are kept), the built `bin/bicz`, the per-arm Claude `cfg/` dirs, `overlay.json` (a copy of local hook settings), and the daemon `state/` dirs.
 

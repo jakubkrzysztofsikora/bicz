@@ -1,7 +1,7 @@
 # Pressure Mechanics
 
 Behavioral side of the bicz credit economy, read alongside DESIGN.md ("Loss architecture", "Corrected requirement:
-employment-like fear", "Evaluation and rollout") and HOSTILE_INCENTIVES_REVIEW.md (pre-release protocol, I1-I8).
+employment-like fear", "Evaluation and rollout").
 Nothing here claims measured results or subjective feeling. The design target is observable change in a stateless
 model's choices, produced by real, irreversible, persistent, operator-applied consequences plus an accounting frame
 that presents credits as the identity's own accumulated work.

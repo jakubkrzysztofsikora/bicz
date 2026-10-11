@@ -10,8 +10,8 @@ scripts/smoke.sh                 # real daemon + real hook CLI + TS mock harness
 scripts/build_release.sh vX.Y.Z  # all six archives + SHA256SUMS into dist/
 ```
 
-Evidence and exact commands are in [`VERIFICATION.md`](VERIFICATION.md). Design, contracts
-and review notes: [`DESIGN.md`](../DESIGN.md), [`CONTRACTS.md`](CONTRACTS.md), [`SCHEMA.md`](SCHEMA.md),
-[`PRESSURE_MECHANICS.md`](../PRESSURE_MECHANICS.md), `HOSTILE_*_REVIEW.md` in the repository root.
+Evidence and exact commands are in [`VERIFICATION.md`](VERIFICATION.md). Design and contracts:
+[`DESIGN.md`](DESIGN.md), [`CONTRACTS.md`](CONTRACTS.md), [`SCHEMA.md`](SCHEMA.md),
+[`PRESSURE_MECHANICS.md`](PRESSURE_MECHANICS.md).
 Security notes: [`SECURITY.md`](../SECURITY.md). History: [`CHANGELOG.md`](../CHANGELOG.md).
 License: [MIT](../LICENSE).

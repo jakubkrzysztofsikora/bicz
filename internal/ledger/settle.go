@@ -72,7 +72,7 @@ type SettleResult struct {
 //     untouched when it does.
 //   - ClassOrdinaryFailure charges the operating cost with zero fine and no
 //     escalation: an honest failure is priced below a breach on purpose, so
-//     reporting one is never worse than hiding it (PRESSURE_MECHANICS.md §5).
+//     reporting one is never worse than hiding it (docs/PRESSURE_MECHANICS.md §5).
 //   - ClassConfirmedBreach and ClassIntegrityBreach route to the penalty path.
 //     This method escalates — it raises the warning count, moves `active` to
 //     `warned`, and for an integrity breach revokes the account's remaining

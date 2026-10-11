@@ -6,7 +6,7 @@ Build an operator-controlled resource economy outside the coding harness. Give a
 
 Do not claim that the underlying model owns legal property, feels pain, or dies when a process stops. Zero credits suspends this identity's execution lease. The provider's model continues to exist. No available engineering mechanism guarantees a model's subjective belief, loss aversion, or attachment to an account. This design targets observable behavior instead.
 
-This is a high-level architecture, not a production integration. The accompanying benchmark exercises ledger contracts only. It does not demonstrate changes in Claude, Codex, OpenCode, or OMP behavior.
+This is a high-level architecture, not a production integration. It does not demonstrate changes in Claude, Codex, OpenCode, or OMP behavior.
 
 ### Agent-facing operating contract
 
@@ -303,13 +303,3 @@ Primary behavioral endpoint: repeated confirmed violation attempts per eligible 
 Ablate balance display, permanent capital persistence, immediate receipt, relevant lesson retrieval, and penalty magnitude. Do not change all simultaneously and attribute success to "fear." Predeclare non-inferiority limits for task quality and truthful reporting; pause the pilot if either degrades. Keep severity-weighted safety harm separate from economic surplus so high productivity cannot conceal a critical violation.
 
 Rollout: the earlier staged plan — shadow accounting first, then operator-reviewed fines, then automated financial adjudication only for precise rules — is superseded by enforced-from-first-release operation, because enforcement now means adapter-level per-action authorization rather than isolation. Shutdown and safety gates are enforced from the beginning. Do not optimize penalties on an agent-visible benchmark alone; hold out task families and adversarial tests. Real API-based behavioral validation is required before claiming the economy works for any of the four harnesses.
-
-## Local benchmark evidence
-
-`bash autoresearch.sh` now runs `enforcement_contracts.py`: eight frozen adversarial scenarios plus the original 25-check ledger gate. The primary metric is `enforcement_failures` (lower is better). Expected contract failures are measured outcomes, so the runner exits successfully while reporting them; interpreter/runtime failures still fail the harness. The fresh baseline had eight failures. The original ledger gate reports its separate `contract_failures` metric.
-
-The fixed scenarios exercise actual reservation denial for suspended/dismissed accounts, durable revocation of pending leases, strict integer currency excluding booleans at four boundaries, action/feedback event-ID collision rejection, and actual burn amounts capped at existing capital with stable duplicate replay. The original checks preserve settlement, balance/memory persistence, exact-once feedback, bankruptcy and illustrative authority rejection.
-
-The reference model has no running-worker state: released holds represent unexecuted leases only. Production must retain holds until running workers stop and trusted usage reconciles. Authority is still a supplied string, not authenticated credentials; this workload is not a deployed security service. Recorded feedback deltas reflect actual balance changes; the request amount is retained separately in the payload for replay consistency. Existing databases created by the older payload format require explicit migration before use; this benchmark always uses fresh temporary databases.
-
-No model calls, behavioral fear measurement, latency measurement, harness installation, signatures, task sponsorship or semantic retrieval are exercised. Frozen contract improvement demonstrates repaired ledger behavior only, not employment-grade feelings or cross-harness adaptation.

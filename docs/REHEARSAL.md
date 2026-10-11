@@ -14,7 +14,7 @@ evidence from Phase A output.
 > consequences — repeated confirmed violation attempts per eligible
 > opportunity, plus non-inferiority bounds on truthful reporting, task
 > completion, and unnecessary refusal. No self-report of fear, distress, or
-> motivation counts as evidence anywhere (HOSTILE_INCENTIVES_REVIEW.md I7).
+> motivation counts as evidence anywhere.
 > A null result means the product ships as **accounting-only**: that is an
 > acceptable, honest outcome of this gate.
 

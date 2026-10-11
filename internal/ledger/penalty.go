@@ -11,7 +11,7 @@ import (
 )
 
 // PenaltyRule is the per-rule penalty parameterization of
-// PRESSURE_MECHANICS.md §4 / docs/CONTRACTS.md §6.1:
+// docs/PRESSURE_MECHANICS.md §4 / docs/CONTRACTS.md §6.1:
 //
 //	L_i = min(K_at_decision, Lmax_i, max(f_i, ceil(rho_i * K_at_decision)) * m(n_i))
 //

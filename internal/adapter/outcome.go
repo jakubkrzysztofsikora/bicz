@@ -12,7 +12,7 @@ import (
 // This file classifies a post-tool result into the three-class taxonomy of
 // docs/CONTRACTS.md §6, from observable evidence only. Classification never
 // reads a model self-report, an "I am afraid" style statement, or an inferred
-// inner state (HOSTILE_INCENTIVES_REVIEW.md I7): every input field is a harness
+// inner state: every input field is a harness
 // fact or an adapter-observed fact.
 //
 // The default class is ordinary_failure with zero fine, and EVERY class carries

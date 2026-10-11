@@ -11,6 +11,12 @@
 
 Hooks are cooperative, not an OS security boundary. No adapter claims metering of paths it cannot observe. Plugin-disabled `--pure` runs are specifically unobserved.
 
+## Compatibility
+
+- V1: the stable `1.x` line (`opencode-ai` on npm); tested here only against a mock harness.
+- V2: the beta `2.0` line of `anomalyco/opencode`; the plugin ABI is pinned to `@opencode/plugin@2.0.26` (Promise API is its default entrypoint). V2 has no per-tag GitHub releases and no stable 2.x on the legacy `opencode-ai` package, so the installed generation is detected from `opencode --version` and can be forced with `--generation`.
+- Hooks fire only for tools routed through the plugin; `--pure` mode and desktop/ACP/web routes without a fixture are unobserved (see Coverage above).
+
 ## Install and uninstall
 
 Build bicz, then use `bicz install --harness opencode --account "$USER"` and `bicz uninstall --harness opencode`. Preview with `--dry-run`. Generation is detected from `opencode --version`; `--generation 1` or `--generation 2` overrides detection. The plugin is deployed to `$OPENCODE_CONFIG_DIR/plugins` when set, otherwise `$XDG_CONFIG_HOME/opencode/plugins` or `~/.config/opencode/plugins`. Adapter JSON is written below the OpenCode config-dir override when set, otherwise to bicz's XDG config root. Writes are atomic, idempotent, backed up on apply, and uninstall removes only bicz-owned files. Symlinks, foreign plugin files, and paths outside `$HOME` are refused.

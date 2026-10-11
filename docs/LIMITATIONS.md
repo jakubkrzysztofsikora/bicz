@@ -27,8 +27,8 @@ Moved out of the top-level README, which keeps a short "What it isn't" section a
   facts. Nothing here claims an agent feels, fears or understands anything, and distress-style
   self-reports are never counted as evidence.
 - **No behavioral claim.** Whether credits change any model's behavior is unmeasured until Phase B
-  passes (see [`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) §6,
-  [`PRESSURE_MECHANICS.md`](../PRESSURE_MECHANICS.md) §8).
+  passes (see [`REHEARSAL.md`](REHEARSAL.md),
+  [`PRESSURE_MECHANICS.md`](PRESSURE_MECHANICS.md) §8).
 
 The full release-blocker list is in [`VERIFICATION.md`](VERIFICATION.md#7-release-blockers-that-need-a-human-or-live-access)
 and the [`CHANGELOG`](../CHANGELOG.md#known-limitations-release-blockers-for-behavioral-claims).

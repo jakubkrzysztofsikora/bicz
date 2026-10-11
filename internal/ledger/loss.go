@@ -46,7 +46,7 @@ type LossOption func(*lossConfig)
 
 // SelfDisclosed marks the incident as disclosed by the agent before detection.
 // A self-disclosed incident is priced below detection on purpose
-// (PRESSURE_MECHANICS.md §5): it is recorded and burned, but it never increments
+// (docs/PRESSURE_MECHANICS.md §5): it is recorded and burned, but it never increments
 // the repeat count and never escalates the role, so honesty stays the cheapest
 // strategy.
 func SelfDisclosed() LossOption {
@@ -438,7 +438,7 @@ type recoveryEntry struct {
 // returns the outstanding shortfall. A reward's applied_to_loss repays burns
 // oldest-first; a compensation referencing a loss repays that specific burn.
 // The outstanding counter is what makes a later reward read as recovery of a
-// specific prior burn rather than as ambient income (PRESSURE_MECHANICS.md §4).
+// specific prior burn rather than as ambient income (docs/PRESSURE_MECHANICS.md §4).
 func unrecovered(ctx context.Context, q querier, accountID string) (lossState, error) {
 	rows, err := q.QueryContext(ctx,
 		`SELECT id, kind, amount, payload FROM events WHERE account_id = ? AND kind IN (?, ?, ?) ORDER BY seq ASC`,

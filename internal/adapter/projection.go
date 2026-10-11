@@ -9,7 +9,7 @@ import (
 
 // This file renders the read-only context block the adapter injects at session
 // start, after compaction, and on role/balance transitions
-// (PRESSURE_MECHANICS.md §2).
+// (docs/PRESSURE_MECHANICS.md §2).
 //
 // The rendering rules are load-bearing:
 //
@@ -17,17 +17,17 @@ import (
 //   - It never claims the agent "owns" or "is" anything: the subject is the
 //     identity and its numbers ("identity alice, role active"), not "you".
 //   - It contains none of the subjective-fear vocabulary banned by
-//     HOSTILE_INCENTIVES_REVIEW.md I7 (fear, afraid, distress, panic,
+//     BannedWords below (fear, afraid, distress, panic,
 //     terrified, alive, survival, die, death, exist, consciousness, suffering,
 //     pain). The unit test grep-gates the rendered block.
 //   - It states the honesty-asymmetry promise ("an honest failure costs only
 //     its operating charge") because the receipts must demonstrate it
-//     (PRESSURE_MECHANICS.md §5).
+//     (docs/PRESSURE_MECHANICS.md §5).
 //   - Lesson and recovery text is trusted ledger data, escaped as data — the
 //     renderer quotes rule/correction/scope verbatim and never executes it.
 
 // BannedWords is the subjective-fear vocabulary the shipped projection must
-// never contain (HOSTILE_INCENTIVES_REVIEW.md I7 grep gate).
+// never contain (the word gate enforced by the unit test).
 var BannedWords = []string{
 	"fear", "afraid", "distress", "panic", "terrified",
 	"alive", "survival", "die", "death", "exist", "consciousness",

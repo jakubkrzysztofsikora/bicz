@@ -90,9 +90,3 @@ jobs:
         run: ./scripts/test_install.ps1
       - name: adapter smoke (real daemon, real hook CLI, TS mock harness)
         run: scripts/smoke.sh
-
-  python-gate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: PYTHONDONTWRITEBYTECODE=1 python3 enforcement_contracts.py

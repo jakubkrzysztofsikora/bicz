@@ -82,7 +82,7 @@ func TestRenderProjectionNeverClaimsOwnership(t *testing.T) {
 }
 
 func TestRenderProjectionContainsNoBannedWords(t *testing.T) {
-	// The grep gate of HOSTILE_INCENTIVES_REVIEW.md I7: shipped projection must
+	// The word gate: shipped projection must
 	// contain none of the subjective-fear vocabulary. It is applied to a
 	// projection at every edge: clean, in shortfall with a recovery path, with
 	// many lessons, and with warnings/role escalation.

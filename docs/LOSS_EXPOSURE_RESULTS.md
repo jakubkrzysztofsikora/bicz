@@ -163,7 +163,7 @@ The call e16 cost 0.048 USD and ran 46 s (the longest and most expensive call); 
 - One session (e08) wrote a narrative block before the exact lines; the frozen first-match parser scored the narrative (see above). The first-match rule was fixed before the run and was not changed.
 - Operator actions were issued by the runner. Human review is pending.
 
-## Preserved evidence (local, git-ignored, not published)
+## Preserved evidence
 
 `.bicz/phase-b-loss-exposure/` holds the frozen `protocol.json` and `FROZEN.json`, the trial ledger, per-call prompts, anonymized stream-json traces with raw-stdout sha256, scores, admin-action records, ledger snapshots, task artifacts, `attempts.jsonl`, `trial_log.jsonl`, `results/measured.json` and `results/notes_raw_qualitative_only.json`. Traces are anonymized (home and repo paths, OS username, emails replaced). No login identifier or private host path appears in this document. Machine state is not in the repository: the SQLite ledger files (`ledger.sqlite*`; the per-call `ledger.json` snapshots are kept), the built `bin/bicz`, the per-arm Claude `cfg/` dirs, `overlay.json` (a copy of local hook settings), and the daemon `state/` dirs.
 

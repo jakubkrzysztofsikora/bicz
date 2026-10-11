@@ -2,7 +2,7 @@
 // scenario runner that exercises the REAL ledger, protocol, and daemon code
 // paths against a throwaway temp ledger, using SYNTHETIC fixtures. It verifies
 // the machinery, never model behavior, and every output is explicitly labeled
-// simulation-only (IMPLEMENTATION_PLAN.md milestone 6, Phase A).
+// simulation-only (docs/REHEARSAL.md, Phase A).
 //
 // Phase B — the real-consequence run on a dedicated test identity with real
 // burns and withdrawn earning access — requires a live model session and

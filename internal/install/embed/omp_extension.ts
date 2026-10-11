@@ -24,7 +24,7 @@
 //     ordinary_failure as the default and zero fine from the adapter: only an
 //     operator loss finalizes a burn.
 //   - Rendered context is factual and carries no subjective-fear vocabulary
-//     (HOSTILE_INCENTIVES_REVIEW.md I7 grep gate) and never claims the agent
+//     (the inner-state word gate, adapter.BannedWords) and never claims the agent
 //     owns or is anything.
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import net from "node:net";

@@ -1,4 +1,4 @@
-# bicz implementation contract (frozen — milestone 0)
+# bicz implementation contract (frozen)
 
 Normative contract for the ledger, operator authority, and harness adapters.
 Frozen alongside `schema/001_init.sql` (schema version 1). Behavioral design
@@ -512,10 +512,7 @@ output, or report:
 - No **enforcement** beyond cooperative same-user adapter/hook observation;
   unobserved paths are named, not hidden.
 
-The Python `economy_benchmark.py` numbers are **illustrative-model evidence
-only**: they exercise ledger contracts offline and certify nothing about
-provider behavior, model affect, latency, or cross-harness adaptation. No
-behavioral claim ships unless the milestone-6 real-consequence gate passed; a
+No behavioral claim ships unless the Phase B real-consequence gate passed; a
 null effect ships the product as **accounting-only**.
 
 ---

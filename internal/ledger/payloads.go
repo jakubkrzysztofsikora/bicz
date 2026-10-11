@@ -11,7 +11,7 @@ import (
 // through encoding/json for idempotency comparison and projection.
 //
 // Payload keys are the stable receipt fields of docs/CONTRACTS.md §5.4 and
-// PRESSURE_MECHANICS.md §4/§5, so a receipt can be reconstructed from the ledger
+// docs/PRESSURE_MECHANICS.md §4/§5, so a receipt can be reconstructed from the ledger
 // alone.
 
 // querier is satisfied by both *sql.DB and *sql.Tx, which lets the read helpers

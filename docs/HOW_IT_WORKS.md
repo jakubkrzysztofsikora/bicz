@@ -1,7 +1,7 @@
 # What bicz is, in parts
 
 Moved out of the top-level README, which has a shorter "How it works". Design rationale:
-[`DESIGN.md`](../DESIGN.md), [`CONTRACTS.md`](CONTRACTS.md), [`PRESSURE_MECHANICS.md`](../PRESSURE_MECHANICS.md).
+[`DESIGN.md`](DESIGN.md), [`CONTRACTS.md`](CONTRACTS.md), [`PRESSURE_MECHANICS.md`](PRESSURE_MECHANICS.md).
 
 A local, same-user **action-credit ledger and supervisor** for coding-agent harnesses. An operator
 (the human at the terminal) funds an identity with internal credits. Harness adapters ask the
