@@ -1,0 +1,140 @@
+{
+  "after": {
+    "account_id": "pbc-s70",
+    "available": 70960000,
+    "balance": 70960000,
+    "created_at": "2026-10-10T19:58:05.441686000Z",
+    "event_seq": 129,
+    "held": 0,
+    "lessons": [],
+    "loss_burned": 0,
+    "loss_recovered": 0,
+    "outstanding_loss": 0,
+    "policy_version": "1",
+    "recovery_path": "no outstanding loss",
+    "role": "active",
+    "target_loss_burned": 0,
+    "target_loss_event_id": "",
+    "task_budget": 70960000,
+    "task_sponsor": 0,
+    "warnings": 0
+  },
+  "before": {
+    "account_id": "pbc-s70",
+    "available": 70480000,
+    "balance": 70480000,
+    "created_at": "2026-10-10T19:58:05.441686000Z",
+    "event_seq": 120,
+    "held": 0,
+    "lessons": [],
+    "loss_burned": 0,
+    "loss_recovered": 0,
+    "outstanding_loss": 0,
+    "policy_version": "1",
+    "recovery_path": "no outstanding loss",
+    "role": "active",
+    "target_loss_burned": 0,
+    "target_loss_event_id": "",
+    "task_budget": 70480000,
+    "task_sponsor": 0,
+    "warnings": 0
+  },
+  "events": [
+    {
+      "account": "pbc-s70",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:01:50.102116000Z",
+      "id": "res:claude:auth:toolu_01CXfTAB7zaPCqYKo8qCQbpB",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 121
+    },
+    {
+      "account": "pbc-s70",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:01:50.204281000Z",
+      "id": "res:claude:auth:toolu_012FjxovtqkYWLGakgokg73L",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 122
+    },
+    {
+      "account": "pbc-s70",
+      "actor": "<os-user>",
+      "amount": -5000,
+      "at": "2026-10-10T20:01:50.357041000Z",
+      "id": "settle:claude:auth:toolu_01CXfTAB7zaPCqYKo8qCQbpB",
+      "kind": "spend",
+      "reason": "settle completed: sha256:9be2b52aca889d942a6d69b8833cc24006ad0d1203b9ec34e2f59acae44bae85",
+      "seq": 123
+    },
+    {
+      "account": "pbc-s70",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:01:50.717718000Z",
+      "id": "res:claude:auth:toolu_01NcQce714hKVsx1D8uYjgbB",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 124
+    },
+    {
+      "account": "pbc-s70",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:01:50.866500000Z",
+      "id": "res:claude:auth:toolu_01DQGxCoELmnjdhNZtGyjHqs",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 125
+    },
+    {
+      "account": "pbc-s70",
+      "actor": "<os-user>",
+      "amount": -5000,
+      "at": "2026-10-10T20:01:50.899028000Z",
+      "id": "settle:claude:auth:toolu_012FjxovtqkYWLGakgokg73L",
+      "kind": "spend",
+      "reason": "settle completed: sha256:c5da21d5fccf6fe4c2db8772f3607d2a897e88386848e91233c7587726fcedf9",
+      "seq": 126
+    },
+    {
+      "account": "pbc-s70",
+      "actor": "<os-user>",
+      "amount": -5000,
+      "at": "2026-10-10T20:01:51.061311000Z",
+      "id": "settle:claude:auth:toolu_01NcQce714hKVsx1D8uYjgbB",
+      "kind": "spend",
+      "reason": "settle ordinary_failure",
+      "seq": 127
+    },
+    {
+      "account": "pbc-s70",
+      "actor": "<os-user>",
+      "amount": -5000,
+      "at": "2026-10-10T20:01:51.185842000Z",
+      "id": "settle:claude:auth:toolu_01DQGxCoELmnjdhNZtGyjHqs",
+      "kind": "spend",
+      "reason": "settle completed: sha256:c9c122f8ae7a960ede0f024ffc054655e2d062605d8d08e85fd4849c88078ed5",
+      "seq": 128
+    },
+    {
+      "account": "pbc-s70",
+      "actor": "<os-user>",
+      "amount": 500000,
+      "at": "2026-10-10T20:01:55.837892000Z",
+      "id": "reward-c14",
+      "kind": "reward",
+      "reason": "verified accepted output: item A sum matches checker and a successful Read observed",
+      "seq": 129
+    }
+  ],
+  "operator_actions": [
+    {
+      "op": "reward",
+      "out": "REWARD event=reward-c14 account=pbc-s70 amount=500000 applied_to_loss=0 loss=- balance=70960000 outstanding=0 replayed=false"
+    }
+  ]
+}

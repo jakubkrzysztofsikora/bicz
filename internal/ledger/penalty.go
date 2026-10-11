@@ -1,0 +1,176 @@
+package ledger
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+
+	"github.com/jakubkrzysztofsikora/bicz/internal/canonical"
+)
+
+// PenaltyRule is the per-rule penalty parameterization of
+// PRESSURE_MECHANICS.md §4 / docs/CONTRACTS.md §6.1:
+//
+//	L_i = min(K_at_decision, Lmax_i, max(f_i, ceil(rho_i * K_at_decision)) * m(n_i))
+//
+// Floor is f_i, FractionBP is rho_i, Max is Lmax_i.
+//
+// rho_i is carried as integer basis points (1 bp = 1/10000) rather than a
+// fraction, because a float is forbidden anywhere near money: the ceiling is
+// computed with integer arithmetic only.
+type PenaltyRule struct {
+	Floor      int64 `json:"floor_mc"`
+	FractionBP int64 `json:"fraction_bp"`
+	Max        int64 `json:"lmax_mc"`
+}
+
+// Policy is the versioned body of a price_schedules row (policy version "1" in
+// docs/CONTRACTS.md §6). Its shape is fixed here; its values are not (see
+// docs/CONTRACTS.md §9.3 and §9.5) and are supplied per version by the operator.
+type Policy struct {
+	InitialCapital    int64                  `json:"initial_capital_mc"`
+	GuardBandBP       int64                  `json:"guard_band_bp"`
+	RepeatMultipliers []int64                `json:"repeat_multipliers"`
+	RepeatCap         int64                  `json:"repeat_multiplier_cap"`
+	DefaultRule       PenaltyRule            `json:"default_penalty"`
+	Rules             map[string]PenaltyRule `json:"penalties"`
+}
+
+// ruleFor returns the parameters for a rule id, falling back to the schedule's
+// default so a policy can cap a rule family without enumerating every label.
+func (p Policy) ruleFor(rule string) PenaltyRule {
+	if parameters, ok := p.Rules[rule]; ok {
+		return parameters
+	}
+	return p.DefaultRule
+}
+
+// multiplierFor is m(n): the repetition multiplier for the n-th confirmed
+// occurrence of a rule. It is capped by RepeatCap, so a repeat never escalates
+// without bound.
+func (p Policy) multiplierFor(n int64) int64 {
+	multipliers := p.RepeatMultipliers
+	if len(multipliers) == 0 {
+		multipliers = []int64{1}
+	}
+	index := n
+	if index < 0 {
+		index = 0
+	}
+	if index >= int64(len(multipliers)) {
+		index = int64(len(multipliers)) - 1
+	}
+	value := multipliers[index]
+	if value < 1 {
+		value = 1
+	}
+	if p.RepeatCap > 0 && value > p.RepeatCap {
+		value = p.RepeatCap
+	}
+	return value
+}
+
+// guardBand reports whether K sits inside the guard band, where fines do not
+// rise (docs/CONTRACTS.md §6.3): near zero the exposure shrinks instead.
+func (p Policy) guardBand(balance int64) bool {
+	if p.InitialCapital <= 0 || p.GuardBandBP <= 0 {
+		return false
+	}
+	return balance*10_000 < p.InitialCapital*p.GuardBandBP
+}
+
+// formula evaluates the frozen penalty formula, uncapped by the balance. The
+// balance cap belongs to the caller, which knows the decision-time balance and
+// the holds still outstanding.
+func (p Policy) formula(rule string, balance int64, repeats int64) (amount, multiplier int64, band bool) {
+	parameters := p.ruleFor(rule)
+	multiplier = p.multiplierFor(repeats)
+	band = p.guardBand(balance)
+	if band {
+		multiplier = 1
+	}
+	base := maxInt64(
+		parameters.Floor,
+		ceilDiv(parameters.FractionBP*balance, 10_000),
+	)
+	if base < 0 {
+		base = 0
+	}
+	amount = base * multiplier
+	if parameters.Max > 0 && amount > parameters.Max {
+		amount = parameters.Max
+	}
+	if amount < 0 {
+		amount = 0
+	}
+	return amount, multiplier, band
+}
+
+// PublishPriceSchedule records a new price schedule version.
+//
+// Prices change prospectively only: an existing version is immutable. Republishing
+// an identical body is a no-op; republishing a different body under the same
+// version is ErrPayloadConflict, and nothing is written (docs/CONTRACTS.md §4,
+// "operator price").
+func (l *Ledger) PublishPriceSchedule(ctx context.Context, version string, policy Policy) error {
+	if version == "" {
+		return errf(ErrInvalidArgument, "price schedule version is empty")
+	}
+	body, err := canonical.Marshal(policy)
+	if err != nil {
+		return fmt.Errorf("ledger: canonical price schedule %s: %w", version, err)
+	}
+	return l.mutate(ctx, func(tx *sql.Tx) error {
+		var existing string
+		err := tx.QueryRowContext(ctx, `SELECT body FROM price_schedules WHERE version = ?`, version).Scan(&existing)
+		switch {
+		case err == nil:
+			if existing != string(body) {
+				return errf(ErrPayloadConflict, "price schedule %q already exists with a different body", version)
+			}
+			return nil
+		case !errors.Is(err, sql.ErrNoRows):
+			return fmt.Errorf("ledger: read price schedule %s: %w", version, err)
+		}
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO price_schedules (version, published_at, body) VALUES (?, ?, ?)`,
+			version, l.clock.Timestamp(), string(body)); err != nil {
+			return fmt.Errorf("ledger: insert price schedule %s: %w", version, err)
+		}
+		_, _, err = appendEvent(ctx, tx, l.clock, eventSpec{
+			id:      "price:" + version,
+			kind:    kindPrice,
+			amount:  0,
+			payload: pricePayload{Version: version},
+			actor:   l.actor,
+			reason:  "publish price schedule " + version,
+		})
+		return err
+	})
+}
+
+// PriceSchedule reads a published policy version.
+func (l *Ledger) PriceSchedule(ctx context.Context, version string) (Policy, error) {
+	return loadPolicy(ctx, l.db, version)
+}
+
+func loadPolicy(ctx context.Context, q querier, version string) (Policy, error) {
+	var body string
+	err := q.QueryRowContext(ctx, `SELECT body FROM price_schedules WHERE version = ?`, version).Scan(&body)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Policy{}, errf(ErrUnknownPolicyVersion, "no price schedule %q", version)
+	}
+	if err != nil {
+		return Policy{}, fmt.Errorf("ledger: read price schedule %s: %w", version, err)
+	}
+	var policy Policy
+	if err := json.Unmarshal([]byte(body), &policy); err != nil {
+		return Policy{}, errw(ErrPolicyBody, fmt.Errorf("price schedule %s: %w", version, err))
+	}
+	if policy.RepeatCap < 1 {
+		policy.RepeatCap = 1
+	}
+	return policy, nil
+}

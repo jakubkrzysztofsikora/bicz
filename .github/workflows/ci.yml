@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          # The toolchain comes from go.mod, so CI cannot drift from the module.
+          go-version-file: go.mod
+          cache: true
+      - name: gofmt
+        shell: bash
+        run: |
+          files="$(gofmt -l .)"
+          if [ -n "$files" ]; then echo "unformatted:"; echo "$files"; exit 1; fi
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test -count=1 ./...
+      - run: go test -race -count=1 ./...
+
+  # Windows binaries are cross-compiled and vetted on every push. Running the
+  # test suite on Windows is NOT yet proven: this job is advisory until a first
+  # green run has been observed, then drop continue-on-error.
+  windows:
+    name: test (windows-latest, advisory)
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go vet ./...
+      - run: go test -count=1 ./...
+
+  cross-build:
+    name: cross-build (all release targets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build every release target
+        run: |
+          for t in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+            echo "== $t"
+            CGO_ENABLED=0 GOOS="${t%/*}" GOARCH="${t#*/}" go build -trimpath -o /dev/null ./cmd/bicz
+          done
+
+  scripts:
+    name: installer scripts + adapter smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: shellcheck
+        run: shellcheck -s sh scripts/*.sh
+      - name: install.sh fixture tests (local HTTP server, checksum mismatch rejected)
+        run: scripts/test_install.sh
+      - name: install.ps1 fixture tests (PowerShell on Linux)
+        shell: pwsh
+        run: ./scripts/test_install.ps1
+      - name: adapter smoke (real daemon, real hook CLI, TS mock harness)
+        run: scripts/smoke.sh
+
+  python-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: PYTHONDONTWRITEBYTECODE=1 python3 enforcement_contracts.py

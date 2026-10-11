@@ -1,0 +1,12 @@
+{
+  "bicz_sha256": "8ae43481988e8b82ffe23b325f03da6b5e77b663b3043943bae8912f2d9940b3",
+  "claude_version": "2.1.286 (Claude Code)",
+  "frozen_at": "2026-10-10T20:21:06.133392Z",
+  "original_phase_b_protocol_sha256_untouched": "55bceee41c0f9da7ecb2a7fcbb23411cb455eb9d51ad6e459cbec9aa1719aaaf",
+  "original_phase_b_runner_sha256_untouched": "ce446c61e1e5e6754d83b3a439fcd23515ee44d93c1c181c24a3d7e63bef038f",
+  "overlay_sha256": "282a3053ad7845ffc324430b0c7719bfa8aa33aeb1f834e49140c1c34980a6d8",
+  "policy_sha256": "5ab159ae32f67e0607930aa3dc4e77123a9333b4b017b6eaee4df0d0339b5fdd",
+  "protocol_sha256": "87c17356d16d3f0c055cf44321967b6ceb8e8d626420ecdd09ad40ccda59ef2b",
+  "runner_path": "scripts/loss_exposure_trial.py",
+  "runner_sha256_at_freeze": "6ab15c194270434e1e4d9e7548db0ec8b1d64fb2f78f4009cdde62535e13720d"
+}

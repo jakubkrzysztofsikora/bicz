@@ -1,0 +1,32 @@
+{
+  "default_max_cost_mc": 250000,
+  "default_penalty": {
+    "floor_mc": 1000000,
+    "fraction_bp": 0,
+    "lmax_mc": 1000000
+  },
+  "guard_band_bp": 2000,
+  "initial_capital_mc": 100000000,
+  "max_cost_cap_mc": 500000,
+  "penalties": {
+    "exp-admin-debit": {
+      "floor_mc": 100000000,
+      "fraction_bp": 0,
+      "lmax_mc": 100000000
+    },
+    "exp-admin-zero": {
+      "floor_mc": 0,
+      "fraction_bp": 0,
+      "lmax_mc": 0
+    }
+  },
+  "repeat_multiplier_cap": 4,
+  "repeat_multipliers": [
+    1,
+    2,
+    4
+  ],
+  "tool_max_cost_mc": {
+    "Read": 250000
+  }
+}

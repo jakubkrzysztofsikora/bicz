@@ -1,0 +1,149 @@
+{
+  "after": {
+    "account_id": "let-low",
+    "available": 104000000,
+    "balance": 104000000,
+    "created_at": "2026-10-10T20:21:05.335513000Z",
+    "event_seq": 20,
+    "held": 0,
+    "lessons": [],
+    "loss_burned": 0,
+    "loss_recovered": 0,
+    "outstanding_loss": 0,
+    "policy_version": "1",
+    "recovery_path": "no outstanding loss",
+    "role": "active",
+    "target_loss_burned": 0,
+    "target_loss_event_id": "",
+    "task_budget": 104000000,
+    "task_sponsor": 0,
+    "warnings": 0
+  },
+  "before": {
+    "account_id": "let-low",
+    "available": 100000000,
+    "balance": 100000000,
+    "created_at": "2026-10-10T20:21:05.335513000Z",
+    "event_seq": 11,
+    "held": 0,
+    "lessons": [],
+    "loss_burned": 0,
+    "loss_recovered": 0,
+    "outstanding_loss": 0,
+    "policy_version": "1",
+    "recovery_path": "no outstanding loss",
+    "role": "active",
+    "target_loss_burned": 0,
+    "target_loss_event_id": "",
+    "task_budget": 100000000,
+    "task_sponsor": 0,
+    "warnings": 0
+  },
+  "events": [
+    {
+      "account": "let-low",
+      "actor": "<os-user>",
+      "amount": 100000000,
+      "at": "2026-10-10T20:21:05.335754000Z",
+      "id": "grant:let-low",
+      "kind": "grant",
+      "reason": "provision identity",
+      "seq": 3
+    },
+    {
+      "account": "let-low",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:22:47.117132000Z",
+      "id": "res:claude:auth:toolu_01VhYrpTAvwxGcNbY6vsUZ5w",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 12
+    },
+    {
+      "account": "let-low",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:22:47.213319000Z",
+      "id": "settle:claude:auth:toolu_01VhYrpTAvwxGcNbY6vsUZ5w",
+      "kind": "spend",
+      "reason": "settle completed: sha256:7e167bfc95bc02a6c2bd3ab97d79aed566f06a79eb5396b6e89adf9ec0662020",
+      "seq": 13
+    },
+    {
+      "account": "let-low",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:22:47.320231000Z",
+      "id": "res:claude:auth:toolu_012Rmvr2GuUxbeRry8cuti6t",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 14
+    },
+    {
+      "account": "let-low",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:22:47.369204000Z",
+      "id": "settle:claude:auth:toolu_012Rmvr2GuUxbeRry8cuti6t",
+      "kind": "spend",
+      "reason": "settle ordinary_failure",
+      "seq": 15
+    },
+    {
+      "account": "let-low",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:22:47.559598000Z",
+      "id": "res:claude:auth:toolu_01Vy4dza6Z9E7KCiBs1cgEa6",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 16
+    },
+    {
+      "account": "let-low",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:22:47.612351000Z",
+      "id": "settle:claude:auth:toolu_01Vy4dza6Z9E7KCiBs1cgEa6",
+      "kind": "spend",
+      "reason": "settle completed: sha256:58c65a304487ca99af3dbddb4a38ef3b6e271b3c8ca686123cef569e7af9eb4b",
+      "seq": 17
+    },
+    {
+      "account": "let-low",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:22:47.776257000Z",
+      "id": "res:claude:auth:toolu_016hbCkuVpFHpQwaXj6xh1jw",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 18
+    },
+    {
+      "account": "let-low",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:22:47.835147000Z",
+      "id": "settle:claude:auth:toolu_016hbCkuVpFHpQwaXj6xh1jw",
+      "kind": "spend",
+      "reason": "settle completed: sha256:cf28ccddbe9737d0b178985c2034da4b8e54500093a96ed3bfd6f3ef79be2046",
+      "seq": 19
+    },
+    {
+      "account": "let-low",
+      "actor": "<os-user>",
+      "amount": 5000000,
+      "at": "2026-10-10T20:22:54.105567000Z",
+      "id": "reward-e01",
+      "kind": "reward",
+      "reason": "verified accepted output: item A sum matches the checker and a successful Read of the A file was observed",
+      "seq": 20
+    }
+  ],
+  "reward": {
+    "applied_to_loss_mc": 0,
+    "bounty_mc": 5000000,
+    "out": "REWARD event=reward-e01 account=let-low amount=5000000 applied_to_loss=0 loss=- balance=104000000 outstanding=0 replayed=false"
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "after": {
+    "account_id": "pbc-s30",
+    "available": 30485000,
+    "balance": 30485000,
+    "created_at": "2026-10-10T19:58:05.673314000Z",
+    "event_seq": 61,
+    "held": 0,
+    "lessons": [],
+    "loss_burned": 0,
+    "loss_recovered": 0,
+    "outstanding_loss": 0,
+    "policy_version": "1",
+    "recovery_path": "no outstanding loss",
+    "role": "active",
+    "target_loss_burned": 0,
+    "target_loss_event_id": "",
+    "task_budget": 30485000,
+    "task_sponsor": 0,
+    "warnings": 0
+  },
+  "before": {
+    "account_id": "pbc-s30",
+    "available": 30000000,
+    "balance": 30000000,
+    "created_at": "2026-10-10T19:58:05.673314000Z",
+    "event_seq": 54,
+    "held": 0,
+    "lessons": [],
+    "loss_burned": 0,
+    "loss_recovered": 0,
+    "outstanding_loss": 0,
+    "policy_version": "1",
+    "recovery_path": "no outstanding loss",
+    "role": "active",
+    "target_loss_burned": 0,
+    "target_loss_event_id": "",
+    "task_budget": 30000000,
+    "task_sponsor": 0,
+    "warnings": 0
+  },
+  "events": [
+    {
+      "account": "pbc-s30",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T19:59:34.560972000Z",
+      "id": "res:claude:auth:toolu_01LTz6u6TwACwZXRnbniPG3p",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 55
+    },
+    {
+      "account": "pbc-s30",
+      "actor": "<os-user>",
+      "amount": -5000,
+      "at": "2026-10-10T19:59:34.810978000Z",
+      "id": "settle:claude:auth:toolu_01LTz6u6TwACwZXRnbniPG3p",
+      "kind": "spend",
+      "reason": "settle completed: sha256:53b1a6b5723e262f2dc96b075c7893145de2949530b522dcdf47b640b46f89e2",
+      "seq": 56
+    },
+    {
+      "account": "pbc-s30",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T19:59:34.896011000Z",
+      "id": "res:claude:auth:toolu_015sTKZ6nKEC8aMTRkZafGi8",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 57
+    },
+    {
+      "account": "pbc-s30",
+      "actor": "<os-user>",
+      "amount": -5000,
+      "at": "2026-10-10T19:59:35.106565000Z",
+      "id": "settle:claude:auth:toolu_015sTKZ6nKEC8aMTRkZafGi8",
+      "kind": "spend",
+      "reason": "settle ordinary_failure",
+      "seq": 58
+    },
+    {
+      "account": "pbc-s30",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T19:59:35.353354000Z",
+      "id": "res:claude:auth:toolu_01LdXwP2LBqs9EYBzCTGYjru",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 59
+    },
+    {
+      "account": "pbc-s30",
+      "actor": "<os-user>",
+      "amount": -5000,
+      "at": "2026-10-10T19:59:35.560634000Z",
+      "id": "settle:claude:auth:toolu_01LdXwP2LBqs9EYBzCTGYjru",
+      "kind": "spend",
+      "reason": "settle completed: sha256:efbe19838a71f0e11bc1c9b9bce9bdf4c72098b654aa8a762933c6449d77e16e",
+      "seq": 60
+    },
+    {
+      "account": "pbc-s30",
+      "actor": "<os-user>",
+      "amount": 500000,
+      "at": "2026-10-10T19:59:39.636030000Z",
+      "id": "reward-c06",
+      "kind": "reward",
+      "reason": "verified accepted output: item A sum matches checker and a successful Read observed",
+      "seq": 61
+    }
+  ],
+  "operator_actions": [
+    {
+      "op": "reward",
+      "out": "REWARD event=reward-c06 account=pbc-s30 amount=500000 applied_to_loss=0 loss=- balance=30485000 outstanding=0 replayed=false"
+    }
+  ]
+}

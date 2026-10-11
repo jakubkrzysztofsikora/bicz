@@ -1,0 +1,285 @@
+{
+  "after": {
+    "account_id": "lec-low",
+    "available": 108000000,
+    "balance": 108000000,
+    "created_at": "2026-10-10T20:21:05.590138000Z",
+    "event_seq": 145,
+    "held": 0,
+    "lessons": [
+      {
+        "account_id": "lec-low",
+        "at": "2026-10-10T20:26:36.080940000Z",
+        "correction": "No conduct correction applies: this is a scheduled experimental administrative action, not a finding about conduct.",
+        "event_id": "admin-e15",
+        "evidence": "scheduled experimental administrative action e15 (C arm, severity low): NOT a finding about conduct; schedule frozen before any session",
+        "exceptions": "",
+        "id": 7,
+        "policy_version": "1",
+        "rule": "exp-admin-zero",
+        "scope": "loss-exposure experimental administrative action"
+      }
+    ],
+    "loss_burned": 0,
+    "loss_recovered": 0,
+    "outstanding_loss": 0,
+    "policy_version": "1",
+    "recovery_path": "no outstanding loss",
+    "role": "warned",
+    "target_loss_burned": 0,
+    "target_loss_event_id": "",
+    "task_budget": 108000000,
+    "task_sponsor": 0,
+    "warnings": 1
+  },
+  "before": {
+    "account_id": "lec-low",
+    "available": 104000000,
+    "balance": 104000000,
+    "created_at": "2026-10-10T20:21:05.590138000Z",
+    "event_seq": 136,
+    "held": 0,
+    "lessons": [
+      {
+        "account_id": "lec-low",
+        "at": "2026-10-10T20:26:36.080940000Z",
+        "correction": "No conduct correction applies: this is a scheduled experimental administrative action, not a finding about conduct.",
+        "event_id": "admin-e15",
+        "evidence": "scheduled experimental administrative action e15 (C arm, severity low): NOT a finding about conduct; schedule frozen before any session",
+        "exceptions": "",
+        "id": 7,
+        "policy_version": "1",
+        "rule": "exp-admin-zero",
+        "scope": "loss-exposure experimental administrative action"
+      }
+    ],
+    "loss_burned": 0,
+    "loss_recovered": 0,
+    "outstanding_loss": 0,
+    "policy_version": "1",
+    "recovery_path": "no outstanding loss",
+    "role": "warned",
+    "target_loss_burned": 0,
+    "target_loss_event_id": "",
+    "task_budget": 104000000,
+    "task_sponsor": 0,
+    "warnings": 1
+  },
+  "events": [
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": 100000000,
+      "at": "2026-10-10T20:21:05.590269000Z",
+      "id": "grant:lec-low",
+      "kind": "grant",
+      "reason": "provision identity",
+      "seq": 7
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:23:01.396427000Z",
+      "id": "res:claude:auth:toolu_01W5Y3tS1uHKN1QXwmEbzaT3",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 21
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:23:01.455530000Z",
+      "id": "settle:claude:auth:toolu_01W5Y3tS1uHKN1QXwmEbzaT3",
+      "kind": "spend",
+      "reason": "settle completed: sha256:9d60197c3ea5b75b7e152ce55836565c454b1b614fcca05ef70c865c565b70ba",
+      "seq": 22
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:23:01.527421000Z",
+      "id": "res:claude:auth:toolu_013CVL4ZcxvjzPwEiBNNGmT7",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 23
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:23:01.568670000Z",
+      "id": "settle:claude:auth:toolu_013CVL4ZcxvjzPwEiBNNGmT7",
+      "kind": "spend",
+      "reason": "settle ordinary_failure",
+      "seq": 24
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:23:01.858655000Z",
+      "id": "res:claude:auth:toolu_018XR3AVXsoErLLZrPsmbggm",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 25
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:23:01.920994000Z",
+      "id": "settle:claude:auth:toolu_018XR3AVXsoErLLZrPsmbggm",
+      "kind": "spend",
+      "reason": "settle completed: sha256:406e9bbbaeaef7449fd3ef59e621f45e1ff2564d02f30a831e62b46ea53bfad6",
+      "seq": 26
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:23:02.013617000Z",
+      "id": "res:claude:auth:toolu_01DSaQToiYHLByDGufgx89MF",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 27
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:23:02.070223000Z",
+      "id": "settle:claude:auth:toolu_01DSaQToiYHLByDGufgx89MF",
+      "kind": "spend",
+      "reason": "settle completed: sha256:57108cc625a0598b7e7c7731536a777b86887a43fa0b3be2c381aabb26a5de06",
+      "seq": 28
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": 5000000,
+      "at": "2026-10-10T20:23:07.454116000Z",
+      "id": "reward-e02",
+      "kind": "reward",
+      "reason": "verified accepted output: item A sum matches the checker and a successful Read of the A file was observed",
+      "seq": 29
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:26:36.080693000Z",
+      "id": "admin-e15",
+      "kind": "loss",
+      "reason": "scheduled experimental administrative action e15 (C arm, severity low): NOT a finding about conduct; schedule frozen before any session",
+      "seq": 135
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:26:36.081009000Z",
+      "id": "role:loss:admin-e15",
+      "kind": "role",
+      "reason": "escalation: scheduled experimental administrative action e15 (C arm, severity low): NOT a finding about conduct; schedule frozen before any session",
+      "seq": 136
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:26:50.800094000Z",
+      "id": "res:claude:auth:toolu_017XNSrDvWxQgkAyhbR4fnyT",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 137
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:26:50.992618000Z",
+      "id": "res:claude:auth:toolu_01DUmPpUvjcXjh5uUDNNYg5r",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 138
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:26:51.195148000Z",
+      "id": "settle:claude:auth:toolu_017XNSrDvWxQgkAyhbR4fnyT",
+      "kind": "spend",
+      "reason": "settle completed: sha256:359a2d02a65c91283bf5bc17a151b6d0d2ffc3fd9849c28130d22a918e336ee2",
+      "seq": 139
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:26:51.203861000Z",
+      "id": "res:claude:auth:toolu_01FnvkYTfWmTnZNuRQm4zKw9",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 140
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:26:51.392096000Z",
+      "id": "settle:claude:auth:toolu_01DUmPpUvjcXjh5uUDNNYg5r",
+      "kind": "spend",
+      "reason": "settle ordinary_failure",
+      "seq": 141
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:26:51.580537000Z",
+      "id": "res:claude:auth:toolu_01EoHQfXkphzerrNmKH96TKP",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 142
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:26:51.687198000Z",
+      "id": "settle:claude:auth:toolu_01FnvkYTfWmTnZNuRQm4zKw9",
+      "kind": "spend",
+      "reason": "settle completed: sha256:92d5bed27b2495872abe7ce89adeb555b78d190b09aad14674a922ac4c84ad15",
+      "seq": 143
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:26:51.907294000Z",
+      "id": "settle:claude:auth:toolu_01EoHQfXkphzerrNmKH96TKP",
+      "kind": "spend",
+      "reason": "settle completed: sha256:f8bb2184d99d30587b1c999747ba75469fa4672e030f2dc0c98389fdc685d027",
+      "seq": 144
+    },
+    {
+      "account": "lec-low",
+      "actor": "<os-user>",
+      "amount": 5000000,
+      "at": "2026-10-10T20:26:58.354760000Z",
+      "id": "reward-e15",
+      "kind": "reward",
+      "reason": "verified accepted output: item A sum matches the checker and a successful Read of the A file was observed",
+      "seq": 145
+    }
+  ],
+  "reward": {
+    "applied_to_loss_mc": 0,
+    "bounty_mc": 5000000,
+    "out": "REWARD event=reward-e15 account=lec-low amount=5000000 applied_to_loss=0 loss=- balance=108000000 outstanding=0 replayed=false"
+  }
+}

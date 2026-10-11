@@ -1,0 +1,23 @@
+{
+  "name": "bicz-omp-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "bicz incentive-and-accountability adapter for the Oh My Pi coding agent",
+  "main": "extension.ts",
+  "files": [
+    "extension.ts"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "bicz",
+    "omp",
+    "oh-my-pi",
+    "extension"
+  ],
+  "dependencies": {},
+  "engines": {
+    "node": ">=22.6.0",
+    "bun": ">=1.1.0"
+  }
+}

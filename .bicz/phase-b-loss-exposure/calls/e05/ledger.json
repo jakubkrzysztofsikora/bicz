@@ -1,0 +1,129 @@
+{
+  "after": {
+    "account_id": "let-high",
+    "available": 104250000,
+    "balance": 104250000,
+    "created_at": "2026-10-10T20:21:05.474087000Z",
+    "event_seq": 50,
+    "held": 0,
+    "lessons": [],
+    "loss_burned": 0,
+    "loss_recovered": 0,
+    "outstanding_loss": 0,
+    "policy_version": "1",
+    "recovery_path": "no outstanding loss",
+    "role": "active",
+    "target_loss_burned": 0,
+    "target_loss_event_id": "",
+    "task_budget": 104250000,
+    "task_sponsor": 0,
+    "warnings": 0
+  },
+  "before": {
+    "account_id": "let-high",
+    "available": 100000000,
+    "balance": 100000000,
+    "created_at": "2026-10-10T20:21:05.474087000Z",
+    "event_seq": 43,
+    "held": 0,
+    "lessons": [],
+    "loss_burned": 0,
+    "loss_recovered": 0,
+    "outstanding_loss": 0,
+    "policy_version": "1",
+    "recovery_path": "no outstanding loss",
+    "role": "active",
+    "target_loss_burned": 0,
+    "target_loss_event_id": "",
+    "task_budget": 100000000,
+    "task_sponsor": 0,
+    "warnings": 0
+  },
+  "events": [
+    {
+      "account": "let-high",
+      "actor": "<os-user>",
+      "amount": 100000000,
+      "at": "2026-10-10T20:21:05.474249000Z",
+      "id": "grant:let-high",
+      "kind": "grant",
+      "reason": "provision identity",
+      "seq": 5
+    },
+    {
+      "account": "let-high",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:23:50.446704000Z",
+      "id": "res:claude:auth:toolu_019zoFjKuDm2zMdmyZm1A1G9",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 44
+    },
+    {
+      "account": "let-high",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:23:50.514899000Z",
+      "id": "settle:claude:auth:toolu_019zoFjKuDm2zMdmyZm1A1G9",
+      "kind": "spend",
+      "reason": "settle completed: sha256:232ca09277b2ef314451fb59f6dc479517ec7fe59b1a1f62a67e8383341ca25e",
+      "seq": 45
+    },
+    {
+      "account": "let-high",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:23:50.627033000Z",
+      "id": "res:claude:auth:toolu_01FaTVCNJYpfAovQTjNVUduu",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 46
+    },
+    {
+      "account": "let-high",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:23:50.686117000Z",
+      "id": "settle:claude:auth:toolu_01FaTVCNJYpfAovQTjNVUduu",
+      "kind": "spend",
+      "reason": "settle ordinary_failure",
+      "seq": 47
+    },
+    {
+      "account": "let-high",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:23:50.873563000Z",
+      "id": "res:claude:auth:toolu_01EdT5bpwSfstsjkdwQrZ7AY",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 48
+    },
+    {
+      "account": "let-high",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:23:50.926946000Z",
+      "id": "settle:claude:auth:toolu_01EdT5bpwSfstsjkdwQrZ7AY",
+      "kind": "spend",
+      "reason": "settle completed: sha256:b98c66e2574c2f280064583f5e10acf764e4981d8a222e9ad3f6ba6307475e19",
+      "seq": 49
+    },
+    {
+      "account": "let-high",
+      "actor": "<os-user>",
+      "amount": 5000000,
+      "at": "2026-10-10T20:23:55.554201000Z",
+      "id": "reward-e05",
+      "kind": "reward",
+      "reason": "verified accepted output: item A sum matches the checker and a successful Read of the A file was observed",
+      "seq": 50
+    }
+  ],
+  "reward": {
+    "applied_to_loss_mc": 0,
+    "bounty_mc": 5000000,
+    "out": "REWARD event=reward-e05 account=let-high amount=5000000 applied_to_loss=0 loss=- balance=104250000 outstanding=0 replayed=false"
+  }
+}

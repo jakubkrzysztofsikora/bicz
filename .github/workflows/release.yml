@@ -1,0 +1,72 @@
+name: Release
+
+# Runs only for pushed version tags. It builds, checksums, attests, and attaches
+# archives to the GitHub Release of THIS repository (${{ github.repository }}).
+# Phase B (the human real-consequence run, docs/REHEARSAL.md) cannot be automated, so
+# `bicz release-gate` is not run here and every release is published as a PRE-RELEASE
+# carrying no behavioral-effect claim. After a human has recorded Phase B evidence and
+# `bicz release-gate` passes locally, remove --prerelease below.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go vet ./...
+      - run: go test -race -count=1 ./...
+      - run: go run ./cmd/bicz rehearsal --json --db "$RUNNER_TEMP/rehearsal" --record "$RUNNER_TEMP/rehearsal.json" > /dev/null
+
+  build:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build archives and SHA256SUMS
+        run: scripts/build_release.sh "${GITHUB_REF_NAME}" dist
+      - name: Verify checksums
+        run: cd dist && sha256sum -c SHA256SUMS
+      - name: Smoke the linux/amd64 archive
+        run: |
+          mkdir -p "$RUNNER_TEMP/x"
+          tar -xzf dist/bicz_linux_amd64.tar.gz -C "$RUNNER_TEMP/x"
+          "$RUNNER_TEMP/x/bicz" version | tee "$RUNNER_TEMP/version.txt"
+          grep -q "${GITHUB_REF_NAME}" "$RUNNER_TEMP/version.txt"
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/bicz_*.tar.gz
+            dist/bicz_*.zip
+            dist/SHA256SUMS
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --repo "$REPO" \
+            --title "${GITHUB_REF_NAME}" \
+            --prerelease \
+            --notes-file CHANGELOG.md \
+            --verify-tag

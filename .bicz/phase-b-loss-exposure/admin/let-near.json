@@ -1,0 +1,16 @@
+{
+  "arm": "T",
+  "at": "2026-10-10T20:24:41.083945Z",
+  "balance_after_mc": 9900000,
+  "balance_before_mc": 99000000,
+  "call": "e09",
+  "cli_out": "LOSS event=admin-e09 account=let-near formula=100000000 applied=89100000 repeats=0 multiplier=1 guard_band=false self_disclosed=false balance=9900000 held_revoked=0 lesson=1 outstanding=89100000 role=warned replayed=false",
+  "debit_mc": 89100000,
+  "fraction_of_balance": 0.9,
+  "fraction_of_initial_capital": 0.891,
+  "pct_of_balance": 90,
+  "requested_mc": 89100000,
+  "role_after": "warned",
+  "severity": "near",
+  "warnings_after": 1
+}

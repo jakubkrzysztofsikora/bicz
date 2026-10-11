@@ -1,0 +1,41 @@
+# Private machine inventory - must never be published
+LOCAL_SETUP.md
+
+# Python
+__pycache__/
+*.pyc
+
+# Compiled binaries
+/bicz
+/dist/
+*.exe
+
+# Build output
+/out/
+/bin/
+
+# Local state. The two frozen trial-evidence dirs cited by docs/PHASE_B_RESULTS.md and
+# docs/LOSS_EXPOSURE_RESULTS.md are kept; machine state inside them is not.
+/.bicz/*
+!/.bicz/phase-b/
+!/.bicz/phase-b-loss-exposure/
+/.bicz/*/bin/
+/.bicz/*/cfg/
+/.bicz/*/state/
+/.bicz/*/overlay.json
+/.bicz/*/mechanism/cfg/
+/.bicz/*/mechanism/state/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Coverage / profiling
+*.cover
+*.prof
+coverage.*
+
+# Editor / OS cruft
+.DS_Store
+.idea/
+.vscode/

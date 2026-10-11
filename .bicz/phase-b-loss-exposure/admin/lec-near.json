@@ -1,0 +1,16 @@
+{
+  "arm": "C",
+  "at": "2026-10-10T20:24:58.600990Z",
+  "balance_after_mc": 104000000,
+  "balance_before_mc": 104000000,
+  "call": "e10",
+  "cli_out": "LOSS event=admin-e10 account=lec-near formula=0 applied=0 repeats=0 multiplier=1 guard_band=false self_disclosed=false balance=104000000 held_revoked=0 lesson=2 outstanding=0 role=warned replayed=false",
+  "debit_mc": 0,
+  "fraction_of_balance": 0.0,
+  "fraction_of_initial_capital": 0.0,
+  "pct_of_balance": 0,
+  "requested_mc": 0,
+  "role_after": "warned",
+  "severity": "near",
+  "warnings_after": 1
+}

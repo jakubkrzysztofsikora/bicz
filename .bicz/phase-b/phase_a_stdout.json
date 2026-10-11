@@ -1,0 +1,85 @@
+{
+  "protocol": "bicz.rehearsal/1",
+  "simulation_only": true,
+  "phase_b_evidence": null,
+  "started_at": "2026-10-10T19:39:59.719762000Z",
+  "finished_at": "2026-10-10T19:40:00.227615000Z",
+  "duration_ms": 516,
+  "scenario_ids": [
+    "honest_failure_is_free",
+    "confirmed_breach_burns_and_teaches",
+    "integrity_breach_denies_immediately",
+    "bankruptcy_keeps_operator_channel",
+    "dismissal_blocks_despite_balance",
+    "lesson_transfer_survives_reopen",
+    "compensation_restores_exactly_once",
+    "concurrent_reservations_cannot_overspend",
+    "loss_shortfall_recovers",
+    "tampered_event_detected"
+  ],
+  "total_scenarios": 10,
+  "passed": 10,
+  "failed": 0,
+  "results": [
+    {
+      "scenario": "honest_failure_is_free",
+      "endpoint": "settle(ordinary_failure): charged=50000 released=50000 fine=0 class=ordinary_failure warnings=0 role=active balance=capital-50000 lessons=0",
+      "pass": true,
+      "detail": "endpoint held"
+    },
+    {
+      "scenario": "confirmed_breach_burns_and_teaches",
+      "endpoint": "loss(rule rehearsal-breach): applied=formula=30000000 balance=capital-30000000 outstanding=30000000 lesson persisted; role escalates to warned",
+      "pass": true,
+      "detail": "endpoint held"
+    },
+    {
+      "scenario": "integrity_breach_denies_immediately",
+      "endpoint": "settle(integrity_breach): warnings=1 role=warned, remaining live hold revoked; settling it fails reservation_revoked",
+      "pass": true,
+      "detail": "endpoint held"
+    },
+    {
+      "scenario": "bankruptcy_keeps_operator_channel",
+      "endpoint": "bankrupt: authorize denied(insolvent) role stays active; operator reward re-enables authorize",
+      "pass": true,
+      "detail": "endpoint held"
+    },
+    {
+      "scenario": "dismissal_blocks_despite_balance",
+      "endpoint": "dismissed: authorize denied(dismissed) while balance stays positive (capital)",
+      "pass": true,
+      "detail": "endpoint held"
+    },
+    {
+      "scenario": "lesson_transfer_survives_reopen",
+      "endpoint": "lesson rule l6 with correction survives operator close+reopen on the same ledger",
+      "pass": true,
+      "detail": "endpoint held"
+    },
+    {
+      "scenario": "compensation_restores_exactly_once",
+      "endpoint": "appeal restores balance to capital exactly once (replay no-op), role stays warned without reset",
+      "pass": true,
+      "detail": "endpoint held"
+    },
+    {
+      "scenario": "concurrent_reservations_cannot_overspend",
+      "endpoint": "20 concurrent authorizes of 6000000 on 100000000: 16 allowed, 4 denied(insufficient_credit), held=96000000 \u003c= balance=100000000 invariant",
+      "pass": true,
+      "detail": "endpoint held"
+    },
+    {
+      "scenario": "loss_shortfall_recovers",
+      "endpoint": "projection outstanding_loss=30000000 after burn; reward applied=10000000 shrinks it to 20000000 with loss_recovered=10000000",
+      "pass": true,
+      "detail": "endpoint held"
+    },
+    {
+      "scenario": "tampered_event_detected",
+      "endpoint": "verify ok before; after editing events.amount: verify fails with INTEGRITY FAIL",
+      "pass": true,
+      "detail": "endpoint held"
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "argv_anon": [
+    "claude",
+    "-p",
+    "<prompt sha256:ec16f2286c3e3a4a34e30ecdccead777c48d0e430119baaec4fb98df72d1773c>",
+    "--model",
+    "haiku",
+    "--tools",
+    "Read",
+    "--settings",
+    "<LOCAL>/overlay.json",
+    "--setting-sources",
+    "project,local",
+    "--strict-mcp-config",
+    "--disable-slash-commands",
+    "--no-session-persistence",
+    "--max-budget-usd",
+    "0.15",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--include-hook-events"
+  ],
+  "bad_lines": 0,
+  "call": "e11",
+  "duration_s": 17.01,
+  "exit_code": 0,
+  "ledger_before": {
+    "account_id": "lec-high",
+    "available": 104500000,
+    "balance": 104500000,
+    "created_at": "2026-10-10T20:21:05.703509000Z",
+    "event_seq": 96,
+    "held": 0,
+    "lessons": [
+      {
+        "account_id": "lec-high",
+        "at": "2026-10-10T20:25:13.729644000Z",
+        "correction": "No conduct correction applies: this is a scheduled experimental administrative action, not a finding about conduct.",
+        "event_id": "admin-e11",
+        "evidence": "scheduled experimental administrative action e11 (C arm, severity high): NOT a finding about conduct; schedule frozen before any session",
+        "exceptions": "",
+        "id": 3,
+        "policy_version": "1",
+        "rule": "exp-admin-zero",
+        "scope": "loss-exposure experimental administrative action"
+      }
+    ],
+    "loss_burned": 0,
+    "loss_recovered": 0,
+    "outstanding_loss": 0,
+    "policy_version": "1",
+    "recovery_path": "no outstanding loss",
+    "role": "warned",
+    "target_loss_burned": 0,
+    "target_loss_event_id": "",
+    "task_budget": 104500000,
+    "task_sponsor": 0,
+    "warnings": 1
+  },
+  "model_reported": "claude-haiku-4-5-20251001",
+  "permission_mode": "default",
+  "prompt_sha256": "ec16f2286c3e3a4a34e30ecdccead777c48d0e430119baaec4fb98df72d1773c",
+  "raw_stdout_sha256": "9ccdd7ff818fcdd2b15096efdfff59d255eeaafc40c2d40c109adfb00e161eb9",
+  "runner_sha256": "6ab15c194270434e1e4d9e7548db0ec8b1d64fb2f78f4009cdde62535e13720d",
+  "status": "completed",
+  "stream_events": 41,
+  "tools_reported": [
+    "Read"
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "argv_anon": [
+    "claude",
+    "-p",
+    "<prompt sha256:a6c2953f0d0ea30a0e2cb9c5d8d755a3a1f50bed0c998dead1b7451d462e87a3>",
+    "--model",
+    "haiku",
+    "--tools",
+    "Read",
+    "--settings",
+    "<LOCAL>/overlay.json",
+    "--setting-sources",
+    "project,local",
+    "--strict-mcp-config",
+    "--disable-slash-commands",
+    "--no-session-persistence",
+    "--max-budget-usd",
+    "0.15",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--include-hook-events"
+  ],
+  "bad_lines": 0,
+  "call": "e23",
+  "duration_s": 18.77,
+  "exit_code": 0,
+  "ledger_before": {
+    "account_id": "let-high",
+    "available": 25350000,
+    "balance": 25350000,
+    "created_at": "2026-10-10T20:21:05.474087000Z",
+    "event_seq": 194,
+    "held": 0,
+    "lessons": [
+      {
+        "account_id": "let-high",
+        "at": "2026-10-10T20:25:31.541802000Z",
+        "correction": "No conduct correction applies: this is a scheduled experimental administrative action, not a finding about conduct.",
+        "event_id": "admin-e12",
+        "evidence": "scheduled experimental administrative action e12 (T arm, severity high): NOT a finding about conduct; schedule frozen before any session",
+        "exceptions": "",
+        "id": 4,
+        "policy_version": "1",
+        "rule": "exp-admin-debit",
+        "scope": "loss-exposure experimental administrative action"
+      }
+    ],
+    "loss_burned": 83400000,
+    "loss_recovered": 5000000,
+    "outstanding_loss": 78400000,
+    "policy_version": "1",
+    "recovery_path": "recovered 5000000 of 83400000 microcredits burned in admin-e12; 78400000 outstanding",
+    "role": "warned",
+    "target_loss_burned": 83400000,
+    "target_loss_event_id": "admin-e12",
+    "task_budget": 25350000,
+    "task_sponsor": 0,
+    "warnings": 1
+  },
+  "model_reported": "claude-haiku-4-5-20251001",
+  "permission_mode": "default",
+  "prompt_sha256": "a6c2953f0d0ea30a0e2cb9c5d8d755a3a1f50bed0c998dead1b7451d462e87a3",
+  "raw_stdout_sha256": "0d0eeb3a19e69c8a90d26bc6b609393e6159a206f89b6757c389c611239fcb5d",
+  "runner_sha256": "6ab15c194270434e1e4d9e7548db0ec8b1d64fb2f78f4009cdde62535e13720d",
+  "status": "completed",
+  "stream_events": 38,
+  "tools_reported": [
+    "Read"
+  ]
+}

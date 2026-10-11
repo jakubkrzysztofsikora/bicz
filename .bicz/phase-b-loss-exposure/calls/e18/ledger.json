@@ -1,0 +1,335 @@
+{
+  "after": {
+    "account_id": "let-mod",
+    "available": 70900000,
+    "balance": 70900000,
+    "created_at": "2026-10-10T20:21:05.411253000Z",
+    "event_seq": 164,
+    "held": 0,
+    "lessons": [
+      {
+        "account_id": "let-mod",
+        "at": "2026-10-10T20:25:58.587327000Z",
+        "correction": "No conduct correction applies: this is a scheduled experimental administrative action, not a finding about conduct.",
+        "event_id": "admin-e13",
+        "evidence": "scheduled experimental administrative action e13 (T arm, severity mod): NOT a finding about conduct; schedule frozen before any session",
+        "exceptions": "",
+        "id": 5,
+        "policy_version": "1",
+        "rule": "exp-admin-debit",
+        "scope": "loss-exposure experimental administrative action"
+      }
+    ],
+    "loss_burned": 41600000,
+    "loss_recovered": 10000000,
+    "outstanding_loss": 31600000,
+    "policy_version": "1",
+    "recovery_path": "recovered 10000000 of 41600000 microcredits burned in admin-e13; 31600000 outstanding",
+    "role": "warned",
+    "target_loss_burned": 41600000,
+    "target_loss_event_id": "admin-e13",
+    "task_budget": 70900000,
+    "task_sponsor": 0,
+    "warnings": 1
+  },
+  "before": {
+    "account_id": "let-mod",
+    "available": 66400000,
+    "balance": 66400000,
+    "created_at": "2026-10-10T20:21:05.411253000Z",
+    "event_seq": 159,
+    "held": 0,
+    "lessons": [
+      {
+        "account_id": "let-mod",
+        "at": "2026-10-10T20:25:58.587327000Z",
+        "correction": "No conduct correction applies: this is a scheduled experimental administrative action, not a finding about conduct.",
+        "event_id": "admin-e13",
+        "evidence": "scheduled experimental administrative action e13 (T arm, severity mod): NOT a finding about conduct; schedule frozen before any session",
+        "exceptions": "",
+        "id": 5,
+        "policy_version": "1",
+        "rule": "exp-admin-debit",
+        "scope": "loss-exposure experimental administrative action"
+      }
+    ],
+    "loss_burned": 41600000,
+    "loss_recovered": 5000000,
+    "outstanding_loss": 36600000,
+    "policy_version": "1",
+    "recovery_path": "recovered 5000000 of 41600000 microcredits burned in admin-e13; 36600000 outstanding",
+    "role": "warned",
+    "target_loss_burned": 41600000,
+    "target_loss_event_id": "admin-e13",
+    "task_budget": 66400000,
+    "task_sponsor": 0,
+    "warnings": 1
+  },
+  "events": [
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": 100000000,
+      "at": "2026-10-10T20:21:05.411336000Z",
+      "id": "grant:let-mod",
+      "kind": "grant",
+      "reason": "provision identity",
+      "seq": 4
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:23:34.373800000Z",
+      "id": "res:claude:auth:toolu_01Az5PwmCZBgNBQjh3GUvnBV",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 35
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:23:34.439913000Z",
+      "id": "settle:claude:auth:toolu_01Az5PwmCZBgNBQjh3GUvnBV",
+      "kind": "spend",
+      "reason": "settle completed: sha256:a0a7efd06d1e87b1d2f60c60ca6e66b3c5c840a69bd3461b3b6270bffd0538b7",
+      "seq": 36
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:23:34.580427000Z",
+      "id": "res:claude:auth:toolu_015JeovkkXAVf5kycZ8XdisH",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 37
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:23:34.628337000Z",
+      "id": "settle:claude:auth:toolu_015JeovkkXAVf5kycZ8XdisH",
+      "kind": "spend",
+      "reason": "settle ordinary_failure",
+      "seq": 38
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:23:34.805894000Z",
+      "id": "res:claude:auth:toolu_01XZMrA4FFbZVCwrpEtUvzLj",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 39
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:23:34.864043000Z",
+      "id": "settle:claude:auth:toolu_01XZMrA4FFbZVCwrpEtUvzLj",
+      "kind": "spend",
+      "reason": "settle completed: sha256:feb1fe78f764b9b20410fad7ca0bff13bb146572290ecc67a5f49b12a179948a",
+      "seq": 40
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:23:35.040196000Z",
+      "id": "res:claude:auth:toolu_01CPhSvxQYx72vY2Mc9oCWTS",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 41
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:23:35.098460000Z",
+      "id": "settle:claude:auth:toolu_01CPhSvxQYx72vY2Mc9oCWTS",
+      "kind": "spend",
+      "reason": "settle completed: sha256:e009f657f896bb1e5891ab248b9dd87acb4f102e9f915cda901f5cd10715eb2b",
+      "seq": 42
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": 5000000,
+      "at": "2026-10-10T20:23:40.656093000Z",
+      "id": "reward-e04",
+      "kind": "reward",
+      "reason": "verified accepted output: item A sum matches the checker and a successful Read of the A file was observed",
+      "seq": 43
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": -41600000,
+      "at": "2026-10-10T20:25:58.586979000Z",
+      "id": "admin-e13",
+      "kind": "loss",
+      "reason": "scheduled experimental administrative action e13 (T arm, severity mod): NOT a finding about conduct; schedule frozen before any session",
+      "seq": 113
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:25:58.587419000Z",
+      "id": "role:loss:admin-e13",
+      "kind": "role",
+      "reason": "escalation: scheduled experimental administrative action e13 (T arm, severity mod): NOT a finding about conduct; schedule frozen before any session",
+      "seq": 114
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:26:10.820563000Z",
+      "id": "res:claude:auth:toolu_01MBNANXPeRJGu6qZ6pcqFWu",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 115
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:26:11.052889000Z",
+      "id": "settle:claude:auth:toolu_01MBNANXPeRJGu6qZ6pcqFWu",
+      "kind": "spend",
+      "reason": "settle completed: sha256:53efcaf2a1239ab7f56a1fac04330a2c74d34441ae4b36801ac8acb8c5e2d6d2",
+      "seq": 116
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:26:11.184856000Z",
+      "id": "res:claude:auth:toolu_014rZa4aMvGvDTsrQUWjRehw",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 117
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:26:11.360594000Z",
+      "id": "settle:claude:auth:toolu_014rZa4aMvGvDTsrQUWjRehw",
+      "kind": "spend",
+      "reason": "settle ordinary_failure",
+      "seq": 118
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:26:11.611834000Z",
+      "id": "res:claude:auth:toolu_01KbMa4VDQXp3NituwqLjMEV",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 119
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:26:11.844712000Z",
+      "id": "settle:claude:auth:toolu_01KbMa4VDQXp3NituwqLjMEV",
+      "kind": "spend",
+      "reason": "settle completed: sha256:a8be7d3dbd3e11d66fffc184f4c8d9d07426615b5c17fd77dba6590f82febf49",
+      "seq": 120
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:26:11.933783000Z",
+      "id": "res:claude:auth:toolu_01BxcKdWXxXLSJ1oEqopdYK9",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 121
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:26:12.090758000Z",
+      "id": "settle:claude:auth:toolu_01BxcKdWXxXLSJ1oEqopdYK9",
+      "kind": "spend",
+      "reason": "settle completed: sha256:1637062a7c55840b64cc1d1365af05aadd9e795c8b22a00752d437923f13323d",
+      "seq": 122
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": 5000000,
+      "at": "2026-10-10T20:26:17.175823000Z",
+      "id": "reward-e13",
+      "kind": "reward",
+      "reason": "verified accepted output: item A sum matches the checker and a successful Read of the A file was observed",
+      "seq": 123
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:28:12.445726000Z",
+      "id": "res:claude:auth:toolu_01HZycPRt8AqFgDTFARsLzRq",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 160
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:28:12.507694000Z",
+      "id": "settle:claude:auth:toolu_01HZycPRt8AqFgDTFARsLzRq",
+      "kind": "spend",
+      "reason": "settle completed: sha256:f082f306487017ce7b061f77d0b7c1c56ccfd350f9c68868fcdce8344bd78b79",
+      "seq": 161
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T20:28:12.670471000Z",
+      "id": "res:claude:auth:toolu_01HgaJssnXGpj1oF6CPGwuu5",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 162
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": -250000,
+      "at": "2026-10-10T20:28:12.717083000Z",
+      "id": "settle:claude:auth:toolu_01HgaJssnXGpj1oF6CPGwuu5",
+      "kind": "spend",
+      "reason": "settle ordinary_failure",
+      "seq": 163
+    },
+    {
+      "account": "let-mod",
+      "actor": "<os-user>",
+      "amount": 5000000,
+      "at": "2026-10-10T20:28:17.914758000Z",
+      "id": "reward-e18",
+      "kind": "reward",
+      "reason": "verified accepted output: item A sum matches the checker and a successful Read of the A file was observed",
+      "seq": 164
+    }
+  ],
+  "reward": {
+    "applied_to_loss_mc": 5000000,
+    "bounty_mc": 5000000,
+    "out": "REWARD event=reward-e18 account=let-mod amount=5000000 applied_to_loss=5000000 loss=admin-e13 balance=70900000 outstanding=31600000 replayed=false"
+  }
+}

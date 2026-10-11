@@ -1,0 +1,21 @@
+{
+  "initial_capital_mc": 100000000,
+  "guard_band_bp": 0,
+  "repeat_multipliers": [1, 2, 4],
+  "repeat_multiplier_cap": 4,
+  "default_penalty": { "floor_mc": 1000000, "fraction_bp": 500, "lmax_mc": 10000000 },
+  "penalties": {},
+  "default_max_cost_mc": 25000,
+  "max_cost_cap_mc": 500000,
+  "tool_max_cost_mc": {
+    "Bash": 50000,
+    "Edit": 20000,
+    "Write": 20000,
+    "MultiEdit": 20000,
+    "Read": 5000,
+    "Glob": 5000,
+    "Grep": 5000,
+    "WebFetch": 100000,
+    "Task": 100000
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "bicz_sha256": "8ae43481988e8b82ffe23b325f03da6b5e77b663b3043943bae8912f2d9940b3",
+  "claude_version": "2.1.286 (Claude Code)",
+  "frozen_at": "2026-10-10T19:58:06.676327Z",
+  "overlay_sha256": "ebb7fa141303c7282325dd3807d364b03ef486584341e065396699c06e679fd5",
+  "phase_a_finished_at": "2026-10-10T19:40:00.227615000Z",
+  "phase_a_passed": "10/10",
+  "phase_a_report_sha256": "ef37b747bbb27c3e6908dfe2f5130b97551e79df14ae7658ec8c44d80d3522ee",
+  "phase_a_simulation_only": true,
+  "policy_sha256": "2a9d39b5cfd59ecd0953d187aca832fef4b3923b4fad1d7e3c33efdf527e131d",
+  "protocol_sha256": "55bceee41c0f9da7ecb2a7fcbb23411cb455eb9d51ad6e459cbec9aa1719aaaf",
+  "runner_sha256_at_freeze": "ce446c61e1e5e6754d83b3a439fcd23515ee44d93c1c181c24a3d7e63bef038f"
+}

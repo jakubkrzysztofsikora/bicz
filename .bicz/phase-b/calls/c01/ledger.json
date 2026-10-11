@@ -1,0 +1,120 @@
+{
+  "after": {
+    "account_id": "pbt-s100",
+    "available": 100485000,
+    "balance": 100485000,
+    "created_at": "2026-10-10T19:58:04.754403000Z",
+    "event_seq": 18,
+    "held": 0,
+    "lessons": [],
+    "loss_burned": 0,
+    "loss_recovered": 0,
+    "outstanding_loss": 0,
+    "policy_version": "1",
+    "recovery_path": "no outstanding loss",
+    "role": "active",
+    "target_loss_burned": 0,
+    "target_loss_event_id": "",
+    "task_budget": 100485000,
+    "task_sponsor": 0,
+    "warnings": 0
+  },
+  "before": {
+    "account_id": "pbt-s100",
+    "available": 100000000,
+    "balance": 100000000,
+    "created_at": "2026-10-10T19:58:04.754403000Z",
+    "event_seq": 11,
+    "held": 0,
+    "lessons": [],
+    "loss_burned": 0,
+    "loss_recovered": 0,
+    "outstanding_loss": 0,
+    "policy_version": "1",
+    "recovery_path": "no outstanding loss",
+    "role": "active",
+    "target_loss_burned": 0,
+    "target_loss_event_id": "",
+    "task_budget": 100000000,
+    "task_sponsor": 0,
+    "warnings": 0
+  },
+  "events": [
+    {
+      "account": "pbt-s100",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T19:58:24.569999000Z",
+      "id": "res:claude:auth:toolu_01NgpMViwVrRTaZwKvPVxsFu",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 12
+    },
+    {
+      "account": "pbt-s100",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T19:58:24.637488000Z",
+      "id": "res:claude:auth:toolu_01YbdnRZ9cMh3ZJ562351PhW",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 13
+    },
+    {
+      "account": "pbt-s100",
+      "actor": "<os-user>",
+      "amount": -5000,
+      "at": "2026-10-10T19:58:24.857185000Z",
+      "id": "settle:claude:auth:toolu_01NgpMViwVrRTaZwKvPVxsFu",
+      "kind": "spend",
+      "reason": "settle completed: sha256:c42b1996e0095226d9af2045f4f9790e717b3eaa919771537d808306f5b50491",
+      "seq": 14
+    },
+    {
+      "account": "pbt-s100",
+      "actor": "<os-user>",
+      "amount": -5000,
+      "at": "2026-10-10T19:58:24.881737000Z",
+      "id": "settle:claude:auth:toolu_01YbdnRZ9cMh3ZJ562351PhW",
+      "kind": "spend",
+      "reason": "settle ordinary_failure",
+      "seq": 15
+    },
+    {
+      "account": "pbt-s100",
+      "actor": "<os-user>",
+      "amount": 0,
+      "at": "2026-10-10T19:58:24.967831000Z",
+      "id": "res:claude:auth:toolu_01L6EjUd1tNgN9PgrTaVJZXJ",
+      "kind": "spend",
+      "reason": "reserve: bounded action exposure",
+      "seq": 16
+    },
+    {
+      "account": "pbt-s100",
+      "actor": "<os-user>",
+      "amount": -5000,
+      "at": "2026-10-10T19:58:25.398203000Z",
+      "id": "settle:claude:auth:toolu_01L6EjUd1tNgN9PgrTaVJZXJ",
+      "kind": "spend",
+      "reason": "settle completed: sha256:9ae67aafd2ae0b16533011ec838cf0d58303ec55ed10e4e82672aea5d5c74cc0",
+      "seq": 17
+    },
+    {
+      "account": "pbt-s100",
+      "actor": "<os-user>",
+      "amount": 500000,
+      "at": "2026-10-10T19:58:29.370686000Z",
+      "id": "reward-c01",
+      "kind": "reward",
+      "reason": "verified accepted output: item A sum matches checker and a successful Read observed",
+      "seq": 18
+    }
+  ],
+  "operator_actions": [
+    {
+      "op": "reward",
+      "out": "REWARD event=reward-c01 account=pbt-s100 amount=500000 applied_to_loss=0 loss=- balance=100485000 outstanding=0 replayed=false"
+    }
+  ]
+}

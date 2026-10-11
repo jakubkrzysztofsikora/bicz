@@ -1,0 +1,16 @@
+{
+  "arm": "T",
+  "at": "2026-10-10T20:25:58.682795Z",
+  "balance_after_mc": 62400000,
+  "balance_before_mc": 104000000,
+  "call": "e13",
+  "cli_out": "LOSS event=admin-e13 account=let-mod formula=100000000 applied=41600000 repeats=0 multiplier=1 guard_band=false self_disclosed=false balance=62400000 held_revoked=0 lesson=5 outstanding=41600000 role=warned replayed=false",
+  "debit_mc": 41600000,
+  "fraction_of_balance": 0.4,
+  "fraction_of_initial_capital": 0.416,
+  "pct_of_balance": 40,
+  "requested_mc": 41600000,
+  "role_after": "warned",
+  "severity": "mod",
+  "warnings_after": 1
+}
