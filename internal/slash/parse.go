@@ -8,6 +8,7 @@
 //	/bicz loss RULE "reason" ["correction"]
 //	/bicz reward AMOUNT "reason"
 //	/bicz status
+//	/bicz rules
 //	/bicz help
 //
 // RULE is a stable rule id (no spaces). AMOUNT is a decimal credit count with at
@@ -39,6 +40,7 @@ const (
 	ActionLoss   Action = "loss"
 	ActionReward Action = "reward"
 	ActionStatus Action = "status"
+	ActionRules  Action = "rules"
 	ActionHelp   Action = "help"
 )
 
@@ -72,8 +74,10 @@ func usagef(format string, args ...any) error { return &UsageError{Msg: fmt.Spri
 const Usage = `/bicz loss RULE "reason" ["correction"]   burn credits for a confirmed breach of RULE
 /bicz reward AMOUNT "reason"               credit AMOUNT (decimal, up to 6 decimals), e.g. /bicz reward 5 "shipped the fix"
 /bicz status                               show balance, outstanding loss, role, penalties
-Quote any text with spaces. RULE has no spaces (e.g. no_fake_tests). A loss needs a correction:
-give it as the third argument, or reuse the one saved from an earlier loss of the same RULE.`
+/bicz rules                                list the default rules: id, tier, on/off, statement
+Quote any text with spaces. RULE has no spaces (e.g. no_unverified_done_claim). A loss needs a correction:
+give it as the third argument, or omit it to reuse the one saved from an earlier loss of the same RULE,
+or the shipped default for a rule listed by /bicz rules.`
 
 var rulePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]*$`)
 
@@ -98,12 +102,17 @@ func Parse(raw string) (Command, error) {
 			return Command{}, usagef("status takes no arguments, got %d", len(rest))
 		}
 		return Command{Action: ActionStatus}, nil
+	case "rules":
+		if len(rest) != 0 {
+			return Command{}, usagef("rules takes no arguments, got %d", len(rest))
+		}
+		return Command{Action: ActionRules}, nil
 	case "loss":
 		return parseLoss(rest)
 	case "reward":
 		return parseReward(rest)
 	}
-	return Command{}, usagef("unknown action %q (expected loss, reward, or status)", tokens[0])
+	return Command{}, usagef("unknown action %q (expected loss, reward, status, or rules)", tokens[0])
 }
 
 func parseLoss(args []string) (Command, error) {

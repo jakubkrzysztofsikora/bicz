@@ -16,6 +16,7 @@ import (
 
 	"github.com/jakubkrzysztofsikora/bicz/internal/daemon"
 	"github.com/jakubkrzysztofsikora/bicz/internal/ledger"
+	"github.com/jakubkrzysztofsikora/bicz/internal/policy"
 )
 
 func TestParseGrammar(t *testing.T) {
@@ -468,5 +469,94 @@ func TestFailedCommitIsReportedAsUnknownNotAsNothingRecorded(t *testing.T) {
 	if response.Code != "outcome_unknown" || strings.Contains(response.Text, "Nothing was recorded") ||
 		!strings.Contains(response.Text, "OUTCOME UNKNOWN") || !strings.Contains(response.Text, "/bicz status") {
 		t.Fatalf("a failed commit must be reported as ambiguous: %+v", response)
+	}
+}
+
+// A shipped default rule needs no typed correction, but it never overrides one
+// the operator wrote: typed beats saved beats shipped default.
+func TestCorrectionPrecedenceExplicitThenSavedThenDefault(t *testing.T) {
+	f := newFixture(t, "claude")
+	catalog, err := policy.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const rule = "no_unverified_done_claim"
+	shipped, _ := catalog.Rule(rule)
+
+	first := run("claude", `loss `+rule+` "claimed deploy, not live"`, "")
+	if first.Status != StatusOK || !strings.Contains(first.Text, "source=default: "+strconvQuote(shipped.Correction)) {
+		t.Fatalf("a default rule with no saved correction must use the shipped one: %+v", first)
+	}
+	op, err := daemon.NewOperator(f.db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lessons, err := op.Ledger().Lessons(context.Background(), "alice")
+	op.Close()
+	if err != nil || len(lessons) != 1 || lessons[0].Scope != shipped.Scope || lessons[0].Exceptions != shipped.Exceptions {
+		t.Fatalf("the lesson must carry the catalog scope and exceptions: %+v err=%v", lessons, err)
+	}
+
+	typed := run("claude", `loss `+rule+` "second breach" "typed by the operator"`, "")
+	if typed.Status != StatusOK || !strings.Contains(typed.Text, `source=explicit: "typed by the operator"`) {
+		t.Fatalf("a typed correction must beat the shipped default: %+v", typed)
+	}
+	saved := run("claude", `loss `+rule+` "third breach"`, "")
+	if saved.Status != StatusOK || !strings.Contains(saved.Text, `source=saved: "typed by the operator"`) {
+		t.Fatalf("a saved correction must beat the shipped default: %+v", saved)
+	}
+
+	before := eventCount(t, f.db)
+	unknown := run("claude", `loss not_a_default_rule "x"`, "")
+	if unknown.Status != StatusNeedsInput || !strings.Contains(unknown.Question, "/bicz rules") || eventCount(t, f.db) != before {
+		t.Fatalf("a rule that is neither saved nor shipped must ask and write nothing: %+v", unknown)
+	}
+}
+
+func strconvQuote(s string) string { return fmt.Sprintf("%q", s) }
+
+// Every shipped rule must be usable through the real grammar: a rule id or
+// correction the parser refused would make its default unreachable.
+func TestEveryShippedRuleSurvivesTheSlashParser(t *testing.T) {
+	catalog, err := policy.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(catalog.Rules) == 0 {
+		t.Fatal("empty catalog")
+	}
+	for _, rule := range catalog.Rules {
+		raw := `loss ` + rule.ID + ` "reason" ` + strconvQuote(rule.Correction)
+		command, err := Parse(raw)
+		if err != nil || command.Rule != rule.ID || command.Correction != rule.Correction {
+			t.Errorf("rule %s is not usable through /bicz loss: %+v err=%v", rule.ID, command, err)
+		}
+		if strings.ContainsAny(rule.Correction, "\r\n") || len([]rune(rule.Correction)) > 500 {
+			t.Errorf("rule %s correction must be one line of at most 500 characters", rule.ID)
+		}
+	}
+}
+
+func TestRulesListsDefaultsWithoutAConfigOrAWrite(t *testing.T) {
+	t.Setenv("BICZ_CONFIG_DIR", t.TempDir())
+	t.Setenv("BICZ_CONFIG", "")
+	r := run("claude", "rules", "")
+	if r.Status != StatusOK || r.Action != ActionRules {
+		t.Fatalf("rules: %+v", r)
+	}
+	columns := map[string][]string{}
+	for _, line := range strings.Split(r.Text, "\n") {
+		if fields := strings.Fields(line); len(fields) >= 3 {
+			columns[fields[0]] = fields[1:3]
+		}
+	}
+	if got := columns["no_unverified_done_claim"]; len(got) != 2 || got[0] != "high" || got[1] != "on" {
+		t.Errorf("no_unverified_done_claim columns = %v, want [high on]", got)
+	}
+	if got := columns["no_idle_waiting"]; len(got) != 2 || got[0] != "low" || got[1] != "off" {
+		t.Errorf("no_idle_waiting columns = %v, want [low off]", got)
+	}
+	if bad := run("claude", "rules extra", ""); bad.Code != "usage" {
+		t.Fatalf("rules takes no arguments: %+v", bad)
 	}
 }

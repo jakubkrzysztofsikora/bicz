@@ -12,12 +12,17 @@ flags**: the identity and ledger come from the harness's installed config
 /bicz loss RULE "reason" ["correction"]   burn credits for a confirmed breach of RULE
 /bicz reward AMOUNT "reason"              credit AMOUNT, a decimal credit count with up to 6 decimals
 /bicz status                              balance, outstanding loss, role, newest penalty
+/bicz rules                               list the default rules: id, tier, on/off, statement
 ```
 
 - **Loss needs a correction.** Give it as the third argument, or it is reused from the correction
-  saved by your earlier loss of the same RULE. With neither, **nothing is written** and you get a
+  saved by your earlier loss of the same RULE, or, for a RULE listed by `/bicz rules`, the shipped
+  default correction is used (the receipt says `source=default`; see
+  [DEFAULT_POLICIES.md](DEFAULT_POLICIES.md)). A correction you type beats a saved one, which beats
+  the shipped default. With none of these, **nothing is written** and you get a
   structured question (`needs_input`, exit 3, with the exact command to re-run); a terminal user is
-  prompted instead. A correction is never invented, and an agent-proposed lesson is never used.
+  prompted instead. A correction is never invented, and an agent-proposed lesson is never used: a
+  shipped default is operator-supplied text from the catalog, not model output.
 - **Reward amounts are credits, not microcredits.** `5` is 5,000,000 mc, `0.25` is 250,000 mc.
   Digits only, at most 6 decimals: no sign, exponent, separator, float, or rounding.
 - **Quoting is the only syntax.** Text is data: `$(...)`, backticks, `;` and `$VAR` are literal and

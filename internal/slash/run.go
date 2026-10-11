@@ -12,6 +12,7 @@ import (
 
 	"github.com/jakubkrzysztofsikora/bicz/internal/daemon"
 	"github.com/jakubkrzysztofsikora/bicz/internal/ledger"
+	"github.com/jakubkrzysztofsikora/bicz/internal/policy"
 	"github.com/jakubkrzysztofsikora/bicz/internal/protocol"
 )
 
@@ -121,6 +122,9 @@ func Run(ctx context.Context, request Request) Response {
 	if command.Action == ActionHelp {
 		return Response{Status: StatusOK, Action: ActionHelp, Text: Usage}
 	}
+	if command.Action == ActionRules {
+		return Response{Status: StatusOK, Action: ActionRules, Text: RulesText()}
+	}
 	target, err := ResolveTarget(request.Harness)
 	if err != nil {
 		return failure(command.Action, err)
@@ -175,10 +179,20 @@ func attribution(op *daemon.Operator, target Target) string {
 }
 
 func loss(ctx context.Context, request Request, target Target, op *daemon.Operator, command Command) Response {
+	defaults, _ := policy.Load()
+	defaultRule, isDefault := defaults.Rule(command.Rule)
+	// Precedence: what the operator typed, then what the operator saved on an
+	// earlier loss of this rule, then the correction shipped with a default rule,
+	// then a terminal prompt. A shipped default is operator-supplied text, never
+	// a model-written one.
 	correction, source := command.Correction, "explicit"
 	if correction == "" {
 		source = "saved"
 		correction = savedCorrection(ctx, op, target.Identity, command.Rule)
+	}
+	if correction == "" && isDefault {
+		source = "default"
+		correction = defaultRule.Correction
 	}
 	if correction == "" && request.Prompter != nil {
 		typed, err := request.Prompter.Correction(command.Rule)
@@ -193,7 +207,7 @@ func loss(ctx context.Context, request Request, target Target, op *daemon.Operat
 		}
 	}
 	if correction == "" {
-		question := fmt.Sprintf("No correction is saved for rule %s, and a loss must state the safe alternative. "+
+		question := fmt.Sprintf("No correction is saved for rule %s, it is not a default rule (see /bicz rules), and a loss must state the safe alternative. "+
 			`Nothing was recorded. Re-run with the correction as the third argument: /bicz loss %s %s "<the correction the agent must follow>"`,
 			command.Rule, command.Rule, strconv.Quote(command.Reason))
 		return Response{Status: StatusNeedsInput, Action: ActionLoss, Question: question, Text: "BICZ loss needs input\n" + question}
@@ -205,6 +219,8 @@ func loss(ctx context.Context, request Request, target Target, op *daemon.Operat
 		Identity:      target.Identity,
 		Rule:          command.Rule,
 		Correction:    correction,
+		Scope:         defaultRule.Scope,
+		Exceptions:    defaultRule.Exceptions,
 		Evidence:      command.Reason + provenance(target.Harness),
 		PolicyVersion: target.PolicyVersion,
 		Reason:        command.Reason,
@@ -295,4 +311,26 @@ func status(target Target, op *daemon.Operator, p ledger.Projection) Response {
 	}
 	b.WriteString(attribution(op, target))
 	return Response{Status: StatusOK, Action: ActionStatus, Text: b.String()}
+}
+
+// RulesText lists the default rules: id, burn tier, on or off, and the one-line
+// statement. "on" means the rule has its own amount in the published example
+// schedule; "off" rules still carry a correction but burn the schedule default.
+func RulesText() string {
+	defaults, err := policy.Load()
+	if err != nil {
+		return "BICZ rules unavailable: " + err.Error()
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "BICZ default rules (%d). Use any id with /bicz loss RULE \"reason\"; a loss without a typed or saved correction uses the one shown in docs/DEFAULT_POLICIES.md.\n", len(defaults.Rules))
+	fmt.Fprintf(&b, "%-30s %-6s %-3s %s\n", "RULE", "TIER", "ON", "STATEMENT")
+	for _, rule := range defaults.Rules {
+		on := "off"
+		if rule.DefaultOn {
+			on = "on"
+		}
+		fmt.Fprintf(&b, "%-30s %-6s %-3s %s\n", rule.ID, rule.Tier, on, rule.Statement)
+	}
+	b.WriteString("Disposition is advisory: /bicz loss always records confirmed_breach.")
+	return b.String()
 }

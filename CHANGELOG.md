@@ -4,6 +4,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Added
+
+- 15 default rules distilled from real agent failures (derived from one operator's 670 sessions and 113
+  frustration moments across four harnesses), embedded as `internal/policy/defaults.json`: rule id,
+  correction, scope, exceptions, burn tier (`low`/`medium`/`high`, all existing ledger penalty
+  parameters) and an on/off default. See [docs/DEFAULT_POLICIES.md](docs/DEFAULT_POLICIES.md).
+- `/bicz rules` and `bicz rules` list the default rules (id, tier, on/off, statement).
+- `/bicz loss RULE "reason"` for a default rule now works with no correction typed: the correction
+  resolves explicit, then saved lesson, then shipped default (`source=default`, with the catalog scope
+  and exceptions stored on the lesson), then prompt, then `needs_input`. Any other rule id behaves as before.
+- `docs/schedule.example.json` publishes a `penalties` entry for each default-on rule and sets
+  `guard_band_bp` to 2000, so repeat multipliers stop rising below 20% of initial capital. A test pins
+  the schedule to the catalog.
+- A rule's suggested disposition (`integrity_breach` for three rules) is advisory: `/bicz loss`
+  still records `confirmed_breach`.
+
 ## [0.1.1] - 2026-10-11
 
 First published release, as a GitHub **pre-release**. The mechanism is shipped; **its behavioral

@@ -65,6 +65,7 @@ func main() {
 		"anchor":       runAnchor,
 		"doctor":       runDoctor,
 		"lessons":      runLessons,
+		"rules":        runRules,
 		"install":      runInstall,
 		"uninstall":    runUninstall,
 		"hook":         runHook,
@@ -130,6 +131,7 @@ read-only
   bicz verify  --db PATH                   verify events, blocks, and anchors
   bicz doctor  --db PATH [--socket PATH]   integrity, anchoring, coverage, non-claims
   bicz lessons --db PATH --identity ID [--pending]
+  bicz rules                               list the default rules (id, tier, on/off, statement)
 
 harness adapters (user-scope only; no elevated privileges; dry-run is exact and safe)
   bicz install   --harness omp|claude|codex|opencode [--account ID] [--ledger PATH]
@@ -141,7 +143,7 @@ harness adapters (user-scope only; no elevated privileges; dry-run is exact and 
   bicz command   --harness omp|claude|codex|opencode
                    (--arguments RAW | --arguments-stdin) [--invocation ID] [--json]
                    run one operator slash command (/bicz loss RULE "reason" ["correction"],
-                   /bicz reward AMOUNT "reason", /bicz status). Identity and ledger come
+                   /bicz reward AMOUNT "reason", /bicz status, /bicz rules). Identity and ledger come
                    from the harness's installed bicz config; there is no --db/--identity.
                    exit 0 ok, 1 error, 2 usage, 3 needs_input (nothing was written)
 
@@ -903,6 +905,19 @@ const maxCommandStdin = 16 << 10
 // code with the typed text as JSON (see runSlashHook). Identity and ledger come
 // from the harness's installed bicz config; there is deliberately no --db or
 // --identity.
+// runRules prints the shipped default rules. It needs no ledger.
+func runRules(_ context.Context, args []string) error {
+	fs := newFlagSet("rules")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() > 0 {
+		return fmt.Errorf("rules: unexpected argument %q", fs.Arg(0))
+	}
+	fmt.Println(slash.RulesText())
+	return nil
+}
+
 func runCommand(ctx context.Context, args []string) error {
 	fs := newFlagSet("command")
 	harness := fs.String("harness", "", "invoking harness: omp, claude, codex, opencode (REQUIRED)")

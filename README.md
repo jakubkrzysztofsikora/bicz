@@ -19,6 +19,7 @@ A local, same-user credit ledger and supervisor for coding-agent harnesses (Clau
 
 - **Consequences persist.** A loss is an append-only ledger event. Balance, role and lessons survive restarts and new sessions, and the harness hook shows them to the agent at session start and before its next tool call.
 - **The agent gets the lesson, not just the penalty.** `/bicz loss RULE "reason" "correction"` burns credits, saves the lesson and records the penalty in one transaction. The correction is yours, never model-written. An honest failure costs only its normal operating charge and never triggers the cue.
+- **Rules out of the box.** Ships 15 default rules distilled from real agent failures (fake "done", ignored instructions, "pre-existing" excuses…); `/bicz rules` lists them. See [default policies](docs/DEFAULT_POLICIES.md).
 - **You get a record you can check.** `bicz verify` checks the hash chain; `bicz doctor` lists the call paths bicz cannot see. Once a price schedule is wired in, an empty balance, suspension or dismissal makes the adapter ask the harness to deny priced tool calls.
 
 ## What it isn't
@@ -128,7 +129,7 @@ Parts in detail: [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md).
 ## Docs
 
 - Design: [design](docs/DESIGN.md), [pressure mechanics](docs/PRESSURE_MECHANICS.md), [contracts](docs/CONTRACTS.md), [schema](docs/SCHEMA.md)
-- Use: [setup](docs/SETUP.md), [slash command](docs/SLASH_COMMAND.md), [harnesses](docs/HARNESSES.md), adapters: [Claude Code](adapters/claude/README.md), [Codex](adapters/codex/README.md), [OMP](adapters/omp/README.md), [OpenCode](adapters/opencode/README.md)
+- Use: [setup](docs/SETUP.md), [slash command](docs/SLASH_COMMAND.md), [default policies](docs/DEFAULT_POLICIES.md), [harnesses](docs/HARNESSES.md), adapters: [Claude Code](adapters/claude/README.md), [Codex](adapters/codex/README.md), [OMP](adapters/omp/README.md), [OpenCode](adapters/opencode/README.md)
 - Honesty: [limitations](docs/LIMITATIONS.md), [verification record](docs/VERIFICATION.md), [trial results](docs/PHASE_B_RESULTS.md), [loss-exposure trial](docs/LOSS_EXPOSURE_RESULTS.md), [security](SECURITY.md)
 - Project: [development](docs/DEVELOPMENT.md), [changelog](CHANGELOG.md)
 
