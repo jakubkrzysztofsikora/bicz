@@ -406,7 +406,7 @@ export default Plugin.define({
     const slashCommand = await ctx.command.transform(editor => {
       editor.add({
         name: "bicz",
-        description: "Operator ledger command: status | loss RULE \"reason\" [\"correction\"] | reward AMOUNT \"reason\"",
+        description: "Operator ledger command: status | rules | loss RULE \"reason\" [\"correction\"] | reward AMOUNT \"reason\"",
         execute: async invocation => {
           // Re-read the config per invocation so a reinstall is picked up.
           let exe = process.env.BICZ_BIN || "bicz";

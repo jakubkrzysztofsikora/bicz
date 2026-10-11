@@ -420,7 +420,7 @@ const pendingSettles = new Map<string, PendingSettle>();
 
 export default function biczOmpAdapter(pi: ExtensionAPI) {
   pi.registerCommand("bicz", {
-    description: "Operator ledger command: /bicz status | loss RULE \"reason\" [\"correction\"] | reward AMOUNT \"reason\"",
+    description: "Operator ledger command: /bicz status | rules | loss RULE \"reason\" [\"correction\"] | reward AMOUNT \"reason\"",
     handler: async (args, ctx) => {
       // Re-read the config per invocation so a reinstall is picked up; the
       // cached tool-path config stays untouched.

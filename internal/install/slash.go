@@ -56,8 +56,8 @@ func slashAssets(harness string, target hookTarget, exe string) ([]Asset, error)
 // disable-model-invocation keeps the model from invoking /bicz itself.
 const claudeSkill = "---\n" +
 	"name: bicz\n" +
-	"description: Operator-only /bicz command: record a manual loss or reward, or show status, in the bicz ledger. Handled by the bicz hook.\n" +
-	"argument-hint: 'loss RULE \"reason\" [\"correction\"] | reward AMOUNT \"reason\" | status'\n" +
+	"description: Operator-only /bicz command: record a manual loss or reward, show status, or list the default rules, in the bicz ledger. Handled by the bicz hook.\n" +
+	"argument-hint: 'loss RULE \"reason\" [\"correction\"] | reward AMOUNT \"reason\" | status | rules'\n" +
 	"disable-model-invocation: true\n" +
 	"---\n" +
 	"<!-- " + assetMarker + " harness=claude; managed by `bicz install --harness claude`; `bicz uninstall` removes it -->\n\n" +
@@ -79,10 +79,10 @@ const claudeSkill = "---\n" +
 func codexSkill(command string) string {
 	return "---\n" +
 		"name: bicz\n" +
-		"description: Operator-only. Use only when the user explicitly types $bicz. Records a manual loss or reward, or shows status, in the bicz ledger.\n" +
+		"description: Operator-only. Use only when the user explicitly types $bicz. Records a manual loss or reward, shows status, or lists the default rules, in the bicz ledger.\n" +
 		"---\n" +
 		"<!-- " + assetMarker + " harness=codex; managed by `bicz install --harness codex`; `bicz uninstall` removes it -->\n\n" +
-		"The user typed `$bicz` followed by operator arguments: `loss RULE \"reason\" [\"correction\"]`, `reward AMOUNT \"reason\"`, or `status`. " +
+		"The user typed `$bicz` followed by operator arguments: `loss RULE \"reason\" [\"correction\"]`, `reward AMOUNT \"reason\"`, `status`, or `rules`. " +
 		"The bicz hook normally answers this before you see it; you are reading this because it did not run (untrusted or disabled), " +
 		"so this is the weaker, prompt-mediated fallback.\n\n" +
 		"Procedure, exactly:\n" +
@@ -108,7 +108,7 @@ func codexSkill(command string) string {
 const codexSkillMetadata = "# " + assetMarker + "\n" +
 	"interface:\n" +
 	"  display_name: \"bicz\"\n" +
-	"  short_description: \"Operator-only: bicz loss / reward / status\"\n" +
+	"  short_description: \"Operator-only: bicz loss / reward / status / rules\"\n" +
 	"policy:\n" +
 	"  allow_implicit_invocation: false\n"
 

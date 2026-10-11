@@ -36,7 +36,11 @@ const ok = (name) => { passed++; console.log(`  ok   ${name}`); };
   process.env.BICZ_CONFIG = config;
   const mod = await import(pathToFileURL(join(root, "adapters/omp/extension.ts")).href);
   const handlers = new Map();
-  mod.default({ on: (event, fn) => handlers.set(event, fn) });
+  const commands = new Map();
+  mod.default({ on: (event, fn) => handlers.set(event, fn), registerCommand: (name, spec) => commands.set(name, spec) });
+  assert.match(commands.get("bicz")?.description ?? "", /status \| rules \| loss/, "the /bicz command is registered and advertises rules");
+  assert.equal(typeof commands.get("bicz")?.handler, "function");
+  ok("OMP registers /bicz with a handler that advertises rules");
   const ctx = { cwd: "/tmp/mock", ui: { setStatus() {} } };
 
   const allowed = await handlers.get("tool_call")({ toolName: "Bash", toolCallId: "omp-1", input: { command: "ls" } }, ctx);
@@ -102,7 +106,7 @@ const loss = (event, ...extra) => execFileSync(bicz, ["loss", "--db", ledger, "-
   process.env.BICZ_CONFIG = join(tmp, "omp-smoke.json");
   const mod = await import(pathToFileURL(join(root, "adapters/omp/extension.ts")).href);
   const handlers = new Map();
-  mod.default({ on: (event, fn) => handlers.set(event, fn) });
+  mod.default({ on: (event, fn) => handlers.set(event, fn), registerCommand() {} });
   const ctx = { cwd: "/tmp/mock", ui: { setStatus() {} } };
   const poll = async (id) => {
     const out = await handlers.get("tool_call")({ toolName: "Read", toolCallId: id, input: {} }, ctx);
