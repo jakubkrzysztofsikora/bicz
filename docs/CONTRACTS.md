@@ -331,10 +331,10 @@ MUST surface `unmanaged` and suspend recording, never fabricate a state.
 | Claude Code | hosted/remote tools, direct binary invocation, native tools, provider model calls | **unobserved** |
 | Codex | `SessionStart`, `PreToolUse`, `PostToolUse` | **observed** |
 | Codex | hosted tools (bypass hooks), app-server experimental transports, pre-tool error/timeout fail-open | **unobserved** |
-| OpenCode V1 | plugin `tool.execute.before` / `tool.execute.after`; session compaction event | **observed** |
-| OpenCode V1 | `--pure` runs (external plugins disabled), desktop/ACP/web routes pending per-route fixture | **unobserved** |
-| OpenCode V2 | `Plugin.define({id, setup})` + `ctx.tool.hook("execute.before"/"execute.after")` | **observed** (names verified at `v2.0.26`; runtime payload fixture pending) |
-| OpenCode V2 | `ctx.permission.hook("evaluate")`, `ctx.session.hook(...)`, `ctx.shell.hook("create.before")` | **observed** (names verified; payload fixture pending) |
+| OpenCode V1 | plugin `tool.execute.before` / `tool.execute.after`; failed-tool settlement via `message.part.updated`; `experimental.chat.system.transform` projection | **observed** (run in a real OpenCode 1.18.31 with a mock provider; the session compaction hook was not exercised) |
+| OpenCode V1 | `--pure` runs (external plugins disabled), TUI/ACP/desktop/web routes without a fixture | **unobserved** |
+| OpenCode V2 | `Plugin.define({id, setup})` + `ctx.tool.hook("execute.before"/"execute.after")` | **observed** (run in a real `opencode v2.0.26` engine with a mock provider: reserve/settle and deny) |
+| OpenCode V2 | `ctx.session.hook("context"/"compaction")`; the plugin registers no permission or shell hook | **observed** (run in the same real engine) |
 | OpenCode V2 | event-payload schema, per-client-route coverage, unmanaged `opencode` launches | **unobserved** |
 | OMP | extension `tool_call` (returns `{block:true, reason}`) / `tool_result` | **observed** |
 | OMP | `before_agent_start` / `context` / `session.compacting` projection | **observed** |

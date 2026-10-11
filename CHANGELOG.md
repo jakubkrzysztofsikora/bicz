@@ -86,21 +86,29 @@ tree was missing `internal/protocol/coverage.go` (swallowed by a `coverage.*` ig
   callers migrated). A self-disclosed breach adjudicated by the operator is cued like any confirmed breach.
 - CI previously pinned Go 1.22 against a Go 1.27 module; it now uses `go-version-file: go.mod`.
 - OMP adapter `package.json` license corrected from `UNLICENSED` to `MIT`.
+- **OpenCode V1 plugin** fixes found only by running the real 1.18.31 engine (the TS mock harness could
+  not see them): daemon calls failed under the engine's embedded Bun 1.3.14 because the socket was
+  half-closed before the reply was read (the reserve was recorded, the plugin saw an empty reply, allowed
+  the call unmetered and never settled); notices, receipts, projection and penalty cues were written to a
+  field V1 never reads and now go through `experimental.chat.system.transform`; a failed tool is now
+  settled as an ordinary failure via `message.part.updated` (V1 never calls `tool.execute.after` then);
+  `/bicz` replaced `output.parts` by assignment, which V1 ignores, so it now mutates the array. The
+  V1 mock-harness checks were rewritten to the observed hook shapes.
 
 ### Known limitations (release blockers for behavioral claims)
 
 - **Phase B** (human, real-consequence, dedicated test identity) has not been run.
-- **OpenCode V2**: run in a real engine, `opencode v2.0.26` from `@opencode/cli@2.0.26`, on a temp
-  HOME/ledger (`docs/RUNTIME_OPENCODE.md`): the plugin loads, and `/bicz status`, `reward` and a
-  no-correction `loss` work through the engine's session command route with matching ledger events,
-  no model turn and no provider request; the result is a synthetic inbox item, materialized as a
-  message only at the session's next turn. `execute.before/after` (reserve/settle), `context` and
-  `compaction` were **not** run in the engine (they need a model turn); they are verified only against
-  the published `@opencode/plugin@2.0.26` and a real daemon.
+- **OpenCode V2** and **V1** were run in real engines (`opencode v2.0.26` from `@opencode/cli@2.0.26`;
+  `opencode` 1.18.31) on temp HOME/ledgers with a local mock OpenAI-compatible provider
+  (`docs/RUNTIME_OPENCODE.md`). V2: plugin load, `/bicz` with no model turn and no provider request,
+  reserve/settle of a real tool call, insufficient-credit deny as a tool error, context projection and
+  receipt, compaction cue. V1: reserve/settle, failed-tool settlement, deny, receipt/cue delivery,
+  `/bicz` write before the relaying model turn. The mock provider means no model behavior was
+  measured; desktop/web/ACP/TUI routes, `--pure`, and V1 compaction were not exercised.
 - Codex hooks were run live in `codex-cli 0.162.1` (`codex exec`, mock model server, temp home): field
   names verified, nothing left unverified except the interactive TUI, `apply_patch`/MCP tool names and
   compaction (`docs/RUNTIME_HOOKS.md` section 3).
-- Claude Code 2.1.286 was driven live in headless mode (`docs/RUNTIME_HOOKS.md`); OMP's `/bicz` command was run in a real `omp --mode rpc` 18.2.11 but its tool-call hooks have no real session, and OpenCode V1 has no real engine run.
+- Claude Code 2.1.286 was driven live in headless mode (`docs/RUNTIME_HOOKS.md`); OMP's `/bicz` command was run in a real `omp --mode rpc` 18.2.11 but its tool-call hooks have no real session.
 - Windows binaries cross-compile and `go vet` cleanly; the Windows test suite has not been observed
   passing (CI job is advisory until it is).
 - No code signing, notarization or SBOM.

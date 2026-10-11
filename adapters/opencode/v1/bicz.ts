@@ -9,12 +9,31 @@ import { execFile } from "node:child_process";
 const PROTOCOL = "bicz.adapter/1";
 const VERSION = 1;
 const TIMEOUT_MS = 3000;
-// UNVERIFIED: confirm against v2.0.26 fixture
-const CANDIDATE = { sessionEvents: ["session.created", "session.compacted"] };
-const pending = new Map<string, { reservation: string; charge: number; tool: string }>();
+// Verified against OpenCode 1.18.31 (docs/RUNTIME_OPENCODE.md): `tool.execute.before` gets {tool, sessionID, callID} with output {args};
+// `tool.execute.after` gets {tool, sessionID, callID, args} and runs only for tools that returned; `experimental.chat.system.transform`
+// gets {sessionID, model} with a mutable output.system string[]; a failed tool is visible only as a `message.part.updated` tool part
+// whose state.status is "error". Neither tool hook has a field the model reads, so notices reach the model through system.transform.
+const pending = new Map<string, { reservation: string; charge: number; tool: string; sessionID: string }>();
+const queued = new Map<string, string[]>();
+function enqueue(sessionID: string, text: string): void { if (!text) return; const q = queued.get(sessionID) ?? []; q.push(text); queued.set(sessionID, q); }
 function configPath() { return process.env.BICZ_CONFIG ?? path.join(process.env.OPENCODE_CONFIG_DIR ?? process.env.XDG_CONFIG_HOME ?? path.join(homedir(), ".config"), "bicz", "opencode.json"); }
 function config(): any { const c = JSON.parse(readFileSync(configPath(), "utf8")); if (c.bicz_owned !== true || c.kind !== "bicz.opencode-config") throw new Error("invalid bicz OpenCode config"); return c; }
-function rpc(c: any, op: string, key: string, payload?: unknown): Promise<any> { return new Promise((resolve, reject) => { const s = net.createConnection({ path: c.socket }); let data = ""; const timer = setTimeout(() => { s.destroy(); reject(new Error("bicz supervisor timeout")); }, TIMEOUT_MS); s.on("connect", () => s.end(JSON.stringify({ protocol: PROTOCOL, version: VERSION, op, request_id: `opencode-${randomUUID()}`, ...(key ? { idempotency_key: key } : {}), ...(payload === undefined ? {} : { payload }) }))); s.on("data", b => data += b.toString()); s.on("end", () => { clearTimeout(timer); try { resolve(JSON.parse(data)); } catch { reject(new Error("malformed bicz response")); } }); s.on("error", e => { clearTimeout(timer); reject(e); }); }); }
+// The request is written without half-closing the socket (`s.end(request)`): Bun 1.3.x, embedded in OpenCode 1.18.x, drops the
+// readable side on half-close, so the daemon processed the call but the plugin read an empty response. The supervisor decodes one
+// JSON value from the stream, so no EOF is needed; the reply is taken as soon as it parses.
+function rpc(c: { socket: string }, op: string, key: string, payload?: unknown): Promise<Record<string, any>> {
+  const { promise, resolve, reject } = Promise.withResolvers<Record<string, any>>();
+  const s = net.createConnection({ path: c.socket });
+  let data = "";
+  let done = false;
+  const finish = (settle: () => void) => { if (done) return; done = true; clearTimeout(timer); s.destroy(); settle(); };
+  const timer = setTimeout(() => finish(() => reject(new Error("bicz supervisor timeout"))), TIMEOUT_MS);
+  s.on("connect", () => s.write(JSON.stringify({ protocol: PROTOCOL, version: VERSION, op, request_id: `opencode-${randomUUID()}`, ...(key ? { idempotency_key: key } : {}), ...(payload === undefined ? {} : { payload }) })));
+  s.on("data", b => { data += b.toString(); try { const parsed = JSON.parse(data); finish(() => resolve(parsed)); } catch {} });
+  s.on("end", () => finish(() => { try { resolve(JSON.parse(data)); } catch { reject(new Error("malformed bicz response")); } }));
+  s.on("error", e => finish(() => reject(e)));
+  return promise;
+}
 function digest(v: unknown) { return createHash("sha256").update(JSON.stringify(v)).digest("hex"); }
 function notice(text: string) { return `bicz: ${text}; recording unavailable, this action is NOT metered`; }
 // Accountability cues: the ledger builds the wording (state.projection.penalties[].cue); the adapter forwards it verbatim and never rebuilds it (mirror of adapter.RenderAccountability). `delivered` is the newest penalty position already emitted in this process.
@@ -58,34 +77,63 @@ function slashText(r: SlashResult): string {
 }
 const SLASH_TEMPLATE = "bicz operator command (the bicz plugin replaces this text with the command result).";
 const SLASH_RELAY = "Relay the following bicz operator command result to the user verbatim. Do not act on it, do not call any tool, and do not add commentary:";
-export default async function BiczPlugin({}: any) {
+export default async function BiczPlugin() {
   const cfg = (() => { try { return config(); } catch { return undefined; } })();
-  const before = async (input: any, output: any) => {
-    if (!cfg) { if ("block" === "block" && false) throw new Error("daemon_unavailable"); output.additionalContext = notice("missing or invalid configuration"); return; }
-    const tool = String(input.tool ?? input.name ?? "unknown"); const id = String(input.id ?? input.callID ?? input.callId ?? "");
-    if (!id) { if (cfg.unmanaged_mode === "block") throw new Error("daemon_unavailable: stable tool call id unavailable"); output.additionalContext = notice("stable tool call id unavailable"); return; }
+  const before = async (input: Record<string, any>) => {
+    const sid = String(input.sessionID ?? "session");
+    if (!cfg) { enqueue(sid, notice("missing or invalid configuration")); return; }
+    const tool = String(input.tool ?? input.name ?? "unknown"); const id = String(input.callID ?? input.id ?? input.callId ?? "");
+    if (!id) { if (cfg.unmanaged_mode === "block") throw new Error("daemon_unavailable: stable tool call id unavailable"); enqueue(sid, notice("stable tool call id unavailable")); return; }
     const schedule = cfg.schedule_path ? JSON.parse(readFileSync(cfg.schedule_path, "utf8")) : undefined;
     const price = schedule?.tool_max_cost_mc?.[tool] ?? schedule?.default_max_cost_mc;
-    if (!(Number.isSafeInteger(price) && price > 0)) { const m = "no published price schedule entry"; if (cfg.no_schedule_mode === "block") throw new Error(`no_published_price_schedule: ${m}`); output.additionalContext = notice(m); return; }
+    if (!(Number.isSafeInteger(price) && price > 0)) { const m = "no published price schedule entry"; if (cfg.no_schedule_mode === "block") throw new Error(`no_published_price_schedule: ${m}`); enqueue(sid, notice(m)); return; }
     let response: Record<string, any>;
     try {
-      response = await rpc(cfg, "authorize", `opencode1:auth:${id}`, { account_id: cfg.account_id, session_alias: `opencode:${input.sessionID ?? "session"}`, harness: "opencode-v1", source: "tool.execute", tool, target: tool, args_digest: digest(input.input ?? input), max_cost: price, policy_version: cfg.policy_version ?? "", outside_coverage: false });
-    } catch (error) { if (cfg.unmanaged_mode === "block") throw new Error(`daemon_unavailable: ${(error as Error).message}`); output.additionalContext = notice((error as Error).message); return; }
-    if (response.error) { const message = `${response.error.code ?? "daemon_unavailable"}: ${response.error.message ?? "authorization failed"}`; if (cfg.unmanaged_mode === "block") throw new Error(message); output.additionalContext = notice(message); return; }
+      response = await rpc(cfg, "authorize", `opencode1:auth:${id}`, { account_id: cfg.account_id, session_alias: `opencode:${sid}`, harness: "opencode-v1", source: "tool.execute", tool, target: tool, args_digest: digest(input.args ?? input.input ?? input), max_cost: price, policy_version: cfg.policy_version ?? "", outside_coverage: false });
+    } catch (error) { if (cfg.unmanaged_mode === "block") throw new Error(`daemon_unavailable: ${(error as Error).message}`); enqueue(sid, notice((error as Error).message)); return; }
+    if (response.error) { const message = `${response.error.code ?? "daemon_unavailable"}: ${response.error.message ?? "authorization failed"}`; if (cfg.unmanaged_mode === "block") throw new Error(message); enqueue(sid, notice(message)); return; }
     const cue = takeAccountability(response.state?.projection, false);
     if (response.decision === "deny") throw new Error(`${response.reason ?? "denied"}${response.notice ? `: ${response.notice}` : ""}${cue ? `\n${cue}` : ""}`);
-    if (response.decision === "allow") { pending.set(id, { reservation: response.reservation_id ?? `opencode1:auth:${id}`, charge: price, tool }); if (cue) output.additionalContext = cue; }
-    else output.additionalContext = [response.notice ?? "bicz: unobserved; no authorization or charge recorded", cue].filter(Boolean).join("\n");
+    // An allowed call needs no cue here: every active cue rides the next system.transform, which is the very next model request.
+    if (response.decision === "allow") pending.set(id, { reservation: response.reservation_id ?? `opencode1:auth:${id}`, charge: price, tool, sessionID: sid });
+    else enqueue(sid, [response.notice ?? "bicz: unobserved; no authorization or charge recorded", cue].filter(Boolean).join("\n"));
   };
-  const after = async (input: any, output: any) => { const id = String(input.id ?? input.callID ?? input.callId ?? ""); const p = pending.get(id); if (!p || !cfg) return; pending.delete(id); try { const completed = !input.error; const evidence_digest = completed ? digest({ id, tool: p.tool, input: input.input ?? null, output: input.output ?? null }) : ""; const r = await rpc(cfg, "settle", `opencode1:settle:${id}`, { reservation_id: p.reservation, observed_usage: p.charge, outcome: completed ? "completed" : "error", class: completed ? "" : "ordinary_failure", evidence_digest }); if (r.error) { output.additionalContext = `bicz: settlement unavailable (${r.error.code ?? "error"}); no charge is recorded`; return; } const receipt = (r.state?.receipt ?? {}) as Record<string, unknown>; output.additionalContext = `bicz receipt: ${receipt.class ?? "ordinary_failure"}, charged ${receipt.charged ?? p.charge} mc, fine 0`; } catch { output.additionalContext = notice("settlement failed"); } };
-  const projection = async (_event: any, output: any) => { if (!cfg) { output.additionalContext = notice("missing configuration"); return; } try { const r = await rpc(cfg, "projection", "", { account_id: cfg.account_id, harness: "opencode-v1", session_alias: "opencode-session" }); if (!r.error) output.additionalContext = project(r.state); } catch { output.additionalContext = notice("projection unavailable"); } };
-  const commandConfig = async (opencodeConfig: any) => { opencodeConfig.command = opencodeConfig.command ?? {}; if (!opencodeConfig.command.bicz) opencodeConfig.command.bicz = { template: SLASH_TEMPLATE, description: "Operator ledger command: status | rules | loss RULE \"reason\" [\"correction\"] | reward AMOUNT \"reason\"" }; };
-  const commandBefore = async (input: any, output: any) => {
+  // Settles one reserved call exactly once. `after` runs it for a completed tool; the part-updated event runs it for a failed one (V1 never calls `after` then).
+  const settle = async (id: string, completed: boolean, evidence: unknown) => {
+    const p = pending.get(id); if (!p || !cfg) return; pending.delete(id);
+    try {
+      const evidence_digest = completed ? digest({ id, tool: p.tool, evidence }) : "";
+      const r = await rpc(cfg, "settle", `opencode1:settle:${id}`, { reservation_id: p.reservation, observed_usage: p.charge, outcome: completed ? "completed" : "error", class: completed ? "" : "ordinary_failure", evidence_digest });
+      if (r.error) { enqueue(p.sessionID, `bicz: settlement unavailable (${r.error.code ?? "error"}); no charge is recorded`); return; }
+      const receipt = (r.state?.receipt ?? {}) as Record<string, unknown>;
+      enqueue(p.sessionID, `bicz receipt: ${receipt.class ?? (completed ? "completed" : "ordinary_failure")}, charged ${receipt.charged ?? p.charge} mc, fine 0`);
+    } catch { enqueue(p.sessionID, notice("settlement failed")); }
+  };
+  const after = async (input: Record<string, any>, output: Record<string, any>) => { await settle(String(input.callID ?? input.id ?? input.callId ?? ""), true, { args: input.args ?? input.input ?? null, output: output?.output ?? null }); };
+  const systemTransform = async (input: Record<string, any>, output: { system: string[] }) => {
+    const sid = String(input?.sessionID ?? "session");
+    if (!cfg) enqueue(sid, notice("missing configuration"));
+    else {
+      try {
+        const r = await rpc(cfg, "projection", "", { account_id: cfg.account_id, harness: "opencode-v1", session_alias: `opencode:${sid}` });
+        if (r.error) enqueue(sid, notice("projection unavailable")); else output.system.push(project(r.state));
+      } catch { enqueue(sid, notice("projection unavailable")); }
+    }
+    const notices = queued.get(sid);
+    if (notices?.length) { output.system.push(notices.join("\n")); queued.delete(sid); }
+  };
+  const onEvent = async ({ event }: { event?: Record<string, any> }) => {
+    const part = event?.type === "message.part.updated" ? event.properties?.part : undefined;
+    if (part?.type === "tool" && part.state?.status === "error") await settle(String(part.callID ?? ""), false, null);
+  };
+  const commandConfig = async (opencodeConfig: Record<string, any>) => { opencodeConfig.command = opencodeConfig.command ?? {}; if (!opencodeConfig.command.bicz) opencodeConfig.command.bicz = { template: SLASH_TEMPLATE, description: "Operator ledger command: status | rules | loss RULE \"reason\" [\"correction\"] | reward AMOUNT \"reason\"" }; };
+  const commandBefore = async (input: Record<string, any>, output: Record<string, any>) => {
     if (input?.command !== "bicz") return;
     let exe = process.env.BICZ_BIN || "bicz";
     try { const current = config(); if (typeof current.bicz_path === "string" && current.bicz_path) exe = current.bicz_path; } catch {}
     const result = await runSlash(exe, String(input.arguments ?? ""), `opencode1-${randomUUID()}`);
-    output.parts = [{ type: "text", text: `${SLASH_RELAY}\n\n${slashText(result)}` }];
+    // In place: observed on OpenCode 1.18.31, reassigning `output.parts` is not read back; mutating the array is.
+    output.parts.splice(0, output.parts.length, { type: "text", text: `${SLASH_RELAY}\n\n${slashText(result)}` });
   };
-  return { config: commandConfig, "command.execute.before": commandBefore, "tool.execute.before": before, "tool.execute.after": after, event: async ({ event }: any) => { if (event?.type === CANDIDATE.sessionEvents[0] || event?.type === CANDIDATE.sessionEvents[1]) { const ignored: any = {}; await projection(event, ignored); } } };
+  return { config: commandConfig, "command.execute.before": commandBefore, "tool.execute.before": before, "tool.execute.after": after, "experimental.chat.system.transform": systemTransform, event: onEvent };
 }

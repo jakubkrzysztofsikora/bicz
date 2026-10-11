@@ -77,22 +77,31 @@ const ok = (name) => { passed++; console.log(`  ok   ${name}`); };
   process.env.BICZ_CONFIG = config;
   const mod = await import(pathToFileURL(join(root, "adapters/opencode/v1/bicz.ts")).href);
   const plugin = await mod.default({});
-  const before = plugin["tool.execute.before"], after = plugin["tool.execute.after"];
+  const before = plugin["tool.execute.before"], after = plugin["tool.execute.after"], transform = plugin["experimental.chat.system.transform"], onEvent = plugin.event;
   const startBalance = balance().balance;
+  const systemText = async (sessionID) => { const o = { system: [] }; await transform({ sessionID }, o); return o.system.join("\n"); };
 
-  const out = {};
-  await before({ tool: "Read", id: "oc1-1", input: { path: "a" } }, out);
-  assert.equal(out.additionalContext, undefined);
+  // Real OpenCode 1.18.31 shapes (docs/RUNTIME_OPENCODE.md): before {tool, sessionID, callID} + {args}; after {tool, sessionID, callID, args} + {title, output, metadata}.
+  await before({ tool: "Read", sessionID: "oc1-s", callID: "oc1-1" }, { args: { path: "a" } });
   assert.equal(balance().held, 5000);
   ok("OpenCode V1 tool.execute.before reserves the published Read price (5000 mc)");
 
-  const res = {};
-  await after({ id: "oc1-1", input: { path: "a" }, output: "ok" }, res);
+  await after({ tool: "Read", sessionID: "oc1-s", callID: "oc1-1", args: { path: "a" } }, { title: "", output: "ok", metadata: {} });
   assert.equal(balance().balance, startBalance - 5000);
   assert.equal(balance().held, 0);
-  ok("OpenCode V1 tool.execute.after settles it");
+  assert.match(await systemText("oc1-s"), /bicz receipt: completed, charged 5000 mc, fine 0/);
+  assert.doesNotMatch(await systemText("oc1-s"), /bicz receipt/, "a receipt is delivered once");
+  ok("OpenCode V1 tool.execute.after settles it; the receipt reaches the model through system.transform once");
 
-  await assert.rejects(before({ tool: "Task", id: "oc1-2", input: {} }, {}), /insufficient_credit/);
+  await before({ tool: "Read", sessionID: "oc1-s", callID: "oc1-f" }, { args: {} });
+  assert.equal(balance().held, 5000);
+  await onEvent({ event: { type: "message.part.updated", properties: { part: { type: "tool", callID: "oc1-f", sessionID: "oc1-s", state: { status: "error" } } } } });
+  assert.equal(balance().held, 0);
+  assert.equal(balance().balance, startBalance - 10000);
+  assert.match(await systemText("oc1-s"), /bicz receipt: ordinary_failure, charged 5000 mc, fine 0/);
+  ok("OpenCode V1 settles a failed tool (V1 never calls tool.execute.after for it) as an ordinary failure");
+
+  await assert.rejects(before({ tool: "Task", sessionID: "oc1-s", callID: "oc1-2" }, { args: {} }), /insufficient_credit/);
   ok("OpenCode V1 tool.execute.before denies (throws) on insufficient credit");
 }
 
@@ -140,22 +149,15 @@ const loss = (event, ...extra) => execFileSync(bicz, ["loss", "--db", ledger, "-
   process.env.BICZ_CONFIG = join(tmp, "opencode-smoke.json");
   const mod = await import(pathToFileURL(join(root, "adapters/opencode/v1/bicz.ts")).href);
   const plugin = await mod.default({});
-  const before = plugin["tool.execute.before"], after = plugin["tool.execute.after"];
-  const out = {};
-  await before({ tool: "Read", id: "oc1-p1", input: { path: "a" } }, out);
-  assert.match(out.additionalContext, /ts-loss-1/);
-  assert.match(out.additionalContext, /ts-loss-2/);
-  await after({ id: "oc1-p1", input: { path: "a" }, output: "ok" }, {});
-  const quiet = {};
-  await before({ tool: "Read", id: "oc1-p2", input: { path: "a" } }, quiet);
-  assert.equal(quiet.additionalContext, undefined, "delivered once");
-  await after({ id: "oc1-p2", input: { path: "a" }, output: "ok" }, {});
+  const transform = plugin["experimental.chat.system.transform"];
+  const systemText = async (sessionID) => { const o = { system: [] }; await transform({ sessionID }, o); return o.system.join("\n"); };
+  const first = await systemText("oc1-p");
+  assert.match(first, /ts-loss-1/);
+  assert.match(first, /ts-loss-2/);
   loss("ts-loss-3");
-  const third = {};
-  await before({ tool: "Read", id: "oc1-p3", input: { path: "a" } }, third);
-  assert.match(third.additionalContext, /ts-loss-3/);
-  assert.doesNotMatch(third.additionalContext, /ts-loss-1/);
-  await after({ id: "oc1-p3", input: { path: "a" }, output: "ok" }, {});
-  ok("OpenCode V1 tool.execute.before delivers each new penalty cue once");
+  const next = await systemText("oc1-p");
+  assert.match(next, /ts-loss-3/);
+  assert.match(next, /ts-loss-1/, "every active cue rides each request, so a restarted or compacted session gets it back");
+  ok("OpenCode V1 system.transform presents every active penalty cue on each model request");
 }
 console.log(`  ${passed} TS mock-harness checks passed`);

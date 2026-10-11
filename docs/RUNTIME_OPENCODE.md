@@ -1,4 +1,4 @@
-# OpenCode V2 runtime validation
+# OpenCode runtime validation (V2 and V1)
 
 ## Environment and artifact availability
 
@@ -91,10 +91,63 @@ Engine behavior to know: with `resume:false` the synthetic is admitted to the se
 
 A second engine fact: the first `GET /api/command` right after location boot returned an empty list (plugins finish loading asynchronously); the command was present a moment later.
 
-Constant table checked against the engine source at tag `v2.0.26` (`9b4ec57`): `ctx.command.transform` + `editor.add({name,description,execute})`, `invocation.prompt.text`, and `ctx.session.synthetic({sessionID,text,description,metadata,resume})` were exercised live. `execute.before`/`execute.after` event fields (`tool, sessionID, agent, messageID, id, input`, and `status` + `result`/`error`) match `packages/core/src/tool.ts`; the `context`/`compaction` hooks take a mutable `system` array exactly as the engine's own `opencode.prompt.identity` plugin uses them. These were read in source, not run.
+Constant table checked against the engine source at tag `v2.0.26` (`9b4ec57`) and then run: `ctx.command.transform` + `editor.add({name,description,execute})`, `invocation.prompt.text`, `ctx.session.synthetic({sessionID,text,description,metadata,resume})`, and, in the next section, `execute.before`/`execute.after` (`tool, sessionID, agent, messageID, id, input`; `status` + `result`/`error`) and the `context`/`compaction` hooks with their mutable `system` array. No name had to change.
+
+## V2 tool hooks, deny, context and compaction (mock provider, same engine)
+
+V2 has no model-free way to run these: `session.shell` calls the shell service directly, not the tool dispatcher, and the other hooks run only while building a model request. So a local mock OpenAI-compatible provider was used (`/tmp/oc2/mock-openai.mjs`, Node built-ins only, `127.0.0.1:4197`): for a request with tools and no tool result it streams one scripted `read` tool call on a temp file, for a request ending in a tool result it streams a final text, and it logs every request. It was configured in the temp config as `providers.mock` (`package: "@ai-sdk/openai-compatible"`, `settings.baseURL`, `settings.apiKey: "fake-key-not-real"`, model `mock-1`); the engine ran it with its bundled provider code and sent `Authorization: Bearer fake-key-not-real`. No real credential, login or paid backend was used. A price schedule was published on the temp ledger (`bicz price --version 1`, a policy file, and `schedule_path` + `policy_version` in the adapter config; schedule `read` = 5000 mc).
+
+Reserve and settle. `POST /api/session/:id/prompt {"text":"please read hello.txt"}` ran a real turn: model request 1 (tools advertised), a real `read` tool call, model request 2 (tool result). Ledger delta:
+
+```text
+before  events=3 balance=13000000 held=0
+seq 4  spend  amount 0      res:opencode2:auth:<session>:call_mock_1     payload phase=reserve state=held amount=5000 held_after=5000 tool=read harness=opencode-v2
+seq 5  spend  amount -5000  settle:opencode2:auth:<session>:call_mock_1  payload phase=settle class=completed charged=5000 released=5000 fine=0
+after   events=5 balance=12995000 held=0
+```
+
+Context hook. The `system` of model request 1 ended with `bicz context: identity oc2test, role active, ledger seq 3 | balance 13000000 mc | held 0 mc | spendable 13000000 mc | policy version 1 ...`; request 2 carried `ledger seq 5 | balance 12995000 mc` and, queued by the settle, `bicz receipt: completed, charged 5000 mc, fine 0`.
+
+Insufficient credit. With the schedule set to `read` = 50000000 mc and spendable 12995000, the same prompt produced no ledger event and no reserve; the engine's tool part ended `status: "error"` with `insufficient_credit: insufficient_credit: "oc2test" cannot reserve 50000000 microcredits (spendable=12995000)`, the file was not read (no content), and the mock's next request carried that text as the tool result. A thrown denial from `execute.before` reaches the engine as a tool error and the tool does not run.
+
+Compaction and penalty cue. A confirmed penalty was written with the real CLI (`bicz loss ... --event oc2-loss-1`, -1000 mc, role escalation). `POST /api/session/:id/compact` made the engine issue a summarisation request to the mock (last message `You MUST summarize the conversation above ...`); its `system` carried `bicz accountability record: ... violated abi_rule ... (loss event oc2-loss-1)` through the `compaction` hook. The same projection renderer feeds the `context` hook, which carried the (penalty-free) projection on the ordinary requests above; an ordinary request with a penalty present was not run on V2.
+
+`/bicz` with a reachable provider. With the mock listening, `/bicz status` and `reward 2 "y"` through the command route left the mock's request count unchanged (2 before, 2 after) and added exactly one ledger event (the reward). The full V2 ledger afterwards: `grant`, `reward`, `price`, `spend` reserve, `spend` settle, `loss`, `role`, `reward` (8 events).
+
+## Real V1 engine run (OpenCode 1.18.31)
+
+Binary: `opencode` on `PATH` (`~/.opencode/bin/opencode`), `opencode --version` = `1.18.31`; it embeds Bun 1.3.14 (`BUN_BE_BUN=1 opencode --version` prints `1.3.14`; V2's binary embeds Bun 1.4.2). It was run only with a temp `HOME`, `XDG_*_HOME`, `OPENCODE_CONFIG_DIR=/tmp/oc1/home/oc-config`, a temp ledger and socket, and the same mock provider (port 4196) configured as V1 `provider.mock` (`npm: "@ai-sdk/openai-compatible"`, fake key). `bicz install --harness opencode --generation 1` deployed the plugin; `opencode run ...` drove it. V1 installed `@opencode-ai/plugin@1.18.31` into the temp config dir.
+
+Three defects of the previous V1 plugin only showed up here (the TS mock harness could not see them), and are fixed in `adapters/opencode/v1/bicz.ts`:
+
+1. Every call to the daemon failed. The plugin wrote the request with `socket.end(request)`; under Bun 1.3.14 that drops the readable side, so the plugin read an empty response (`rpc:authorize len=0`, "malformed bicz response") although the daemon had processed the request. The reserve was recorded, the plugin treated it as daemon-unavailable, allowed the call unmetered and never settled: holds accumulated (`held` 5000 per call). A probe run with the engine's own Bun showed `end(req)` -> 0 bytes and `write(req)` (no half-close) -> the full reply under Bun 1.3.14; both work under Bun 1.4.2 and Node. The supervisor decodes one JSON value per connection, so the plugin now writes without half-closing and takes the reply as soon as it parses.
+2. No notice, receipt, projection or penalty cue ever reached the model. The plugin set `output.additionalContext`, a field V1's tool hooks do not read (and discarded the projection on session events). Real shapes: `tool.execute.before` gets `{tool, sessionID, callID}` with output `{args}`; `tool.execute.after` gets `{tool, sessionID, callID, args}` with output `{title, output, metadata, attachments}`. `experimental.chat.system.transform` gets `{sessionID, model}` with a mutable `output.system: string[]` and does reach the model (a marker pushed there appeared in every mock request). The plugin now queues notices and receipts per session and emits the projection (all active cues) plus the queue from `experimental.chat.system.transform`.
+3. Failed tools were never settled: V1 does not call `tool.execute.after` when a tool fails (a permission-rejected `read` left the reserve held). A failed tool is visible as a `message.part.updated` event whose tool part has `state.status === "error"`; the plugin now settles it as an ordinary failure (charge 5000 mc, no fine). Separately, the `/bicz` hook's `output.parts = [...]` assignment was not read back by V1 (the model saw the inert template and nothing was written); mutating the array in place works.
+
+Fixed-plugin runs (ledger deltas on the V1 temp ledger). `held` also carries 25000 mc of reservations left by the pre-fix runs above, kept as evidence; the later `bicz loss` revoked them (`held_revoked=5`):
+
+```text
+reserve+settle  read ok:        seq 12 reserve res:opencode1:auth:<callID> (amount 0)   seq 13 settle -5000 "settle completed"   balance 9990000 -> 9985000
+                model request 21 (tool result) system: "bicz context: ... balance 9985000 mc ..." + "bicz receipt: completed, charged 5000 mc, fine 0"
+failed tool     read rejected: seq 14 reserve   seq 15 settle -5000 "settle ordinary_failure"   (V1: "The user rejected permission to use this specific tool call.")
+deny            read priced 50000000: no ledger event; tool state error "insufficient_credit: ... cannot reserve 50000000 microcredits (spendable=9955000)"; mock request carried it as the tool result
+```
+
+`/bicz` through V1's command route (`opencode run --command bicz ARGS`; V1's `command.execute.before` gets `{command, sessionID, arguments}` with output `{parts}`):
+
+```text
+ledger 15 events
+run --command bicz status        -> 15 events; the mock model's request carried "Relay the following bicz operator command result ... BICZ status identity=oc1test ... events=15"
+run --command bicz reward 3 x    -> 16 events; event slash-reward-opencode-7b6162fe2a0381a73e77 at 02:47:10.258193Z; the model request carrying "BICZ reward recorded ..." arrived at 02:47:10.311Z
+run --command bicz loss RULE r   -> 16 events (nothing written); the model received "BICZ loss needs input ... Nothing was recorded."
+```
+
+So the ledger write happens before the model turn (53 ms earlier for the reward), and, as documented, V1 still sends the replaced text to the model, which relays it: no model-free route on V1. A single quoted argv (`run --command bicz 'reward 3 "x"'`) reached the hook with the whole string wrapped in an extra pair of quotes, and the command parser rejected it as an unknown action (nothing written); separate argv work. Typed `/bicz ...` in the V1 TUI was not exercised.
+
+Penalty cue on V1: after `bicz loss ... --event oc1-loss-1` (confirmed breach), the next `opencode run "hello after a penalty"` sent the mock a `system` ending `bicz context: identity oc1test, role warned, ... | bicz accountability record: operator-confirmed penalties ...` on both requests of the turn.
 
 ## Remaining runtime gap
 
-Not exercised in the real engine: `execute.before`/`execute.after` (reserve/settle, denial propagation), `context`, and `compaction`. V2 exposes no model-free way to run them: its `session.shell` route calls the shell service directly, not the tool dispatcher, and the other hooks run only while building a model request. Exercising them needs a model turn (a provider), which this verification deliberately did not configure. Their callback arity, denial semantics and session mutation are covered by the ABI fixture above (published `@opencode/plugin@2.0.26` with `Host.load`, real daemon), not by the engine. Client-route coverage (desktop, web, ACP) and `--pure`-style plugin-disabled runs remain unobserved. No model session, provider credential, login or paid backend was used.
+Not exercised in a real engine: V1 `experimental.session.compacting` (compaction was not triggered on V1; only `system.transform` carries the projection there), the V1 TUI/ACP/desktop/web routes, the V2 desktop/web/ACP routes, `--pure`-style plugin-disabled runs, subagent internals and provider-hosted tools. The model on both engines was the mock provider, so nothing here measures any model's behavior. V1 settlement of a failed tool via `message.part.updated` ran for one failure mode (a permission-rejected `read`); tool exceptions, timeouts and aborts were not run. No real credential, login or paid backend was used.
 
-The same ABI fixture also writes a confirmed penalty with the real `bicz loss` CLI (default disposition) and asserts that the `context` and `compaction` hooks carry the accountability cue (docs/CONTRACTS.md §6.4). V2 has no per-tool poll: a mid-turn penalty arrives with the next `context` hook call. V1 polls on `tool.execute.before`.
+The ABI fixture (published `@opencode/plugin@2.0.26`, `Host.load`) also writes a confirmed penalty with the real `bicz loss` CLI and asserts that the V2 `context` and `compaction` hooks carry the accountability cue (docs/CONTRACTS.md §6.4); in the real engine the `compaction` path was run (above). V2 has no per-tool poll: a mid-turn penalty arrives with the next `context` hook call. V1 carries every active cue on each `system.transform`.

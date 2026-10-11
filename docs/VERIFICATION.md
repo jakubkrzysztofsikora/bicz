@@ -84,20 +84,25 @@ timeout (`docs/RUNTIME_HOOKS.md` section 3).
 Claude `PreCompact` and mutating tools; OMP tool-call hooks in a real OMP agent session (only the `/bicz` command was run in real `omp --mode rpc`) and any real OpenCode process; latency under real
 harness load.
 
-**OpenCode V2 ([`docs/RUNTIME_OPENCODE.md`](RUNTIME_OPENCODE.md)):** `adapters/opencode/v2/bicz.ts`
+**OpenCode ([`docs/RUNTIME_OPENCODE.md`](RUNTIME_OPENCODE.md)):** `adapters/opencode/v2/bicz.ts`
 typechecks against the real `@opencode/plugin@2.0.26` declarations, and
 `adapters/opencode/v2/abi-smoke.mjs` loads it with the package's real `Host.load` and `Plugin.define`
 against a real temp `bicz serve`: allow/receipt, insufficient-credit throw, duplicate settle once,
 same call id independent per session, `system` projection/receipt, compaction mutation, settlement
-retry after daemon recovery, daemon-down notice/block. The embedded copy is byte-identical to the
-source. **Engine run (`opencode v2.0.26` from `@opencode/cli@2.0.26`, temp HOME/ledger):** the engine loads
-the plugin, lists `bicz`, and `/bicz status`, `reward 3 "x"` and a no-correction `loss` ran through the
-engine's `POST /api/session/:id/command` route with matching ledger events (1 -> 2 events, only the
-reward wrote), a synthetic inbox item, no message, zero tokens and no provider request (capture proxy saw
-only the `models.opencode.ai` catalog fetch). **Not run in the engine:** `execute.before/after`,
-`context`, `compaction`; they need a model turn, so denial propagation and live context mutation are
-shown only by the callback-registry fixture. The `scripts/smoke.sh` 23-check pass predates this V2 change
-(V1 + OMP scope); it was not re-run or recertified.
+retry after daemon recovery, daemon-down notice/block. The embedded copies of both plugins are
+byte-identical to the sources. **Real engines (temp HOME, config dir, ledger, socket; a local mock
+OpenAI-compatible provider with a fake key; no real credential):** `opencode v2.0.26`
+(`@opencode/cli@2.0.26`): plugin load; `/bicz status`, `reward 3 "x"`, no-correction `loss` through
+`POST /api/session/:id/command` (events 1 -> 2, only the reward wrote; synthetic inbox item; no
+model request); a prompt whose scripted `read` call reserved 5000 mc (held_after 5000) and settled
+(-5000, balance 13000000 -> 12995000), the projection and `bicz receipt` in the next model request's
+system, an insufficient-credit deny as an engine tool error with no ledger event, and the penalty cue
+through the `compaction` hook. `opencode` 1.18.31 (embedded Bun 1.3.14): the same reserve/settle,
+failed-tool settlement, deny, receipt/cue delivery and `/bicz` (reward event 53 ms before the model
+request that relays it). That run exposed and fixed four V1 plugin defects the TS mock harness could
+not see. **Not run:** desktop/web/ACP/TUI routes, `--pure`, V1 compaction, V2 `context` with a penalty
+present, and any real model. `scripts/smoke.sh` was re-run after the V1 changes: 30 passed, 0 failed
+(the TS mock-harness V1 checks were rewritten to the observed hook shapes).
 
 ## 4. Installers and release build
 
