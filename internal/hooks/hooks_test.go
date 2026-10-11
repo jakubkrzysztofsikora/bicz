@@ -228,6 +228,32 @@ func TestPostToolUseSettlesWithReceiptAndDuplicateSettlesOnce(t *testing.T) {
 	}
 }
 
+// Payloads captured verbatim from a real codex-cli 0.162.1 `codex exec` run
+// (docs/RUNTIME_HOOKS.md section 3): note tool_name "Bash" for Codex's
+// exec_command, tool_response as a bare string, transcript_path null, and
+// PostToolUse also firing for a command that exited non-zero.
+func TestCodexRealPayloadsReserveAndSettle(t *testing.T) {
+	r := newRig(t, CodexSpec, 1_000)
+	const pre = `{"session_id":"01a128cf-2bbc-7fc3-ae15-5d03e7dd81c1","turn_id":"01a128cf-2c21-7be2-822c-49a2c7f778bd","transcript_path":null,"cwd":"/tmp/w","hook_event_name":"PreToolUse","model":"mock-model","permission_mode":"bypassPermissions","tool_name":"Bash","tool_input":{"command":"echo hi"},"tool_use_id":"call_b95fbfe8"}`
+	const post = `{"session_id":"01a128cf-2bbc-7fc3-ae15-5d03e7dd81c1","turn_id":"01a128cf-2c21-7be2-822c-49a2c7f778bd","transcript_path":null,"cwd":"/tmp/w","hook_event_name":"PostToolUse","model":"mock-model","permission_mode":"bypassPermissions","tool_name":"Bash","tool_input":{"command":"echo hi"},"tool_response":"3\": -c: syntax error: unexpected end of file\n","tool_use_id":"call_b95fbfe8"}`
+	var out bytes.Buffer
+	if err := Run(Options{Spec: CodexSpec, Event: "PreToolUse", Stdin: strings.NewReader(pre), Stdout: &out, Config: r.cfg}); err != nil || out.Len() != 0 {
+		t.Fatalf("PreToolUse: %q %v", out.String(), err)
+	}
+	if _, held := r.account(); held != 400 {
+		t.Fatalf("held = %d, want the 400 mc Bash reservation", held)
+	}
+	if err := Run(Options{Spec: CodexSpec, Event: "PostToolUse", Stdin: strings.NewReader(post), Stdout: &out, Config: r.cfg}); err != nil {
+		t.Fatalf("PostToolUse: %v", err)
+	}
+	if !strings.Contains(specific(t, out.String())["additionalContext"].(string), "charged 400 mc") {
+		t.Fatalf("receipt = %q", out.String())
+	}
+	if balance, held := r.account(); balance != 600 || held != 0 {
+		t.Fatalf("after settle balance=%d held=%d, want 600/0", balance, held)
+	}
+}
+
 func TestDuplicatePreToolUseHoldsOnce(t *testing.T) {
 	r := newRig(t, ClaudeSpec, 1_000)
 	for i := 0; i < 3; i++ {

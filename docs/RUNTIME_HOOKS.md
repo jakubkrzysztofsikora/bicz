@@ -6,7 +6,7 @@ Date 2026-10-10, macOS 26 (darwin/arm64). Versions from `--version`:
 | Harness | Version | Result |
 | --- | --- | --- |
 | Claude Code | `2.1.286` | **Live headless sessions ran the bicz hooks** (section 2) |
-| Codex | `codex-cli 0.162.1` | **No live hook run: blocked by the hook-trust gate** (section 3). The real Codex does parse the installer-generated `hooks.json`. |
+| Codex | `codex-cli 0.162.1` | **Live `codex exec` runs ran all four bicz hooks** with the hooks trusted the way Codex itself records trust, no bypass flag (section 3) |
 
 Everything used a disposable ledger, config dir, state dir, socket and working directory under
 `/tmp`, the example schedule `docs/schedule.example.json` and the real built `bicz` binary. No real
@@ -84,70 +84,122 @@ an allow rule), subagents, MCP tools, a hook running under a managed policy, lat
 A hook deny is observed to stop `Read`; stopping a mutating tool (Write/Bash) was not exercised because
 that needs an extra permission grant, which this run was not allowed to add.
 
-## 3. Codex 0.162.1: blocked, and what was verified instead
+## 3. Codex 0.162.1: observed results
 
-**No live Codex hook invocation was observed.** Reachable alternatives, in the order tried:
+Date 2026-10-11. Everything ran in a temp `HOME` (`/tmp/bz-codex/home`, `CODEX_HOME=$HOME/.codex`), a
+temp ledger and socket, `bicz serve` on that ledger, and a local mock model server
+(`http://127.0.0.1:47613/v1`, Responses API, fake key `sk-fake-not-real`, provider passed with `-c`).
+No real `~/.codex`, `auth.json` or credential was read or modified.
 
-1. **Temp `CODEX_HOME`** (keeps real config untouched): `CODEX_HOME=/tmp/... codex login status` prints
-   `Not logged in`. Auth lives in `CODEX_HOME`, and copying a credential store was not allowed.
-2. **Real `CODEX_HOME` plus inline `-c hooks...` or a project `.codex/hooks.json`**: Codex reports
-   the hook with `trustStatus: "untrusted"` (below). Non-managed command hooks must be trusted
-   before they run. Trust is persisted under `[hooks.state]` in the real `~/.codex/config.toml`
-   (not to be modified here) or skipped with `--dangerously-bypass-hook-trust`, a `dangerously-`
-   flag that was ruled out. Computing a `trusted_hash` and passing it inline would amount to
-   approving the hook, which was also not done.
-3. No offline command in `codex` 0.162.1 fires a hook without a model turn.
+### 3.1 How Codex 0.162.1 records hook trust (read from `openai/codex` tag `rust-v0.162.1`)
 
-What **was** observed with the real binary and no model, using `codex app-server --listen stdio://`
-and the `hooks/list` request against a temp `CODEX_HOME`:
+- **Where:** the user config layer, `$CODEX_HOME/config.toml`, table `[hooks.state."<key>"]`, key
+  `trusted_hash = "sha256:<hash>"` (source: `codex-rs/hooks/src/engine/discovery.rs`,
+  `hook_trust_status`, `hook_trusted_hash`; `config_rules.rs` reads only the user and session-flag layers).
+- **Key:** `<absolute hooks.json path>:<event snake_case>:<group index>:<handler index>`, e.g.
+  `/private/tmp/bz-codex/home/.codex/hooks.json:pre_tool_use:0:0`.
+- **Hash:** `currentHash`, a SHA-256 over a normalized TOML identity of the event name, matcher and
+  handler (command, timeout, ...), so it changes when the hook command changes. `hooks/list` reports
+  it per hook. Status is `trusted` when `trusted_hash == currentHash`, `modified` when the file
+  has a different hash, `untrusted` when none is stored. Only `trusted` (or `managed`) hooks run.
+- **How it is written:** the `/hooks` screen sends app-server `config/batchWrite` with
+  `edits: [{keyPath: "hooks.state", value: {<key>: {...}}, mergeStrategy: "upsert"}]`.
+- **Non-interactive options:** (a) send that same request to `codex app-server --listen stdio://`
+  with `trusted_hash` set to `currentHash` (used here, temp home only); (b) write the TOML table by
+  hand; (c) `codex --dangerously-bypass-hook-trust` per invocation (also exercised, below). No
+  `codex hooks` subcommand exists.
 
-- `bicz install --harness codex` (temp `HOME`) wrote `hooks.json` with `SessionStart`, `PreToolUse`
-  and `PostToolUse`, each `bicz hook --harness codex --event <X>`, timeout 5. Codex parsed it:
-  3 hooks, `source: user`, `enabled: true`, `isManaged: false`, `timeoutSec: 5`, **`warnings: []`,
-  `errors: []`**, `trustStatus: untrusted` for all three. So the file format is accepted by the
-  installed version, and the hooks will not run until the user trusts them.
-- An inline `-c 'hooks.PreToolUse=[...]'` hook is also listed (`source: sessionFlags`, untrusted).
-- The installed binary's string table lists the hook events `PreToolUse`, `PermissionRequest`,
-  `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `SessionEnd`, `UserPromptSubmit`,
-  `SubagentStart`, `SubagentStop`, `Stop`, `Interrupt`. There is no `PostToolUseFailure`.
+### 3.2 Setup
 
-Upstream JSON schemas (`openai/codex`, branch `main`, **not pinned to 0.162.1**, so drift is possible;
-read from `codex-rs/hooks/schema/generated/`) agree with `CodexSpec.Fields`: input
-`session_id`, `hook_event_name`, `tool_name`, `tool_input`, `tool_use_id`, `tool_response` (Post),
-plus `cwd`, `model`, `permission_mode`, `transcript_path`, `turn_id`; PreToolUse output
-`hookSpecificOutput.{hookEventName, permissionDecision (allow|deny|ask), permissionDecisionReason,
-additionalContext, updatedInput}`; `SessionStart.source` includes `compact`. The `PreCompact` output
-schema has **no** `additionalContext`/`hookSpecificOutput`, which is why bicz does not install
-`PreCompact` for Codex and relies on `SessionStart` with `source: compact`. This corrected a stale
-claim ("Codex has no PreCompact event") in `internal/hooks/codex.go` and `adapters/codex/README.md`.
-This is a schema reading, **not** a live observation.
-
-Codex fail-open: carried in bicz's coverage table as a known Codex behavior (hook error or timeout
-does not block the tool); **not observed here**, since no Codex hook ran. bicz still treats
-`unmanaged_mode: block` as unable to block there. Claude's fail-open, by contrast, was observed (D1, D2).
-
-### Prerequisite to finish Codex validation (needs a human decision)
-
-A person who accepts the risk can, in a disposable repo and with their normal login:
-
-```sh
-bicz install --harness codex --account <disposable-id> --ledger <disposable.sqlite>   # writes ~/.codex/hooks.json
-codex                                   # run /hooks, review the three bicz entries, trust them
-codex exec --sandbox read-only -C <disposable-repo> --ephemeral "Read ./canary.txt"
-bicz uninstall --harness codex          # remove afterwards; trust state stays in config.toml
+```text
+bicz init/open (codex-rt, 120 credits)/price (docs/schedule.example.json, v1)
+bicz install --harness codex --account codex-rt --ledger /tmp/bz-codex/ledger.sqlite
+  -> $CODEX_HOME/hooks.json (SessionStart, PreToolUse, PostToolUse, UserPromptSubmit),
+     <cfg>/codex.json (schedule_path + policy_version added by hand), ~/.agents/skills/bicz
+hooks/list, before trust:   all 4 hooks  trustStatus=untrusted
+config/batchWrite hooks.state ... -> {"status":"ok"}
+hooks/list, after:          all 4 hooks  trustStatus=trusted enabled=true
 ```
 
-then compare against the Claude table above (allow, deny with an under-funded account and a canary
-that must not appear, hook error/timeout fail-open, `tool_name` values such as `Bash` and
-`apply_patch` against the schedule keys). Until then the Codex mapping stays UNVERIFIED at runtime.
+To capture payloads, a wrapper (`wrap.sh EVENT`) replaced the hook command: it saved Codex's stdin and
+bicz's stdout/exit code, then ran the same `bicz hook --harness codex --event EVENT`. Editing the
+command made Codex report all four hooks `modified` until re-trusted, which confirms the hash binds
+the command. A first `$bicz status` run with the unwrapped installer command gave the same result.
+
+### 3.3 `$bicz ...` through `codex exec` (UserPromptSubmit, 0 requests to the model)
+
+Command: `codex exec --skip-git-repo-check --ephemeral --sandbox read-only -C /tmp/bz-codex/work -c model_provider="mock" ... '<prompt>'`.
+Mock model request count after all three prompts: **0**.
+
+| Prompt | Hook stdin (real Codex) | Hook stdout | Ledger codex-rt |
+| --- | --- | --- | --- |
+| `$bicz status` | `{"session_id","turn_id","transcript_path":null,"cwd","hook_event_name":"UserPromptSubmit","model","permission_mode":"bypassPermissions","prompt":"$bicz status"}` | `{"decision":"block","reason":"BICZ status identity=codex-rt ... BALANCE 120 credits ...","systemMessage":"..."}` | unchanged, 120000000 mc, events=2 |
+| `$bicz reward 2 "x"` | same keys | `{"decision":"block","reason":"BICZ reward recorded: event=slash-reward-codex-... CREDIT amount=2 credits ... balance=122 credits ..."}` | 120000000 to **122000000**, events=3 |
+| `$bicz loss no_fake_tests "r"` | same keys | `{"decision":"block","reason":"BICZ loss needs input\nNo correction is saved for rule no_fake_tests ... Nothing was recorded. ..."}` | unchanged, 122000000, events=3 |
+
+`codex exec` printed only `hook: UserPromptSubmit` / `hook: UserPromptSubmit Blocked` for each (plus
+`hook: SessionStart` / `hook: SessionStart Completed`); the result text is in the hook's JSON, not
+printed by `exec`. How the interactive TUI shows it was **not** observed. `bicz verify`: `INTEGRITY OK`.
+
+Trust gate, same reward prompt with an empty `config.toml` (no `[hooks.state]`):
+
+| Run | Hooks ran | Model requests | Ledger |
+| --- | --- | --- | --- |
+| untrusted, no flag | no (0 captures) | 1 (the prompt reached the model; reply `MOCK-DONE`) | unchanged (121900000) |
+| untrusted + `--dangerously-bypass-hook-trust` | yes (warning printed twice) | 0 | +3 credits (124900000) |
+
+### 3.4 Tool-call hooks with the mock model (reserve, settle, deny, fail-open)
+
+The mock answers the first Responses request with one `function_call` (`exec_command`, the tool
+Codex 0.162.1 offers; its tools were `exec_command, write_stdin, request_user_input, view_image, ...`)
+and then a final `MOCK-DONE` message. No hosted model, no credentials.
+
+| Run | Observed |
+| --- | --- |
+| `echo hi` (`codex-rt`) | `command_execution` ran, `exit_code:0`, output `hi`. Ledger 122000000 to **121950000**, held 0, events 3 to 5. Pre stdout empty (allow prints nothing). Post stdout `{"hookSpecificOutput":{"additionalContext":"bicz receipt: completed, charged 50000 mc, fine 0","hookEventName":"PostToolUse"}}` |
+| command exiting non-zero | Codex still sent **PostToolUse** (so the earlier "PostToolUse only after a successful result" claim was wrong). The payload carries no exit code or error flag: `tool_response` is the bare output string. bicz settled it as `completed`, charged 50000 mc: 121950000 to 121900000, held 0 |
+| under-funded account (`codex-poor`, 1000 mc), `touch CANARY` | Codex logged `Command blocked by PreToolUse hook: bicz: insufficient_credit ... cannot reserve 50000 microcredits (spendable=1000)`; the model received that text as the tool result; **CANARY not created** (workspace-write sandbox); no PostToolUse fired; ledger unchanged (1000, held 0) |
+| PreToolUse hook exits 7 | tool **ran**, CANARY created: **fail-open on hook error observed** |
+| PreToolUse hook sleeps 5 s with `timeout: 1` | tool **ran**, CANARY created: **fail-open on hook timeout observed** |
+
+### 3.5 Real field names vs `CodexSpec.Fields`
+
+| Event | Keys in the real Codex stdin | Spec |
+| --- | --- | --- |
+| SessionStart | `session_id, transcript_path (null), cwd, hook_event_name, model, permission_mode, source ("startup")` | `session_id`, `hook_event_name` read; **match** |
+| UserPromptSubmit | `session_id, turn_id, transcript_path, cwd, hook_event_name, model, permission_mode, prompt` | `prompt`, `session_id`, `turn_id`; **match** |
+| PreToolUse | `session_id, turn_id, transcript_path, cwd, hook_event_name, model, permission_mode, tool_name ("Bash"), tool_input ({"command":"echo hi"}), tool_use_id` | `tool_name`, `tool_input`, `tool_use_id`; **match** |
+| PostToolUse | the Pre keys plus `tool_response` (a **string**) | `tool_response` (read as any JSON value); **match** |
+
+Outputs Codex accepted: `hookSpecificOutput.{hookEventName, additionalContext}` (SessionStart, PostToolUse),
+`hookSpecificOutput.{hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason}`
+(honored: tool blocked), and `{"decision":"block","reason","systemMessage"}` (UserPromptSubmit, blocked).
+**No field-name mismatch was found, so no code change to the field table was needed.** Differences from
+what the docs said: Codex's shell tool reaches hooks as `tool_name: "Bash"` (so the schedule key `Bash`
+prices it), `tool_response` is a string, and PostToolUse fires for a failed shell command. A test replays
+the captured Pre/Post payloads (`TestCodexRealPayloadsReserveAndSettle`).
+
+### 3.6 Not verified for Codex
+
+Interactive TUI (`/hooks` screen, display of a blocked-prompt reason), `apply_patch` and MCP tool names,
+SessionStart with `source: compact`, a real model transcribing the skill fallback, hosted tools,
+subagents, latency under real load, behavior of other Codex versions.
+
+### How to trust the hooks on your own machine
+
+Run `codex`, type `/hooks`, review the bicz entries, and trust all of them (it writes
+`[hooks.state]` into your `~/.codex/config.toml`). Re-trust after any `bicz install` that changes a hook command.
 
 ## 4. What this does and does not prove
 
 - Proven here: a real Claude Code 2.1.286 headless session invoked the installer-generated hook
   commands with the field names bicz reads, honored a bicz deny for `Read`, surfaced receipts and the
-  projection, and failed open on a broken or slow hook. The real Codex 0.162.1 parses the generated
-  `hooks.json` and gates it behind trust.
-- Not proven: live Codex hook behavior, Claude `PreCompact`, mutating tools, interactive use, OpenCode,
+  projection, and failed open on a broken or slow hook. The real Codex 0.162.1, with the hooks trusted
+  through its own `hooks.state` mechanism, ran SessionStart, UserPromptSubmit, PreToolUse and PostToolUse
+  with the field names bicz reads, answered `$bicz` with 0 model requests, reserved and settled a real
+  tool call, honored a bicz deny, and failed open on a hook error and a hook timeout.
+- Not proven: Codex interactive TUI, `apply_patch`/MCP tools, Codex compaction, Claude `PreCompact`,
+  Claude mutating tools, interactive use, OpenCode,
   Oh My Pi (separate workers/owners), or any behavioral effect on a model. Phase B is unchanged and
   untouched (`docs/REHEARSAL.md`). Nothing here is cooperative-denial hardening: a user or agent can
   still disable hooks.

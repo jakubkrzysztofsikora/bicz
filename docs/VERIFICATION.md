@@ -75,11 +75,12 @@ own call shapes.
 **Runtime follow-up ([`docs/RUNTIME_HOOKS.md`](RUNTIME_HOOKS.md)):** a real `claude 2.1.286` headless
 session did run the installer-generated hooks against a disposable ledger (allow, receipt, deny with
 the tool not executing, failure settlement, daemon-down notice/block, and fail-open on a broken or
-slow hook). The real `codex-cli 0.162.1` parses the installer-generated `hooks.json` but marks the
-hooks untrusted; **no live Codex hook run happened** (trust gate; the one remaining prerequisite is
-a human trusting the hooks).
+slow hook). The real `codex-cli 0.162.1` was also run: `codex exec` with the hooks trusted through
+its own `hooks.state` mechanism and a local mock model ran all four bicz hooks, answered `$bicz` with
+0 model requests, reserved and settled a tool call, honored a deny and failed open on a hook error and
+timeout (`docs/RUNTIME_HOOKS.md` section 3).
 
-**Still not verified:** Codex hook field names at runtime (UNVERIFIED, see `adapters/codex/README.md`);
+**Still not verified:** the interactive Codex TUI, Codex `apply_patch`/MCP tool names and compaction;
 Claude `PreCompact` and mutating tools; OMP tool-call hooks in a real OMP agent session (only the `/bicz` command was run in real `omp --mode rpc`) and any real OpenCode process; latency under real
 harness load.
 

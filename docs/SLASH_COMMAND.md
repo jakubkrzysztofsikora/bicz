@@ -42,7 +42,7 @@ No model chooses a rule, amount, reason, correction, penalty, or reward, and no 
 | Harness | Typed as | Route | Who executes the command |
 | --- | --- | --- | --- |
 | Claude Code 2.1.286 | `/bicz ...` | `UserPromptExpansion` hook (matcher `bicz`) receives the typed text as JSON, runs it, and blocks the expansion with the result. The `bicz` skill is only an inert notice for a hook that did not run | **`bicz hook`, directly.** No shell, no here-document, no model: a live run sent 0 bytes to the model |
-| Codex 0.162.1 | `$bicz ...` | `UserPromptSubmit` hook receives the prompt as JSON, answers a prompt that *starts with* `$bicz`, and blocks it. Fallback when the hook is untrusted or off: the `bicz` skill makes the agent run one command | hook: **directly, no model**. Fallback: **prompt-mediated** (the model transcribes your text; Codex approvals apply) |
+| Codex 0.162.1 | `$bicz ...` | `UserPromptSubmit` hook receives the prompt as JSON, answers a prompt that *starts with* `$bicz`, and blocks it. Fallback when the hook is untrusted or off: the `bicz` skill makes the agent run one command | hook: **directly, no model; verified in a real `codex exec` 0.162.1** (`status`, `reward`, no-correction `loss`, 0 model requests, temp ledger). Fallback: **prompt-mediated** (the model transcribes your text; Codex approvals apply) |
 | Oh My Pi | `/bicz ...` | the extension registers a native command with `pi.registerCommand`; OMP runs it before any prompt reaches a model ([`adapters/omp`](../adapters/omp/README.md#operator-bicz-command)) | `bicz command`, by argv with the text on stdin: no shell, no model. **Verified in a real `omp --mode rpc` (18.2.11)** on a temp ledger: `/bicz status`, `reward`, and a `loss` without a correction came back as native notify |
 | OpenCode V2 | `/bicz ...` | `ctx.command.transform` registers the command; the result is posted as a synthetic session message and no turn is resumed ([`adapters/opencode`](../adapters/opencode/README.md#operator-bicz-command)) | `bicz command`, no model. Plugin ABI verified against the published package; **V2 engine not run** |
 | OpenCode V1 | `/bicz ...` | **weaker**: `command.execute.before` runs the CLI and replaces the prompt parts with the result, but V1 still sends those parts as a prompt, so a model turn relays the result | the ledger write happens before any model sees the turn; a model relays the output |
@@ -55,8 +55,8 @@ argument is refused by the parser.
 
 Codex 0.162.1 has no user-defined slash commands: its custom prompts (`/prompts:name`) are
 deprecated in favor of skills, so bicz installs no custom prompt and the literal `/bicz` is not
-available there; `$bicz` is the supported route, and **Codex marks new hooks untrusted until you
-review them in `/hooks`** (until then `$bicz` takes the weaker fallback). Install and remove with the normal
+available there; `$bicz` is the supported route. **To trust the hooks on your machine: run `codex`, type `/hooks`, and trust
+the bicz entries** (Codex skips new or changed hooks until then, and `$bicz` takes the weaker fallback; observed). Install and remove with the normal
 `bicz install --harness claude|codex` / `bicz uninstall` (dry-run shows the skill diff; other skills
 are never touched). Details: [`adapters/claude`](../adapters/claude/README.md#slash-command-bicz),
 [`adapters/codex`](../adapters/codex/README.md#slash-command-bicz).

@@ -7,28 +7,22 @@ import (
 
 // CodexSpec is the Codex command-hook adapter (docs/CONTRACTS.md §5.6).
 //
-// UNVERIFIED: every field name below is taken from OpenAI's published hook
-// documentation (Claude-compatible payload: session_id, turn_id, cwd,
-// hook_event_name, tool_name, tool_use_id, tool_input, tool_response;
-// hookSpecificOutput with permissionDecision/additionalContext) and has NOT
-// been exercised against a running Codex. The installed version recorded when
-// this mapping was written is codex-cli 0.162.1; no model session was run and
-// no Codex credential was read. If a pinned Codex version names a field
-// differently, change it HERE, in this one table, and nowhere else.
+// VERIFIED at runtime against codex-cli 0.162.1 (docs/RUNTIME_HOOKS.md section 3): a real
+// `codex exec` ran SessionStart, UserPromptSubmit, PreToolUse and PostToolUse hooks and every
+// field below matched the payload it sent (session_id, turn_id, cwd, hook_event_name, model,
+// permission_mode, transcript_path (null), tool_name, tool_use_id, tool_input, tool_response
+// (a bare string, not an object), prompt, source) and the hookSpecificOutput deny and
+// additionalContext shapes it accepted. If a different Codex version renames a field, change it
+// HERE, in this one table, and nowhere else.
 //
-// Known Codex behaviors that bound what this adapter can see (disclosed in the
-// coverage table, never described as enforced): hooks fail open on hook error
-// or timeout, hosted tools do not run hooks, and Codex has no
-// PostToolUseFailure event. Codex 0.162.1 does list PreCompact and PostCompact
-// events, but their output schema carries no additionalContext, so bicz cannot
-// restore a projection through them; compaction restoration relies on
-// SessionStart with source "compact". Only SessionStart, PreToolUse and
-// PostToolUse are installed.
-//
-// Observed against the installed codex-cli 0.162.1 (docs/RUNTIME_HOOKS.md): its
-// hooks/list parses the installer-generated hooks.json with no warnings and
-// reports every hook untrusted until the user trusts it. No live hook
-// invocation was observed, so the field mapping stays UNVERIFIED at runtime.
+// Observed Codex behaviors that bound what this adapter can see (coverage table; never
+// described as enforced): hooks fail open on hook error or timeout (observed), hosted tools do
+// not run hooks, and Codex has no PostToolUseFailure event: PostToolUse also fires for a shell
+// command that exited non-zero, but its payload carries no exit code, so bicz settles it as
+// completed (same charge). Codex 0.162.1 does list PreCompact and PostCompact events, but their
+// output schema carries no additionalContext, so bicz cannot restore a projection through them;
+// compaction restoration relies on SessionStart with source "compact" (not exercised live). Only
+// SessionStart, PreToolUse, PostToolUse and UserPromptSubmit are installed.
 var CodexSpec = &Spec{
 	ID:         "codex",
 	Wire:       "codex",

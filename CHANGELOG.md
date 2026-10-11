@@ -6,6 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ### Added
 
+- Codex runtime verification (`docs/RUNTIME_HOOKS.md` section 3): real `codex-cli 0.162.1` `codex exec`
+  runs, hooks trusted via Codex's own `hooks.state` mechanism (no bypass flag), temp home/ledger, local mock
+  model server. `$bicz status`, `reward` and a no-correction `loss` were answered by the hook with 0 model
+  requests; a tool call was reserved and settled; a bicz deny stopped the tool; a hook error and a hook
+  timeout failed open. Every field name in `CodexSpec.Fields` matched the real payloads, so the table is
+  unchanged. `TestCodexRealPayloadsReserveAndSettle` replays captured payloads.
+- To trust the hooks on your machine: run `codex`, type `/hooks`, trust the bicz entries.
+- Docs correction: Codex `PostToolUse` also fires for a shell command that exits non-zero (no exit code in
+  the payload, settled as `completed`); the earlier claim that it fires only after success was wrong.
+  Codex's shell tool reaches hooks as `Bash`, with `tool_response` a bare string.
 - 15 default rules distilled from real agent failures (derived from one operator's 670 sessions and 113
   frustration moments across four harnesses), embedded as `internal/policy/defaults.json`: rule id,
   correction, scope, exceptions, burn tier (`low`/`medium`/`high`, all existing ledger penalty
@@ -87,9 +97,10 @@ tree was missing `internal/protocol/coverage.go` (swallowed by a `coverage.*` ig
   message only at the session's next turn. `execute.before/after` (reserve/settle), `context` and
   `compaction` were **not** run in the engine (they need a model turn); they are verified only against
   the published `@opencode/plugin@2.0.26` and a real daemon.
-- Codex hook field names are **unverified** against a running Codex (`codex-cli 0.162.1` recorded).
-- Claude Code 2.1.286 was driven live in headless mode (`docs/RUNTIME_HOOKS.md`); Codex 0.162.1 parses
- the generated `hooks.json` but its hook-trust gate blocked a live run; OMP's `/bicz` command was run in a real `omp --mode rpc` 18.2.11 but its tool-call hooks have no real session, and OpenCode V1 has no real engine run.
+- Codex hooks were run live in `codex-cli 0.162.1` (`codex exec`, mock model server, temp home): field
+  names verified, nothing left unverified except the interactive TUI, `apply_patch`/MCP tool names and
+  compaction (`docs/RUNTIME_HOOKS.md` section 3).
+- Claude Code 2.1.286 was driven live in headless mode (`docs/RUNTIME_HOOKS.md`); OMP's `/bicz` command was run in a real `omp --mode rpc` 18.2.11 but its tool-call hooks have no real session, and OpenCode V1 has no real engine run.
 - Windows binaries cross-compile and `go vet` cleanly; the Windows test suite has not been observed
   passing (CI job is advisory until it is).
 - No code signing, notarization or SBOM.

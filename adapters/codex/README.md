@@ -4,28 +4,37 @@ Codex runs `bicz hook --harness codex --event <name>` per hook event, with a Cla
 payload on stdin and `hookSpecificOutput` on stdout. The adapter is the `bicz` binary
 (`internal/hooks`); it shares all logic with the Claude Code adapter.
 
-## UNVERIFIED field mapping
+## Field mapping: verified at runtime (codex-cli 0.162.1)
 
-**Every Codex field name used here is UNVERIFIED against a pinned installed Codex.**
+A real `codex exec` (0.162.1, hooks trusted, mock model, temp `HOME`/ledger) ran `SessionStart`,
+`UserPromptSubmit`, `PreToolUse` and `PostToolUse` against the installed bicz hooks, and every field
+name in the table matched the stdin Codex sent. Transcripts and captured JSON:
+[`docs/RUNTIME_HOOKS.md`](../../docs/RUNTIME_HOOKS.md) section 3. Other Codex versions are not checked.
 
-- Installed when this was written: `codex-cli 0.162.1` (`codex --version`).
-- The mapping comes from OpenAI's published hook documentation only. No Codex model session was
-  run, no hook was executed by a real Codex, and no Codex credential file was read.
 - All Codex field names live in **one table**: `CodexSpec.Fields` in `internal/hooks/codex.go`.
-  If a pinned Codex differs, change that table and nothing else.
+  If another Codex version differs, change that table and nothing else.
 
-Mapped input: `session_id`, `hook_event_name`, `tool_name`, `tool_use_id`, `tool_input`,
-`tool_response`. Mapped output: `hookSpecificOutput.{hookEventName, permissionDecision,
-permissionDecisionReason, additionalContext}`, deny value `"deny"`. Codex also sends `turn_id`,
-`cwd` and `model`, which bicz ignores. Codex has no `PostToolUseFailure` event. It lists
-`PreCompact` and `PostCompact` events, but their output schema has no `additionalContext`, so bicz
-cannot restore a projection there; compaction restoration relies on `SessionStart` with
-`source: "compact"`. Only `SessionStart`, `PreToolUse` and `PostToolUse` are installed.
+Input read: `session_id`, `hook_event_name`, `tool_name`, `tool_use_id`, `tool_input`,
+`tool_response`, plus `prompt` and `turn_id` for `UserPromptSubmit`. Output Codex accepted:
+`hookSpecificOutput.{hookEventName, permissionDecision, permissionDecisionReason, additionalContext}`
+(deny value `"deny"`, honored: the tool did not run) and `{decision: "block", reason, systemMessage}`
+for `UserPromptSubmit`. Codex also sends `cwd`, `model`, `permission_mode`, `transcript_path`
+(null) and `source` (`SessionStart`), which bicz ignores. Things the docs did not say: Codex's shell
+tool arrives as `tool_name: "Bash"` (so the schedule's `Bash` price applies), and `tool_response` is a
+bare string. Codex has no `PostToolUseFailure` event, but `PostToolUse` **does** fire for a shell
+command that exited non-zero; its payload has no exit code, so bicz settles it as `completed` (same
+charge). `PreCompact`/`PostCompact` exist but their output schema has no `additionalContext`, so
+compaction restoration relies on `SessionStart` with `source: "compact"` (not exercised live).
+Installed events: `SessionStart`, `PreToolUse`, `PostToolUse`, `UserPromptSubmit`.
 
-Runtime evidence (details and limits in [`docs/RUNTIME_HOOKS.md`](../../docs/RUNTIME_HOOKS.md)):
-the real `codex-cli 0.162.1` parses the installer-generated `hooks.json` (3 hooks, no warnings) and
-marks each hook **untrusted** until the user trusts it. **No hook has been run by a live Codex
-session**, so the mapping above is still UNVERIFIED at runtime.
+## Trusting the hooks
+
+**On your machine: run `codex`, type `/hooks`, review the bicz entries and trust all of them.**
+Codex 0.162.1 skips a new or changed hook until then. Trust is stored in
+`$CODEX_HOME/config.toml` as `[hooks.state."<hooks.json path>:<event>:<group>:<handler>"]
+trusted_hash = "sha256:<hash of the hook>"`; changing a hook command makes it `modified` and
+untrusted again. Non-interactive: send `config/batchWrite` for `hooks.state` to `codex app-server`
+with the hash from `hooks/list`, or per invocation pass `--dangerously-bypass-hook-trust`.
 
 ## Install / uninstall
 
@@ -42,8 +51,9 @@ Same rules as the Claude adapter (see `adapters/claude/README.md`), with these d
 - Entries are identified by a command containing `bicz hook --harness codex`.
 - Frozen quote and call state work exactly as in the Claude adapter, under `.../hooks/codex/`.
 - Idempotency keys are `codex:auth:<tool_use_id>` and `codex:settle:<tool_use_id>`.
-- `PostToolUse` runs only after a *successful* tool result in Codex, so a failed tool call is
-  never settled by a `PostToolUseFailure` hook. Its reservation stays `held` (docs/CONTRACTS.md §1
+- `PostToolUse` also fires for a shell command that exited non-zero (observed), with no exit code in
+  the payload, so it is settled as `completed`. Codex has no `PostToolUseFailure`. Where a tool call
+  fails without any `PostToolUse` (not observed), its reservation stays `held` (docs/CONTRACTS.md §1
   I8) until reconciled; it is never silently released.
 
 ## Slash command `bicz`
@@ -67,30 +77,33 @@ $bicz status
    token `$bicz` followed by whitespace or end is answered (`$biczx`, `please run $bicz`, `bicz status`
    are ordinary prompts and untouched). The text after the token is run in-process as data and the
    prompt is blocked (`decision: "block"`), so no model runs and no shell sees the text.
-2. **Skill (fallback, prompt-mediated, weaker).** Codex marks a new or changed hook **untrusted and
-   skips it until you review it in `/hooks`** (or `--dangerously-bypass-hook-trust`). Until then the
-   prompt reaches the model, which loads the skill: it must refuse multi-line text, pick a fresh random
+2. **Skill (fallback, prompt-mediated, weaker).** Until the hooks are trusted, Codex skips the hook
+   (observed: the prompt reached the model and nothing was recorded). The model then loads the skill:
+   it must refuse multi-line text, pick a fresh random
    `BICZ_ARGS_<16 hex>` delimiter that does not occur in the text, and run one
    `bicz command --harness codex --arguments-stdin` here-document. The model transcribes your text, so
    it could mis-transcribe or be talked into a wrong delimiter; Codex's sandbox and approval flow still
    applies, nothing is pre-approved, and the ledger records only that it came via `codex`. Intent and
    provenance are weaker than the hook route. `allow_implicit_invocation: false` keeps the model from
-   invoking the skill on its own.
+   invoking the skill on its own. **Not verified:** a real model transcribing this fallback faithfully.
 
-Evidence (disposable temp `HOME`, real `codex-cli 0.162.1` with `--dangerously-bypass-hook-trust`,
-local fake provider): `$bicz status`, `$bicz reward 0.5 "ok $(touch X) \`touch Y\`"` were answered by
-the hook with **0 bytes sent to the model** and the reward appears in the ledger with no file created;
-a multi-line attack was blocked with no file created; an ordinary prompt reached the model. **Not
-verified:** how the interactive TUI displays the blocked-prompt result (`codex exec` printed only
-`hook: UserPromptSubmit Blocked`; the text is also sent as `systemMessage`), and whether a real model
-transcribes the fallback faithfully.
+Evidence (real `codex-cli 0.162.1`, `codex exec`, hooks trusted via `hooks.state`, no bypass flag,
+mock model server, temp `HOME`, ledger and socket): `$bicz status`, `$bicz reward 2 "x"` and
+`$bicz loss no_fake_tests "r"` (no saved correction) were each answered by the hook with
+**0 requests to the model**; the reward moved the temp ledger 120000000 to 122000000 mc, status and the
+no-correction loss recorded nothing, `bicz verify` INTEGRITY OK. The same prompt untrusted reached the
+model and recorded nothing; with `--dangerously-bypass-hook-trust` the hook answered it. `codex exec`
+printed only `hook: UserPromptSubmit Blocked`; the result text is in the hook JSON (`reason` and
+`systemMessage`). **Not verified:** how the interactive TUI displays the blocked-prompt result.
 
 ## Coverage (docs/CONTRACTS.md §5.6)
 
-Observed: `SessionStart`, `PreToolUse`, `PostToolUse`.
+Observed in a real Codex run: `SessionStart`, `UserPromptSubmit`, `PreToolUse` (allow, deny honored),
+`PostToolUse` (settled), and **fail-open on a hook error and on a hook timeout** (the tool ran).
 
 Not observed, and not described as metered: hosted tools (they bypass hooks); app-server
-experimental transports; **fail-open**: Codex proceeds when a pre-tool hook errors, times out, or
+experimental transports; subagents and MCP/`apply_patch` tool names; the interactive TUI.
+**Fail-open** (observed for a hook error and a hook timeout): Codex proceeds when a pre-tool hook errors, times out, or
 is disabled or removed. A bicz hook that times out or crashes therefore does not block the tool,
 whatever `unmanaged_mode` says. Observed means bicz is in the call path. It does not mean
 enforced.
