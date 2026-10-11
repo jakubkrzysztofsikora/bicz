@@ -2,7 +2,9 @@
 #
 # Downloads a release zip plus SHA256SUMS, verifies the checksum, and only then
 # replaces <InstallDir>\bicz.exe. A mismatch or missing checksum aborts with the
-# existing install untouched. The release source is never guessed:
+# existing install untouched.
+#   irm https://raw.githubusercontent.com/jakubkrzysztofsikora/bicz/main/scripts/install.ps1 | iex
+# Releases come from github.com/jakubkrzysztofsikora/bicz unless you override:
 #   -Repo owner/repo     GitHub repository that publishes the releases
 #   -BaseUrl URL         directory containing the zip and SHA256SUMS
 #                        (https, or http on loopback for tests)
@@ -15,7 +17,7 @@
 # SHA256SUMS from the same origin. It is not a signature.
 [CmdletBinding()]
 param(
-  [string]$Repo = $env:BICZ_REPO,
+  [string]$Repo = $(if ($env:BICZ_REPO) { $env:BICZ_REPO } else { 'jakubkrzysztofsikora/bicz' }),
   [string]$BaseUrl = $env:BICZ_BASE_URL,
   [string]$Version = $env:BICZ_VERSION,
   [string]$InstallDir = $env:BICZ_INSTALL_DIR,
@@ -48,12 +50,10 @@ $exeName = 'bicz.exe'
 
 if ($BaseUrl) {
   $base = $BaseUrl.TrimEnd('/')
-} elseif ($Repo) {
+} else {
   if ($Repo -notmatch '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$') { Fail 'Repo must look like owner/repo' }
   if ($Version) { $base = "https://github.com/$Repo/releases/download/$Version" }
   else { $base = "https://github.com/$Repo/releases/latest/download" }
-} else {
-  Fail 'no release source: pass -Repo owner/repo (or -BaseUrl). The repository is not assumed.'
 }
 if ($base -notmatch '^https://' -and $base -notmatch '^http://(127\.0\.0\.1|localhost|\[::1\])([:/]|$)') {
   Fail "refusing non-https release source: $base"

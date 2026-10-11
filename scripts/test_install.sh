@@ -105,11 +105,6 @@ if run "$d5" noentry >"$tmp/out" 2>&1; then bad "missing checksum entry must fai
   if grep -q 'no entry for' "$tmp/out" && [ ! -e "$d5/bicz" ]; then ok "missing SHA256SUMS entry rejected"; else cat "$tmp/out"; bad "noentry side effects"; fi
 fi
 
-# 6. release source is never guessed
-if env -i PATH="$PATH" HOME="$tmp/home" BICZ_INSTALL_DIR="$tmp/t6" sh "$here/install.sh" >"$tmp/out" 2>&1; then bad "no source must fail"; else
-  if grep -q 'not assumed' "$tmp/out"; then ok "no BICZ_REPO/BICZ_BASE_URL is refused"; else cat "$tmp/out"; bad "no-source message"; fi
-fi
-
 # 7. plain http to a non-loopback host is refused before any request
 if env -i PATH="$PATH" HOME="$tmp/home" BICZ_INSTALL_DIR="$tmp/t7" BICZ_BASE_URL="http://example.invalid/rel" sh "$here/install.sh" >"$tmp/out" 2>&1; then bad "non-https must fail"; else
   if grep -q 'non-https' "$tmp/out"; then ok "non-https non-loopback source refused"; else cat "$tmp/out"; bad "non-https message"; fi

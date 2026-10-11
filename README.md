@@ -27,24 +27,32 @@ A local, same-user credit ledger and supervisor for coding-agent harnesses (Clau
 - **Not a sandbox, not anti-tamper.** bicz runs as your OS user. An agent running as that user could edit the ledger, disable the hooks or route around the adapter. The hash chain and optional anchor make tampering detectable, not impossible.
 - **Not authentication, not billing.** `/bicz` is recorded as an unsigned action by the local OS user. Credits are internal; bicz does not meter or cap your provider spend.
 - **Not shown to change model behavior yet.** Nothing here claims an agent feels anything. The cue is a message built from ledger facts. Two small agent-run Claude Code trials were inconclusive ([one](docs/PHASE_B_RESULTS.md): no rule was ever breached, so no consequence was delivered; [two](docs/LOSS_EXPOSURE_RESULTS.md): n = 4 per arm, within chance). The human-run release gate has not been run.
-- **Pre-release.** No tagged release, no published binaries. Full list: [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
+- **Pre-release.** `v0.1.0` is a GitHub pre-release. Full list: [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
 ## Install
 
-No published release yet, so build from source (Go 1.27+, no cgo):
+No clone needed. macOS / Linux:
 
 ```sh
-git clone https://github.com/jakubkrzysztofsikora/bicz && cd bicz
-go build -o ~/.local/bin/bicz ./cmd/bicz           # put ~/.local/bin on your PATH
+curl -fsSL https://raw.githubusercontent.com/jakubkrzysztofsikora/bicz/main/scripts/install.sh | sh
 ```
+
+Windows (PowerShell): `irm https://raw.githubusercontent.com/jakubkrzysztofsikora/bicz/main/scripts/install.ps1 | iex`
+
+It downloads the latest [GitHub release](https://github.com/jakubkrzysztofsikora/bicz/releases), verifies its SHA256 (a mismatch aborts, nothing is installed) and installs `~/.local/bin/bicz`. It prints a PATH hint if that directory is not on your `PATH`. `BICZ_VERSION=v0.1.0` pins a version, `BICZ_INSTALL_DIR` changes the target.
+
+Have Go 1.27+? `go install github.com/jakubkrzysztofsikora/bicz/cmd/bicz@latest` (no cgo, installs to `$(go env GOBIN)` or `~/go/bin`).
+
+Check it: `bicz version`. Building from source: [docs/SETUP.md](docs/SETUP.md#install).
 
 Set up a ledger, publish prices, hook up your harness (everything except `serve` is one-time; add `--dry-run` to `install` to preview the exact diff):
 
 ```sh
 mkdir -p ~/.bicz && DB=~/.bicz/ledger.sqlite
+curl -fsSL https://raw.githubusercontent.com/jakubkrzysztofsikora/bicz/main/docs/schedule.example.json -o ~/.bicz/schedule.json
 bicz init    --db $DB
 bicz open    --db $DB --identity agent --capital 100000000 --reason "first funding"   # 100 credits
-bicz price   --db $DB --version 1 --policy docs/schedule.example.json --reason "publish schedule"
+bicz price   --db $DB --version 1 --policy ~/.bicz/schedule.json --reason "publish schedule"
 bicz install --harness claude --account agent      # or: codex | omp | opencode
 bicz serve   --db $DB                              # leave running in its own terminal
 ```

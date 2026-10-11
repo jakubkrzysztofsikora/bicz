@@ -59,6 +59,11 @@ jobs:
             dist/bicz_*.tar.gz
             dist/bicz_*.zip
             dist/SHA256SUMS
+      - name: Release notes from CHANGELOG
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          awk -v h="## [$v]" 'index($0, h) == 1 { on = 1; next } on && /^## \[/ { exit } on' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          test -s "$RUNNER_TEMP/notes.md" || { echo "CHANGELOG.md has no '## [$v]' section" >&2; exit 1; }
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -68,5 +73,5 @@ jobs:
             --repo "$REPO" \
             --title "${GITHUB_REF_NAME}" \
             --prerelease \
-            --notes-file CHANGELOG.md \
+            --notes-file "$RUNNER_TEMP/notes.md" \
             --verify-tag

@@ -5,46 +5,68 @@ Moved out of the top-level README, which now links here. The shortest working pa
 
 ## Install
 
-There is no published release yet, so building from source is the path that works today. Binaries
-for macOS, Linux and Windows (amd64, arm64) are built by the release workflow once a tag is pushed.
-The release source is **not assumed**: you name the repository that publishes them.
+Three routes, none needs a clone. All install the same no-cgo `bicz` binary.
 
-From source (Go version is read from `go.mod`):
+**1. One-line installer (release binary).**
 
 ```sh
-go build -o bin/bicz ./cmd/bicz        # or: make build
-./bin/bicz version
-```
-
-From a published release (once one exists):
-
-```sh
-# macOS / Linux. Replace OWNER/REPO with the repository that actually publishes releases.
-curl -fsSL https://github.com/OWNER/REPO/releases/latest/download/install.sh -o install.sh   # review it
-BICZ_REPO=OWNER/REPO sh install.sh                 # BICZ_VERSION=vX.Y.Z to pin
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/jakubkrzysztofsikora/bicz/main/scripts/install.sh | sh
 ```
 
 ```powershell
 # Windows
-.\install.ps1 -Repo OWNER/REPO                     # -Version vX.Y.Z to pin
+irm https://raw.githubusercontent.com/jakubkrzysztofsikora/bicz/main/scripts/install.ps1 | iex
 ```
 
-The installers verify the archive against `SHA256SUMS` before writing anything, check that the
-archive holds exactly one regular `bicz` binary (plus `LICENSE`) before extracting it, never run the
-downloaded binary, refuse a symlinked install dir or target, never use sudo, install to
-`~/.local/bin` (`%LOCALAPPDATA%\bicz\bin` on Windows), replace the binary atomically, and keep the
-old one as `bicz.previous` for rollback. Symlink checks cover the install directory and the target
-only, not every ancestor, so this is a guard for common paths, not full containment. The checksum catches a
-corrupted or swapped archive; it is not a signature. Release archives also carry a GitHub build
-provenance attestation (`gh attestation verify <file> --repo OWNER/REPO`).
+Settings (env vars; the PowerShell script takes the same as `-Repo`, `-BaseUrl`, `-Version`, `-InstallDir`):
+`BICZ_VERSION=vX.Y.Z` pins a release (default: latest), `BICZ_INSTALL_DIR` sets the target (default
+`~/.local/bin`, `%LOCALAPPDATA%\bicz\bin` on Windows), `BICZ_REPO=owner/repo` installs from a fork,
+`BICZ_BASE_URL` points at any directory holding the archive and `SHA256SUMS` (https, or http on
+loopback; used by the fixture tests). To review the script first, download it and run `sh install.sh`.
 
-`go install github.com/jakubkrzysztofsikora/bicz/cmd/bicz@<tag>` works only once the repository is
-published at exactly that module path. The repository is public at
-`https://github.com/jakubkrzysztofsikora/bicz`, matching `go.mod`; no tag has been cut yet.
+The installers verify the archive against `SHA256SUMS` before writing anything (a mismatch or a
+missing entry aborts with exit 1 and the existing install untouched), check that the
+archive holds exactly one regular `bicz` binary (plus `LICENSE`) before extracting it, never run the
+downloaded binary, refuse a symlinked install dir or target, never use sudo, replace the binary
+atomically, and keep the old one as `bicz.previous` for rollback. They do not edit your shell
+profile: if the install dir is not on `PATH` they print a hint. Symlink checks cover the install
+directory and the target only, not every ancestor, so this is a guard for common paths, not full
+containment. The checksum catches a corrupted or swapped archive; it is not a signature. Release
+archives also carry a GitHub build provenance attestation
+(`gh attestation verify <file> --repo jakubkrzysztofsikora/bicz`).
+
+Assets per release: `bicz_{darwin,linux}_{amd64,arm64}.tar.gz`, `bicz_windows_{amd64,arm64}.zip`,
+`install.sh`, `install.ps1`, `SHA256SUMS`.
+
+**2. `go install`** (Go version from `go.mod`; no cgo):
+
+```sh
+go install github.com/jakubkrzysztofsikora/bicz/cmd/bicz@latest      # or @v0.1.0
+```
+
+The binary lands in `$(go env GOBIN)`, or `$(go env GOPATH)/bin` (`~/go/bin`) when `GOBIN` is unset.
+Binaries built this way report `bicz version` as the module version rather than a release stamp.
+
+**3. From source** (clone required):
+
+```sh
+git clone https://github.com/jakubkrzysztofsikora/bicz && cd bicz
+go build -o bin/bicz ./cmd/bicz        # or: make build
+./bin/bicz version
+```
+
+Maintainers cut a release by moving the CHANGELOG entry to a `## [X.Y.Z]` heading and pushing a
+`vX.Y.Z` tag; `.github/workflows/release.yml` builds with `scripts/build_release.sh`, publishes a
+pre-release and uses that CHANGELOG section as the notes. To rehearse locally:
+`scripts/build_release.sh v0.0.0-local dist && scripts/test_install.sh`.
 
 ## Quickstart (five minutes, reproducible, no model session)
 
-Everything below uses a throwaway ledger. `scripts/smoke.sh` runs the same flow end to end.
+Everything below uses a throwaway ledger. `scripts/smoke.sh` runs the same flow end to end. Run it
+from a clone, or fetch the schedule first:
+`curl -fsSL https://raw.githubusercontent.com/jakubkrzysztofsikora/bicz/main/docs/schedule.example.json -o schedule.example.json`
+and use `schedule.example.json` where the commands say `docs/schedule.example.json`.
 
 ```sh
 export BICZ_RUNTIME_DIR=/tmp/bicz-rt && mkdir -p "$BICZ_RUNTIME_DIR"   # short socket path

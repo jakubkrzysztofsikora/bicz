@@ -87,9 +87,6 @@ try {
   $r = Invoke-Installer (Join-Path $tmp 't7') '' 'http://example.invalid/rel'
   if (-not $r.ok -and $r.out -match 'non-https') { Ok 'non-https non-loopback source refused' } else { Bad "non-https: $($r.out)" }
 
-  try { & $installer -InstallDir (Join-Path $tmp 't6') -Os windows -Arch $arch 2>&1 | Out-Null; Bad 'no source must fail' }
-  catch { if ($_.Exception.Message -match 'not assumed') { Ok 'no -Repo/-BaseUrl is refused' } else { Bad "no-source: $($_.Exception.Message)" } }
-
   # Hostile archives: honest SHA256SUMS, malicious members. Entries are created with
   # ZipArchive so names like ../escape are stored verbatim.
   Add-Type -AssemblyName System.IO.Compression

@@ -12,7 +12,8 @@ import (
 //
 //	go build -ldflags "-X main.version=v1.2.3 -X main.commit=<sha> -X main.date=<rfc3339>"
 //
-// An unstamped build (go build / go run) reports "dev".
+// An unstamped build (go build / go run) reports "dev", except that a binary
+// built by `go install module@vX.Y.Z` reports that module version.
 var (
 	version = "dev"
 	commit  = ""
@@ -30,12 +31,17 @@ type buildInfo struct {
 
 func currentBuildInfo() buildInfo {
 	info := buildInfo{Version: version, Commit: commit, Date: date, Go: runtime.Version(), OS: runtime.GOOS, Arch: runtime.GOARCH}
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		return info
+	}
+	if info.Version == "dev" && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+		info.Version = bi.Main.Version
+	}
 	if info.Commit == "" {
-		if bi, ok := debug.ReadBuildInfo(); ok {
-			for _, setting := range bi.Settings {
-				if setting.Key == "vcs.revision" {
-					info.Commit = setting.Value
-				}
+		for _, setting := range bi.Settings {
+			if setting.Key == "vcs.revision" {
+				info.Commit = setting.Value
 			}
 		}
 	}

@@ -6,10 +6,13 @@
 # checksum mismatch, a missing checksum line, or an unsafe target aborts with
 # the existing install untouched.
 #
-# Where releases come from is never guessed. Set one of:
+#   curl -fsSL https://raw.githubusercontent.com/jakubkrzysztofsikora/bicz/main/scripts/install.sh | sh
+#
+# Releases come from github.com/jakubkrzysztofsikora/bicz unless you override:
 #   BICZ_REPO=owner/repo   GitHub repository that publishes the releases
 #   BICZ_BASE_URL=URL      directory that directly contains the archive and
-#                          SHA256SUMS (https, or http on loopback for tests)
+#                          SHA256SUMS (https, or http on loopback for tests);
+#                          takes precedence over BICZ_REPO
 #
 # Other settings:
 #   BICZ_VERSION=vX.Y.Z    release tag (default: the repository's latest release;
@@ -51,19 +54,18 @@ asset="bicz_${os}_${arch}.tar.gz"
 # --- source ------------------------------------------------------------------
 if [ -n "${BICZ_BASE_URL:-}" ]; then
   base="${BICZ_BASE_URL%/}"
-elif [ -n "${BICZ_REPO:-}" ]; then
-  case "$BICZ_REPO" in
+else
+  repo="${BICZ_REPO:-jakubkrzysztofsikora/bicz}"
+  case "$repo" in
     */*/* | */ | /* | *[!A-Za-z0-9._/-]*) fail "BICZ_REPO must look like owner/repo" ;;
     */*) ;;
     *) fail "BICZ_REPO must look like owner/repo" ;;
   esac
   if [ -n "${BICZ_VERSION:-}" ]; then
-    base="https://github.com/$BICZ_REPO/releases/download/$BICZ_VERSION"
+    base="https://github.com/$repo/releases/download/$BICZ_VERSION"
   else
-    base="https://github.com/$BICZ_REPO/releases/latest/download"
+    base="https://github.com/$repo/releases/latest/download"
   fi
-else
-  fail "no release source: set BICZ_REPO=owner/repo (or BICZ_BASE_URL). The repository is not assumed."
 fi
 case "$base" in
   https://*) ;;

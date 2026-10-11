@@ -1,11 +1,23 @@
 # Changelog
 
-Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow SemVer once a tag
-exists. No release has been tagged or published yet.
+Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow SemVer.
 
 ## [Unreleased]
 
-Pre-release. The mechanism is shipped; **its behavioral effect is unmeasured** (Phase B not run).
+## [0.1.0] - 2026-10-11
+
+First tagged release, published as a GitHub **pre-release**. The mechanism is shipped; **its
+behavioral effect is unmeasured** (Phase B not run).
+
+### Install without cloning
+
+- One-line installer: `curl -fsSL https://raw.githubusercontent.com/jakubkrzysztofsikora/bicz/main/scripts/install.sh | sh`
+  (PowerShell: `irm https://raw.githubusercontent.com/jakubkrzysztofsikora/bicz/main/scripts/install.ps1 | iex`).
+  It now defaults to this repository's releases (override with `BICZ_REPO` / `BICZ_BASE_URL`), verifies
+  SHA256 and fails loudly on a mismatch.
+- Release archives (`bicz_<os>_<arch>.tar.gz`, `.zip` on Windows; darwin, linux, windows x amd64, arm64)
+  plus `SHA256SUMS`, built by the tag-triggered workflow; release notes come from this file.
+- `go install github.com/jakubkrzysztofsikora/bicz/cmd/bicz@v0.1.0`.
 
 ### Added
 
