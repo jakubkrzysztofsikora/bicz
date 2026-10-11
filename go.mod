@@ -2,6 +2,9 @@ module github.com/jakubkrzysztofsikora/bicz
 
 go 1.27.2
 
+// v0.1.0 does not build: internal/protocol/coverage.go was never committed.
+retract v0.1.0
+
 require (
 	golang.org/x/sys v0.48.0
 	modernc.org/sqlite v1.60.1

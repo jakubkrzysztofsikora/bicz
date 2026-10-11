@@ -145,7 +145,9 @@ done <"$work/names"
 [ "$nbicz" -eq 1 ] || fail "archive must contain exactly one bicz binary; refusing"
 mkdir "$work/x"
 tar -xzf "$work/$asset" -C "$work/x" "$member" || fail "could not extract $asset"
-[ -f "$work/x/bicz" ] && [ ! -L "$work/x/bicz" ] || fail "extracted bicz is not a regular file"
+if [ ! -f "$work/x/bicz" ] || [ -L "$work/x/bicz" ]; then
+  fail "extracted bicz is not a regular file"
+fi
 chmod 755 "$work/x/bicz"
 
 # --- atomic install -------------------------------------------------------------

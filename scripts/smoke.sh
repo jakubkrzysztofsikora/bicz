@@ -20,7 +20,7 @@ command -v jq >/dev/null 2>&1 || { echo "smoke: jq is required" >&2; exit 1; }
 tmp="$(mktemp -d /tmp/bicz-smoke.XXXXXX)"
 daemon_pid=""
 cleanup() {
-  [ -n "$daemon_pid" ] && kill "$daemon_pid" 2>/dev/null || true
+  if [ -n "$daemon_pid" ]; then kill "$daemon_pid" 2>/dev/null || true; fi
   rm -rf "$tmp"
 }
 trap cleanup EXIT INT TERM
