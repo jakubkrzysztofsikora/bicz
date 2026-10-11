@@ -12,6 +12,11 @@
     <string>--db</string>
     <string>@HOME@/.bicz/ledger.sqlite</string>
   </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>BICZ_RUNTIME_DIR</key>
+    <string>@HOME@/.bicz/run</string>
+  </dict>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>

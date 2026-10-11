@@ -121,24 +121,36 @@ not prevented.
 
 `bicz serve` in a terminal or under `nohup` dies on reboot. A launchd user agent starts it at login and
 restarts it if it exits. The template is [`scripts/bicz.launchd.plist`](../scripts/bicz.launchd.plist):
-`RunAtLoad`, `KeepAlive`, `bicz serve --db ~/.bicz/ledger.sqlite`, stdout and stderr to `~/.bicz/serve.log`.
-launchd does not expand `~` or `$HOME`, so fill in `@HOME@`:
+`RunAtLoad`, `KeepAlive`, `bicz serve --db ~/.bicz/ledger.sqlite`, stdout and stderr to `~/.bicz/serve.log`,
+and `BICZ_RUNTIME_DIR=~/.bicz/run`. launchd does not expand `~` or `$HOME`, so fill in `@HOME@`.
+
+**Pin the runtime dir.** By default the supervisor socket lives under `$TMPDIR/bicz`, and macOS purges that
+directory. An adapter config that records a socket path that no longer exists fails open: calls proceed
+unmetered. `~/.bicz/run` is stable, owner-only (mode 0700), and short (the full socket path is about 58
+bytes; macOS limits a Unix socket path to 104). The adapter configs record the socket at install time, so
+install them with the same variable set:
 
 ```sh
-mkdir -p ~/.bicz
+mkdir -p -m 700 ~/.bicz/run
+export BICZ_RUNTIME_DIR=~/.bicz/run          # also put this in your shell profile (see below)
+bicz install --harness claude --account claude --ledger ~/.bicz/ledger.sqlite    # repeat per harness
 sed "s#@HOME@#$HOME#g" scripts/bicz.launchd.plist > ~/Library/LaunchAgents/dev.bicz.supervisor.plist
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/dev.bicz.supervisor.plist
 launchctl print gui/$(id -u)/dev.bicz.supervisor | grep -E 'state|pid'   # state = running
 bicz status --db ~/.bicz/ledger.sqlite                                     # DAEMON status=recording
 ```
 
+Already installed with the default socket? Re-run `bicz install` with `BICZ_RUNTIME_DIR` set (it rewrites
+only the adapter config and keeps `schedule_path`, `policy_version` and the modes), then
+`launchctl bootout gui/$(id -u)/dev.bicz.supervisor` and `bootstrap` again so the daemon moves too.
+
+Your shell needs the same `BICZ_RUNTIME_DIR` for `bicz status`, `doctor` and `serve` run by hand: without
+it they look for the daemon under `$TMPDIR/bicz` and report `DAEMON status=unmanaged`, although the adapters
+(which read the socket from their config) are recording fine.
+
 Edit the `--db` path and the `bicz` path if yours differ (the ledger path must be the one `bicz install
 --ledger` used, because the socket name is derived from it). Stop a foreground or `nohup` supervisor first:
 only one supervisor can hold a ledger's lock. Remove it with
 `launchctl bootout gui/$(id -u)/dev.bicz.supervisor && rm ~/Library/LaunchAgents/dev.bicz.supervisor.plist`.
-
-The socket lives under `$TMPDIR/bicz`. launchd gives user agents the same per-user `TMPDIR` your shell has,
-so the daemon and the adapter configs agree with no extra setting. If you pinned the location with
-`BICZ_RUNTIME_DIR` when you ran `bicz install`, add the same variable to the plist under
-`EnvironmentVariables`. Adapters default to `notice` mode, so a stopped daemon never blocks work; it only
-means calls are not metered until it is back.
+Adapters default to `notice` mode, so a stopped daemon never blocks work; it only means calls are not
+metered until it is back.
