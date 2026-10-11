@@ -96,20 +96,29 @@ function loadConfig(): BiczConfig {
   return value as BiczConfig;
 }
 
+// The request is written without half-closing the socket (`socket.end(request)`): Bun 1.3.x drops the readable side on half-close,
+// which broke the V1 plugin in OpenCode 1.18.31, and this plugin must not depend on the embedded Bun version. The supervisor
+// decodes one JSON value from the stream, so no EOF is needed; the reply is taken as soon as it parses.
 function rpc(config: BiczConfig, op: string, key: string, payload?: unknown): Promise<WireResponse> {
   const { promise, resolve, reject } = Promise.withResolvers<WireResponse>();
   const socket = net.createConnection({ path: config.socket });
   let response = "";
   let settled = false;
-  const timer = setTimeout(() => {
+  const finish = (settle: () => void) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
     socket.destroy();
-    if (!settled) {
-      settled = true;
-      reject(new Error("timed out waiting for the bicz supervisor"));
-    }
-  }, CALL_TIMEOUT_MS);
+    settle();
+  };
+  const parse = (): WireResponse => {
+    const parsed: unknown = JSON.parse(response);
+    if (!isRecord(parsed)) throw new Error("malformed response from the bicz supervisor");
+    return parsed as WireResponse;
+  };
+  const timer = setTimeout(() => finish(() => reject(new Error("timed out waiting for the bicz supervisor"))), CALL_TIMEOUT_MS);
   socket.on("connect", () => {
-    socket.end(JSON.stringify({
+    socket.write(JSON.stringify({
       protocol: PROTOCOL,
       version: VERSION,
       op,
@@ -118,25 +127,23 @@ function rpc(config: BiczConfig, op: string, key: string, payload?: unknown): Pr
       ...(payload === undefined ? {} : { payload }),
     }));
   });
-  socket.on("data", chunk => { response += chunk.toString("utf8"); });
-  socket.on("end", () => {
-    clearTimeout(timer);
-    if (settled) return;
-    settled = true;
+  socket.on("data", chunk => {
+    response += chunk.toString("utf8");
     try {
-      const parsed: unknown = JSON.parse(response);
-      if (!isRecord(parsed)) throw new Error("malformed response from the bicz supervisor");
-      resolve(parsed as WireResponse);
+      const parsed = parse();
+      finish(() => resolve(parsed));
+    } catch {
+      // Incomplete JSON so far: keep reading until the reply parses or the socket ends.
+    }
+  });
+  socket.on("end", () => finish(() => {
+    try {
+      resolve(parse());
     } catch (error) {
       reject(error);
     }
-  });
-  socket.on("error", error => {
-    clearTimeout(timer);
-    if (settled) return;
-    settled = true;
-    reject(error);
-  });
+  }));
+  socket.on("error", error => finish(() => reject(error)));
   return promise;
 }
 

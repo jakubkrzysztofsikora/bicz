@@ -19,7 +19,7 @@ Hooks are cooperative, not an OS security boundary. No adapter claims metering o
 
 ## Install and uninstall
 
-Build bicz, then use `bicz install --harness opencode --account "$USER"` and `bicz uninstall --harness opencode`. Preview with `--dry-run`. Generation is detected from `opencode --version`; `--generation 1` or `--generation 2` overrides detection. The plugin is deployed to `$OPENCODE_CONFIG_DIR/plugins` when set, otherwise `$XDG_CONFIG_HOME/opencode/plugins` or `~/.config/opencode/plugins`. Adapter JSON is written below the OpenCode config-dir override when set, otherwise to bicz's XDG config root. Writes are atomic, idempotent, backed up on apply, and uninstall removes only bicz-owned files. Symlinks, foreign plugin files, and paths outside `$HOME` are refused.
+Build bicz, then use `bicz install --harness opencode --account "$USER"` and `bicz uninstall --harness opencode`. Preview with `--dry-run`. Generation is detected from `opencode --version`; `--generation 1` or `--generation 2` overrides detection. The plugin is deployed to `$OPENCODE_CONFIG_DIR/plugins` when set, otherwise `$XDG_CONFIG_HOME/opencode/plugins` or `~/.config/opencode/plugins`. Adapter JSON is written below the OpenCode config-dir override when set, otherwise to bicz's XDG config root. Writes are atomic, idempotent, backed up on apply, and uninstall removes only bicz-owned files. A reinstall keeps operator-set keys in the adapter JSON (`schedule_path`, `policy_version`, `unmanaged_mode`, `no_schedule_mode`) and refreshes only identity, ledger, socket and `bicz_path`. Symlinks, foreign plugin files, and paths outside `$HOME` are refused.
 
 ## Fail-safe and pricing
 

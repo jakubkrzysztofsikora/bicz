@@ -205,12 +205,13 @@ func PlanInstall(opts Options) (*Plan, error) {
 		"bicz_owned":       true,
 		"kind":             configKind,
 		"version":          1,
-		"account_id":       account,
-		"ledger":           ledger,
-		"socket":           socketPath,
 		"unmanaged_mode":   "notice",
 		"no_schedule_mode": "notice",
 	}
+	if err := carryOperatorKeys(configPath, fields); err != nil {
+		return nil, err
+	}
+	fields["account_id"], fields["ledger"], fields["socket"] = account, ledger, socketPath
 	if err := addSlashExecutable(fields, opts); err != nil {
 		return nil, err
 	}

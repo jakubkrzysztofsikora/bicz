@@ -58,11 +58,19 @@ async function createPlugin(mode, load) {
     registry.set(name, callback);
     return { dispose: async () => registry.delete(name) };
   };
+  const commands = new Map();
   const cleanup = await loaded.default.setup({
     tool: { hook: register(toolHooks) },
-    session: { hook: register(sessionHooks) },
+    session: { hook: register(sessionHooks), synthetic: async () => ({}) },
+    command: {
+      transform: async edit => {
+        edit({ add: definition => commands.set(definition.name, definition) });
+        return { dispose: async () => commands.clear() };
+      },
+    },
   });
-  return { toolHooks, sessionHooks, cleanup };
+  assert.ok(commands.has("bicz"), "the plugin registers its /bicz command");
+  return { toolHooks, sessionHooks, commands, cleanup };
 }
 
 function call(sessionID, id) {

@@ -94,6 +94,15 @@ tree was missing `internal/protocol/coverage.go` (swallowed by a `coverage.*` ig
   settled as an ordinary failure via `message.part.updated` (V1 never calls `tool.execute.after` then);
   `/bicz` replaced `output.parts` by assignment, which V1 ignores, so it now mutates the array. The
   V1 mock-harness checks were rewritten to the observed hook shapes.
+- **OpenCode and OMP installers** now keep operator-set keys of an existing bicz-owned adapter config
+  (`schedule_path`, `policy_version`, `unmanaged_mode`, `no_schedule_mode`, ...) on reinstall, refreshing
+  only identity, ledger, socket and `bicz_path`. Claude and Codex already did; OpenCode and OMP rebuilt
+  the config from scratch, so a reinstall silently turned metering off (no `schedule_path`). One shared
+  helper, `carryOperatorKeys`, now serves all four.
+- **OpenCode V2 plugin** rpc no longer half-closes the socket (same fix as V1), so it no longer depends on
+  the embedded Bun version; re-run in the real `opencode v2.0.26` engine (reserve/settle, receipt in the
+  next request's system context, `/bicz` with no provider request) and in the ABI fixture. The fixture's
+  stub context gained `ctx.command` and `ctx.session.synthetic` (it had not been updated for `/bicz`).
 
 ### Known limitations (release blockers for behavioral claims)
 

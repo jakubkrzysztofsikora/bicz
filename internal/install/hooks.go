@@ -583,9 +583,30 @@ func planHooksInstall(opts Options, target hookTarget) (*Plan, error) {
 	return plan, nil
 }
 
+// carryOperatorKeys copies every key of an existing bicz-owned adapter config
+// into config, so a reinstall keeps operator-set keys (schedule_path,
+// policy_version, modes); callers then refresh identity, ledger and socket.
+// An absent or foreign file contributes nothing (the plan write refuses a
+// foreign one).
+func carryOperatorKeys(path string, config map[string]any) error {
+	existing, state, err := inspectTarget("install: config", path, configMarker)
+	if err != nil {
+		return err
+	}
+	if state != targetOwned {
+		return nil
+	}
+	var previous map[string]any
+	if err := json.Unmarshal(existing, &previous); err == nil {
+		for key, value := range previous {
+			config[key] = value
+		}
+	}
+	return nil
+}
+
 // hookConfigBody builds the adapter config. An existing bicz-owned config keeps
-// every operator-set key (schedule_path, policy_version, modes); only the
-// identity, ledger, and socket are refreshed.
+// every operator-set key; only the identity, ledger, and socket are refreshed.
 func hookConfigBody(path string, spec *hooks.Spec, account, ledger, socket string) ([]byte, error) {
 	config := map[string]any{
 		"bicz_owned":       true,
@@ -594,17 +615,8 @@ func hookConfigBody(path string, spec *hooks.Spec, account, ledger, socket strin
 		"unmanaged_mode":   "notice",
 		"no_schedule_mode": "notice",
 	}
-	existing, state, err := inspectTarget("install: config", path, configMarker)
-	if err != nil {
+	if err := carryOperatorKeys(path, config); err != nil {
 		return nil, err
-	}
-	if state == targetOwned {
-		var previous map[string]any
-		if err := json.Unmarshal(existing, &previous); err == nil {
-			for key, value := range previous {
-				config[key] = value
-			}
-		}
 	}
 	config["account_id"] = account
 	config["ledger"] = ledger

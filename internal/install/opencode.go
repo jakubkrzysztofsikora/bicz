@@ -90,7 +90,11 @@ func PlanOpenCodeInstall(opts Options, generation int) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	fields := map[string]any{"bicz_owned": true, "kind": "bicz.opencode-config", "version": 1, "account_id": account, "ledger": ledger, "socket": socket, "unmanaged_mode": "notice", "no_schedule_mode": "notice"}
+	fields := map[string]any{"bicz_owned": true, "kind": "bicz.opencode-config", "version": 1, "unmanaged_mode": "notice", "no_schedule_mode": "notice"}
+	if err := carryOperatorKeys(cfg, fields); err != nil {
+		return nil, err
+	}
+	fields["account_id"], fields["ledger"], fields["socket"] = account, ledger, socket
 	if err := addSlashExecutable(fields, opts); err != nil {
 		return nil, err
 	}

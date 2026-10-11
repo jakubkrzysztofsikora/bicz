@@ -1,6 +1,7 @@
 package install
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -157,5 +158,67 @@ func TestPlanOpenCodeRefusesForeignPlugin(t *testing.T) {
 	}
 	if _, err := PlanOpenCodeInstall(Options{Account: "tester"}, 2); err == nil {
 		t.Fatal("expected refusal for foreign plugin")
+	}
+}
+
+// A reinstall (new plugin, new identity) must keep what the operator set by hand
+// in the adapter config: without schedule_path every tool call is unmetered.
+func TestOpenCodeReinstallKeepsOperatorKeys(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("OPENCODE_CONFIG_DIR", "")
+	t.Setenv("BICZ_CONFIG_DIR", filepath.Join(home, ".config", "bicz"))
+	first, err := PlanOpenCodeInstall(Options{Account: "first"}, 1)
+	mustApply(t, first, err)
+	operatorEditConfig(t, first.ConfigPath)
+
+	second, err := PlanOpenCodeInstall(Options{Account: "second"}, 2)
+	mustApply(t, second, err)
+	assertOperatorKeysKept(t, first.ConfigPath, "second")
+
+	again, err := PlanOpenCodeInstall(Options{Account: "second"}, 2)
+	if err != nil || !again.Empty() {
+		t.Fatalf("operator-edited config must not be rewritten when identity and plugin are unchanged: plan=%v err=%v", again, err)
+	}
+}
+
+// OMP builds its adapter config the same way, so it has the same contract.
+func TestOMPReinstallKeepsOperatorKeys(t *testing.T) {
+	testEnv(t)
+	first, err := PlanInstall(Options{Harness: "omp", Account: "first"})
+	mustApply(t, first, err)
+	operatorEditConfig(t, first.ConfigPath)
+
+	second, err := PlanInstall(Options{Harness: "omp", Account: "second"})
+	mustApply(t, second, err)
+	assertOperatorKeysKept(t, first.ConfigPath, "second")
+}
+
+func operatorEditConfig(t *testing.T, path string) {
+	t.Helper()
+	cfg := decode(t, mustRead(t, path))
+	cfg["schedule_path"] = "/somewhere/schedule.json"
+	cfg["policy_version"] = "7"
+	cfg["unmanaged_mode"] = "block"
+	cfg["no_schedule_mode"] = "block"
+	edited, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(edited, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func assertOperatorKeysKept(t *testing.T, path, account string) {
+	t.Helper()
+	cfg := decode(t, mustRead(t, path))
+	if cfg["schedule_path"] != "/somewhere/schedule.json" || cfg["policy_version"] != "7" ||
+		cfg["unmanaged_mode"] != "block" || cfg["no_schedule_mode"] != "block" {
+		t.Fatalf("reinstall dropped operator-set keys: %v", cfg)
+	}
+	if cfg["account_id"] != account {
+		t.Fatalf("identity must be refreshed to %q: %v", account, cfg)
 	}
 }
