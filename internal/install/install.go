@@ -148,6 +148,61 @@ func (p *Plan) Print() {
 	}
 }
 
+// Identity is the resolved account/ledger/socket triple an install writes.
+type Identity struct {
+	Account string
+	Ledger  string
+	Socket  string
+}
+
+// resolveIdentity decides which identity an install writes. An explicit flag
+// wins. Otherwise an existing bicz-owned config keeps its own account_id and
+// ledger — a plain reinstall (an upgrade, a hook-command refresh) must never
+// silently re-point the adapter at the default identity and ledger, which
+// would make every slash command hit unknown_identity or an empty ledger.
+// The socket always follows the effective ledger. Only a fresh install, or an
+// existing config that lacks the keys, falls back to the defaults.
+func resolveIdentity(opts Options, configPath, configKind string) (Identity, error) {
+	account := strings.TrimSpace(opts.Account)
+	ledger := strings.TrimSpace(opts.LedgerPath)
+
+	// Stored values from an existing bicz-owned config win over *defaults*
+	// whenever the operator did not pass the matching flag. A ledger flag
+	// alone still keeps the stored account; an account flag alone still
+	// keeps the stored ledger.
+	var previous struct {
+		AccountID string `json:"account_id"`
+		Ledger    string `json:"ledger"`
+	}
+	existing, state, err := inspectTarget("install: config", configPath, configMarker)
+	if err != nil {
+		return Identity{}, err
+	}
+	if state == targetOwned &&
+		json.Unmarshal(existing, &previous) == nil {
+		if account == "" {
+			account = strings.TrimSpace(previous.AccountID)
+		}
+		if ledger == "" {
+			ledger = strings.TrimSpace(previous.Ledger)
+		}
+	}
+	if account == "" {
+		account = DefaultAccount()
+	}
+	if account == "" {
+		return Identity{}, errors.New("install: --account is required when the OS user cannot be resolved")
+	}
+	if ledger == "" {
+		ledger = DefaultLedgerPath()
+	}
+	socket, err := DefaultSocketPath(ledger)
+	if err != nil {
+		return Identity{}, err
+	}
+	return Identity{Account: account, Ledger: ledger, Socket: socket}, nil
+}
+
 // PlanInstall computes the exact diff of an install. It returns an error for a
 // refusal (unknown harness, unsupported harness, foreign target, symlink,
 // unreadable target) before anything is touched.
@@ -172,21 +227,11 @@ func PlanInstall(opts Options) (*Plan, error) {
 	if !info.Supported {
 		return nil, fmt.Errorf("install: harness %s is %s", opts.Harness, info.Note)
 	}
-	account := strings.TrimSpace(opts.Account)
-	if account == "" {
-		account = DefaultAccount()
-	}
-	if account == "" {
-		return nil, errors.New("install: --account is required when the OS user cannot be resolved")
-	}
-	ledger := strings.TrimSpace(opts.LedgerPath)
-	if ledger == "" {
-		ledger = DefaultLedgerPath()
-	}
-	socketPath, err := DefaultSocketPath(ledger)
+	identity, err := resolveIdentity(opts, ConfigPath(opts.Harness), configKind)
 	if err != nil {
 		return nil, err
 	}
+	account, ledger, socketPath := identity.Account, identity.Ledger, identity.Socket
 
 	modulePath, err := modulePath(opts.Harness)
 	if err != nil {

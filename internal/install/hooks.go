@@ -488,23 +488,16 @@ func planHooksInstall(opts Options, target hookTarget) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	account := strings.TrimSpace(opts.Account)
-	if account == "" {
-		account = DefaultAccount()
-	}
-	ledger := strings.TrimSpace(opts.LedgerPath)
-	if ledger == "" {
-		ledger = DefaultLedgerPath()
-	}
-	socketPath, err := DefaultSocketPath(ledger)
+	configPath := ConfigPath(spec.ID)
+	identity, err := resolveIdentity(opts, configPath, configMarker)
 	if err != nil {
 		return nil, err
 	}
+	account, ledger, socketPath := identity.Account, identity.Ledger, identity.Socket
 	path, err := target.path()
 	if err != nil {
 		return nil, fmt.Errorf("install: %w", err)
 	}
-	configPath := ConfigPath(spec.ID)
 	plan := &Plan{ModulePath: path, ConfigPath: configPath, Account: account, Ledger: ledger, hookMarker: hookMarker(spec)}
 
 	content, mode, exists, err := readHooksFile("install: hooks file", path)

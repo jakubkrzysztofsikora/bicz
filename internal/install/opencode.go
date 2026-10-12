@@ -49,21 +49,12 @@ func PlanOpenCodeInstall(opts Options, generation int) (*Plan, error) {
 	if generation != 1 && generation != 2 {
 		return nil, errors.New("install: OpenCode generation must be 1 or 2")
 	}
-	account := strings.TrimSpace(opts.Account)
-	if account == "" {
-		account = DefaultAccount()
-	}
-	if account == "" {
-		return nil, errors.New("install: --account is required")
-	}
-	ledger := strings.TrimSpace(opts.LedgerPath)
-	if ledger == "" {
-		ledger = DefaultLedgerPath()
-	}
-	socket, err := DefaultSocketPath(ledger)
+	cfg := OpenCodeConfigPath()
+	identity, err := resolveIdentity(opts, cfg, configMarker)
 	if err != nil {
 		return nil, err
 	}
+	account, ledger, socket := identity.Account, identity.Ledger, identity.Socket
 	root := os.Getenv("OPENCODE_CONFIG_DIR")
 	if root == "" {
 		root = os.Getenv("XDG_CONFIG_HOME")
@@ -79,7 +70,6 @@ func PlanOpenCodeInstall(opts Options, generation int) (*Plan, error) {
 	if root == os.Getenv("XDG_CONFIG_HOME") && os.Getenv("OPENCODE_CONFIG_DIR") == "" {
 		plugin = filepath.Join(root, "opencode", "plugins", "bicz.ts")
 	}
-	cfg := OpenCodeConfigPath()
 	plan := &Plan{ModulePath: plugin, ConfigPath: cfg, Account: account, Ledger: ledger}
 	body := opencodeV1
 	if generation == 2 {

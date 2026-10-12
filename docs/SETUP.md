@@ -95,6 +95,13 @@ bicz doctor --db $DB
 Remove the adapter with `bicz uninstall --harness claude`. It deletes only bicz-owned entries and
 restores your previous settings byte for byte when nothing else changed.
 
+**Upgrading** (a new `bicz` binary, a hook-command or timeout refresh): run `bicz install` again
+with no flags. An existing bicz-owned config keeps its `account_id` and `ledger` — the installer
+never re-points an existing setup at the default identity. Pass `--account` / `--ledger` only when
+you actually want to move them; either flag alone wins for its own key while the other stays
+stored. Everything else you set by hand in the config (schedule, policy version, an `inference`
+block) is carried over the same way.
+
 ## Schedule: why the default charges nothing
 
 `bicz install` writes the adapter config with `no_schedule_mode: "notice"` and **no schedule**. In

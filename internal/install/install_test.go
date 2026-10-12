@@ -575,3 +575,105 @@ func TestDryRunWritesNothingForAnyHarness(t *testing.T) {
 		}
 	}
 }
+
+// A plain reinstall — the way an operator upgrades — must keep the identity
+// and ledger of an existing bicz-owned config: defaulting them back to the OS
+// user and the default ledger path silently re-points the adapter and every
+// slash command then hits unknown_identity or an empty ledger. An explicit
+// flag still wins over the stored value for the key it names.
+func TestReinstallPreservesIdentityAndLedgerWithoutFlags(t *testing.T) {
+	installOnce(t)
+
+	// A flagless reinstall changes nothing at all.
+	reinstalled, err := PlanInstall(Options{Harness: "omp"})
+	if err != nil {
+		t.Fatalf("reinstall PlanInstall: %v", err)
+	}
+	if reinstalled.Account != "alice" {
+		t.Fatalf("reinstall must keep the stored account_id, got %q", reinstalled.Account)
+	}
+	if !reinstalled.Empty() {
+		t.Fatalf("a flagless reinstall must be a no-op, got %d change(s):", len(reinstalled.Changes))
+		for _, c := range reinstalled.Changes {
+			t.Logf("  %s %s", c.Kind, c.Path)
+		}
+	}
+
+	// The ledger flag alone re-points the ledger and re-derives the socket,
+	// while the stored account still wins for the identity.
+	custom := filepath.Join(t.TempDir(), "custom.sqlite")
+	rePointed, err := PlanInstall(Options{Harness: "omp", LedgerPath: custom})
+	if err != nil {
+		t.Fatalf("re-point PlanInstall: %v", err)
+	}
+	if rePointed.Ledger != custom || rePointed.Account != "alice" {
+		t.Fatalf("ledger flag must win, account must persist: %q %q", rePointed.Ledger, rePointed.Account)
+	}
+
+	// The account flag alone wins over the stored identity.
+	renamed, err := PlanInstall(Options{Harness: "omp", Account: "bob"})
+	if err != nil {
+		t.Fatalf("rename PlanInstall: %v", err)
+	}
+	if renamed.Account != "bob" {
+		t.Fatalf("an explicit account flag must win, got %q", renamed.Account)
+	}
+	if renamed.Empty() {
+		t.Fatal("an account change must produce a config change")
+	}
+	if err := renamed.Apply(); err != nil {
+		t.Fatalf("apply rename: %v", err)
+	}
+	body, err := os.ReadFile(renamed.ConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg struct {
+		AccountID string         `json:"account_id"`
+		Inference map[string]any `json:"inference"`
+	}
+	if err := json.Unmarshal(body, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AccountID != "bob" {
+		t.Fatalf("written config account = %q, want bob", cfg.AccountID)
+	}
+}
+
+// The same preservation for the claude/codex hook path: identity stays put on
+// a flagless reinstall, including inside the written config body.
+func TestHookReinstallPreservesIdentityAndLedgerWithoutFlags(t *testing.T) {
+	home, exe := hookEnv(t)
+	first, err := PlanInstall(Options{Harness: "claude", Account: "carol", LedgerPath: filepath.Join(home, "one.sqlite"), Executable: exe})
+	if err != nil {
+		t.Fatalf("first PlanInstall: %v", err)
+	}
+	if err := first.Apply(); err != nil {
+		t.Fatalf("first Apply: %v", err)
+	}
+
+	second, err := PlanInstall(Options{Harness: "claude", Executable: exe})
+	if err != nil {
+		t.Fatalf("reinstall PlanInstall: %v", err)
+	}
+	if second.Account != "carol" {
+		t.Fatalf("reinstall must keep the stored account_id, got %q", second.Account)
+	}
+	if !second.Empty() {
+		t.Fatalf("a flagless reinstall of an up-to-date adapter must be a no-op, got %d change(s)", len(second.Changes))
+	}
+	body, err := os.ReadFile(second.ConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg struct {
+		AccountID string `json:"account_id"`
+		Ledger    string `json:"ledger"`
+	}
+	if err := json.Unmarshal(body, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AccountID != "carol" || !strings.HasSuffix(cfg.Ledger, "one.sqlite") {
+		t.Fatalf("config identity changed: %q %q", cfg.AccountID, cfg.Ledger)
+	}
+}

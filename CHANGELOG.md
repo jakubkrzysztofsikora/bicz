@@ -2,6 +2,19 @@
 
 Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow SemVer.
 
+## [v0.2.1] - 2026-10-12
+
+### Fixed
+
+- **`bicz install` no longer wipes a configured identity on upgrade.** A
+  flagless reinstall (the normal upgrade path — new binary, refreshed hook
+  command or timeout) keeps the `account_id` and `ledger` of the existing
+  bicz-owned config instead of defaulting them back to the OS user and
+  `~/.bicz/ledger.sqlite`, which silently re-pointed the adapter and made every
+  `/bicz` command fail with `unknown_identity`. `--account` / `--ledger` still
+  win when passed; either flag alone moves only its own key. Applies to all
+  four harness installs (omp, claude, codex, opencode).
+
 ## [v0.2.0] - 2026-10-12
 
 ### Added
