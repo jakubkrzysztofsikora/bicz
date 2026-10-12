@@ -239,6 +239,19 @@ that require operator review. Caller-supplied strings such as `authority=
 "operator"` are **rejected outright**; authority is derived from the invoking OS
 user, never from a field.
 
+**Model-assisted parameter drafting (opt-in).** When the operator enables the
+optional `inference` block of the harness's bicz config, the slash executor
+(the hook or `bicz command` process, **never** the daemon) may ask an
+operator-configured external OpenAI-compatible endpoint to draft missing
+parameters of a `/bicz loss`. This is not a side channel and not an
+adjudication: the write still happens only because the operator invoked the
+slash command, every drafted field is validated against the operator's own
+bounds (the rule must be a shipped catalog id), the receipt and the recorded
+evidence carry `model_inferred` provenance plus the configured model name, and
+the raw operator text is quoted verbatim as data in the evidence. A session's
+own model is never consulted, and no model can finalize a burn without the
+operator's `/bicz` invocation.
+
 **Replay behavior.** Every operator call carries an idempotency key. Same key +
 same payload → no-op returning the prior receipt. Same key + different payload →
 `payload_conflict` hard error. Two simultaneous operator transitions on one

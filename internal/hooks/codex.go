@@ -57,17 +57,20 @@ var CodexSpec = &Spec{
 }
 
 // codexSlash recognizes a prompt that starts with the token $bicz. Everything
-// after the token is the raw slash text; anything else (including $biczx or a
-// mention later in a sentence) is an ordinary prompt and is left alone.
-func codexSlash(fields map[string]json.RawMessage) (string, string, bool) {
+// after the token is the raw slash text; anything else (including $biczx or
+// a mention later in a sentence) is an ordinary prompt and is left alone.
+// transcript_path is forwarded when Codex supplies one; it was observed as
+// null on the 0.162.1 exec path (docs/RUNTIME_HOOKS.md section 3), in which
+// case it is "" and the executor discloses that to the infer model honestly.
+func codexSlash(fields map[string]json.RawMessage) (string, string, string, bool) {
 	prompt := strings.TrimLeft(jsonString(fields, "prompt"), " \t\r\n")
 	const token = "$bicz"
 	if !strings.HasPrefix(prompt, token) {
-		return "", "", false
+		return "", "", "", false
 	}
 	rest := prompt[len(token):]
 	if rest != "" && !strings.ContainsRune(" \t\r\n", rune(rest[0])) {
-		return "", "", false
+		return "", "", "", false
 	}
-	return rest, jsonString(fields, "session_id") + ":" + jsonString(fields, "turn_id"), true
+	return rest, jsonString(fields, "session_id") + ":" + jsonString(fields, "turn_id"), jsonString(fields, "transcript_path"), true
 }

@@ -18,7 +18,7 @@ A local, same-user credit ledger and supervisor for coding-agent harnesses (Clau
 ## Why it helps
 
 - **Consequences persist.** A loss is an append-only ledger event. Balance, role and lessons survive restarts and new sessions, and the harness hook shows them to the agent at session start and before its next tool call.
-- **The agent gets the lesson, not just the penalty.** `/bicz loss RULE "reason" "correction"` burns credits, saves the lesson and records the penalty in one transaction. The correction is yours, never model-written. An honest failure costs only its normal operating charge and never triggers the cue.
+- **The agent gets the lesson, not just the penalty.** `/bicz loss RULE "reason" "correction"` burns credits, saves the lesson and records the penalty in one transaction. The correction is yours, or shipped from the rule catalog; the only model in the loop is the optional, operator-configured inference endpoint below, and anything it drafts is labeled `model_inferred`. An honest failure costs only its normal operating charge and never triggers the cue.
 - **Rules out of the box.** Ships 15 default rules distilled from real agent failures (fake "done", ignored instructions, "pre-existing" excuses…); `/bicz rules` lists them. See [default policies](docs/DEFAULT_POLICIES.md).
 - **You get a record you can check.** `bicz verify` checks the hash chain; `bicz doctor` lists the call paths bicz cannot see. Once a price schedule is wired in, an empty balance, suspension or dismissal makes the adapter ask the harness to deny priced tool calls.
 
@@ -104,6 +104,28 @@ bicz accountability record: operator-confirmed penalties, ledger data (quoted ev
 ```
 
 A loss without a correction (none given, none saved from an earlier loss of the same rule) writes nothing and asks for one. Full grammar and the exact trust model: [docs/SLASH_COMMAND.md](docs/SLASH_COMMAND.md).
+
+## Optional: let a model finish an angry loss
+
+Off by default. Add an `inference` block to the harness's bicz config (`~/.config/bicz/<harness>.json`) and `/bicz loss` can complete itself from context:
+
+```json
+"inference": {
+  "enabled": true,
+  "endpoint": "https://api.openai.com/v1/chat/completions",
+  "api_key_env": "OPENAI_API_KEY",
+  "model": "gpt-4o-mini"
+}
+```
+
+Any OpenAI-compatible endpoint works — OpenAI, Groq, Scaleway, or a local Ollama/llama.cpp (`http://` is accepted only for loopback/private/tailnet addresses; the key is read from the named environment variable, never stored in the config). `endpoint` and `model` are yours, so the infer model is normally a **different family** from the harness's own; the session's model is never consulted.
+
+Two triggers:
+
+- **The vent.** `/bicz loss "you absolute donut, you just stopped again"` does not parse — but your typed text is a *locator*, not content: the model reads the session transcript, finds the failure hotspot (your angry message and the agent turn(s) that caused it), and drafts the `rule` (must be a shipped catalog id, never invented), a factual `reason`, and a `correction`. Your raw words are quoted verbatim as data in the evidence; the receipt says `model_inferred`.
+- **The missing correction.** A parsed loss whose correction is nowhere (not typed, not saved, not a default rule) gets a model-drafted correction, after your typed > saved > shipped defaults.
+
+Guardrails: precedence is typed > saved > default > `model_inferred` > prompted; a retry of the same vent replays the same event even if the model words it differently (no double burn); a timeout, missing key, or invalid reply falls back to today's exact behavior and writes nothing; the call runs in the hook/`bicz command` process, never in the supervisor daemon.
 
 ## Works with
 

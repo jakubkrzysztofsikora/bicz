@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"github.com/jakubkrzysztofsikora/bicz/internal/adapter"
+	"github.com/jakubkrzysztofsikora/bicz/internal/infer"
 	"github.com/jakubkrzysztofsikora/bicz/internal/protocol"
 )
 
@@ -74,9 +75,10 @@ type EventSpec struct {
 	// the installer default.
 	Timeout int
 	// Slash, for KindSlash events only, extracts the operator slash arguments
-	// from the decoded event, plus an id unique to this submission. ok is false
-	// when the event is not a /bicz invocation.
-	Slash func(fields map[string]json.RawMessage) (arguments, invocation string, ok bool)
+	// from the decoded event, plus an id unique to this submission and the
+	// session transcript path the harness supplied ("" when it supplied
+	// none). ok is false when the event is not a /bicz invocation.
+	Slash func(fields map[string]json.RawMessage) (arguments, invocation, transcriptPath string, ok bool)
 }
 
 // Fields is the table of wire field names for one harness: input fields read
@@ -153,6 +155,12 @@ type Config struct {
 	NoScheduleMode string `json:"no_schedule_mode,omitempty"`
 	SchedulePath   string `json:"schedule_path,omitempty"`
 	PolicyVersion  string `json:"policy_version,omitempty"`
+	// Inference is the optional, operator-added block that lets the slash
+	// executor complete a /bicz loss the operator did not fully type by
+	// asking an external OpenAI-compatible endpoint (internal/infer). It is
+	// absent from everything `bicz install` writes; an absent or disabled
+	// block keeps the slash path byte-identical to a config without it.
+	Inference *infer.InferenceConfig `json:"inference,omitempty"`
 }
 
 func (c *Config) unmanagedMode() string {

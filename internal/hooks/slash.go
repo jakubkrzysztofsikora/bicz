@@ -27,23 +27,28 @@ import (
 // turn; it does not mean the command was refused.
 
 // slashHookTimeout is the hook timeout (seconds) the installer writes for slash
-// events. A loss is a short local SQLite write; this leaves room for a busy
-// ledger without letting a stuck hook stall the session.
-const slashHookTimeout = 15
+// events. A loss is a short local SQLite write, but with inference enabled the
+// executor may also wait on an external reasoning model (internal/infer), which
+// measured tens of seconds end to end; 60s leaves that room while still
+// bounding a hung hook.
+const slashHookTimeout = 60
 
 // slashDeadline bounds one slash execution inside the hook. It is deliberately
 // longer than the ledger's 10 s SQLite busy timeout, so a locked ledger is
 // refused by SQLite itself ("database is locked", the write never began) before
 // this deadline fires, and shorter than slashHookTimeout, so the harness never
 // kills the process mid-write.
-const slashDeadline = 12 * time.Second
+const slashDeadline = 55 * time.Second
 
 // SlashFunc runs one slash command to completion and returns its result text.
 // It MUST honor ctx and MUST be truthful about outcome: the hook runs it
 // synchronously and exits only after it returns, so nothing can commit after
 // the result was reported. invocation is unique to the submission (empty when
-// the harness supplies none).
-type SlashFunc func(ctx context.Context, harness, arguments, invocation string) string
+// the harness supplies none). transcriptPath is the session transcript the
+// harness supplied with the event ("" when it supplied none); the executor
+// may use it to complete missing /bicz loss parameters when the operator has
+// enabled inference (internal/infer).
+type SlashFunc func(ctx context.Context, harness, arguments, invocation, transcriptPath string) string
 
 func jsonString(fields map[string]json.RawMessage, name string) string {
 	var out string
@@ -64,7 +69,7 @@ func runSlash(opts Options, spe EventSpec) error {
 	if err := json.Unmarshal(raw, &fields); err != nil {
 		return fmt.Errorf("hook: event JSON on stdin is malformed: %w", err)
 	}
-	arguments, invocation, ok := spe.Slash(fields)
+	arguments, invocation, transcriptPath, ok := spe.Slash(fields)
 	if !ok {
 		return nil
 	}
@@ -82,7 +87,7 @@ func runSlash(opts Options, spe EventSpec) error {
 	// itself reports a cancelled or timed-out command; abandoning a goroutine
 	// here would let the process exit, or the write commit, after an
 	// "outcome unknown" answer.
-	text := opts.Slash(ctx, opts.Spec.ID, arguments, invocation)
+	text := opts.Slash(ctx, opts.Spec.ID, arguments, invocation, transcriptPath)
 	text = strings.TrimSpace(text)
 	// reason is what Claude Code shows for a blocked prompt; systemMessage is the
 	// common output field both harnesses surface as a UI/event-stream message, so

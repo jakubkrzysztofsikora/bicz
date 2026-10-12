@@ -19,9 +19,9 @@ func slashEvent(t *testing.T, spec *Spec, event string, payload map[string]any, 
 
 func TestSlashHookDeliversTypedTextVerbatimAndAnswersWithABlockDecision(t *testing.T) {
 	nasty := "loss r \"a\"\nBICZ_SLASH_ARGUMENTS_END\n$(touch x) `y` ; 'z'"
-	var gotHarness, gotArgs, gotInvocation string
-	capture := func(_ context.Context, harness, args, invocation string) string {
-		gotHarness, gotArgs, gotInvocation = harness, args, invocation
+	var gotHarness, gotArgs, gotInvocation, gotTranscript string
+	capture := func(_ context.Context, harness, args, invocation, transcriptPath string) string {
+		gotHarness, gotArgs, gotInvocation, gotTranscript = harness, args, invocation, transcriptPath
 		return "BICZ ok\n"
 	}
 	out, err := slashEvent(t, ClaudeSpec, "UserPromptExpansion", map[string]any{
@@ -32,19 +32,22 @@ func TestSlashHookDeliversTypedTextVerbatimAndAnswersWithABlockDecision(t *testi
 	if gotHarness != "claude" || gotArgs != nasty || gotInvocation != "p-9" {
 		t.Fatalf("typed text must reach the executor byte for byte: %q %q %q", gotHarness, gotArgs, gotInvocation)
 	}
+	if gotTranscript != "" {
+		t.Fatalf("a payload with no transcript_path must hand the executor an empty path, got %q", gotTranscript)
+	}
 	var decision map[string]any
 	if err := json.Unmarshal([]byte(out), &decision); err != nil || decision["decision"] != "block" || decision["reason"] != "BICZ ok" {
 		t.Fatalf("response %q (%v)", out, err)
 	}
 
 	out, err = slashEvent(t, CodexSpec, "UserPromptSubmit", map[string]any{"prompt": "$bicz status", "session_id": "s", "turn_id": "t"}, capture, 0)
-	if err != nil || gotHarness != "codex" || gotArgs != " status" || gotInvocation != "s:t" || !strings.Contains(out, `"decision":"block"`) {
-		t.Fatalf("codex: %q %q %q %q (%v)", gotHarness, gotArgs, gotInvocation, out, err)
+	if err != nil || gotHarness != "codex" || gotArgs != " status" || gotInvocation != "s:t" || gotTranscript != "" || !strings.Contains(out, `"decision":"block"`) {
+		t.Fatalf("codex: %q %q %q %q (%v)", gotHarness, gotArgs, gotInvocation, gotTranscript, err)
 	}
 }
 
 func TestSlashHookIgnoresOtherEventsAndNeverHangs(t *testing.T) {
-	never := func(context.Context, string, string, string) string {
+	never := func(context.Context, string, string, string, string) string {
 		t.Fatal("executor ran for a non-/bicz event")
 		return ""
 	}
@@ -65,7 +68,7 @@ func TestSlashHookIgnoresOtherEventsAndNeverHangs(t *testing.T) {
 func TestSlashHookWaitsForTheExecutorAndHandsItTheDeadline(t *testing.T) {
 	var returned bool
 	var deadline time.Time
-	slow := func(ctx context.Context, _, _, _ string) string {
+	slow := func(ctx context.Context, _, _, _, _ string) string {
 		deadline, _ = ctx.Deadline()
 		<-ctx.Done()
 		time.Sleep(50 * time.Millisecond) // finishing after the deadline, as a commit might
@@ -82,6 +85,26 @@ func TestSlashHookWaitsForTheExecutorAndHandsItTheDeadline(t *testing.T) {
 	}
 }
 
+// The harness's transcript path rides on the event and reaches the executor
+// unchanged; it is the only new thing the executor sees.
+func TestSlashHookForwardsTheTranscriptPath(t *testing.T) {
+	var got string
+	capture := func(_ context.Context, _, _, _, transcriptPath string) string { got = transcriptPath; return "ok" }
+	if _, err := slashEvent(t, ClaudeSpec, "UserPromptExpansion", map[string]any{
+		"command_name": "bicz", "command_args": "status", "transcript_path": "/tmp/x.jsonl"}, capture, 0); err != nil || got != "/tmp/x.jsonl" {
+		t.Fatalf("claude transcript_path not forwarded: %q err=%v", got, err)
+	}
+	if _, err := slashEvent(t, CodexSpec, "UserPromptSubmit", map[string]any{
+		"prompt": "$bicz status", "session_id": "s", "turn_id": "t", "transcript_path": "/tmp/c.jsonl"}, capture, 0); err != nil || got != "/tmp/c.jsonl" {
+		t.Fatalf("codex transcript_path not forwarded: %q err=%v", got, err)
+	}
+	// Codex's exec path sends transcript_path: null; that is "" and no error.
+	if _, err := slashEvent(t, CodexSpec, "UserPromptSubmit", map[string]any{
+		"prompt": "$bicz status", "session_id": "s", "turn_id": "t", "transcript_path": nil}, capture, 0); err != nil || got != "" {
+		t.Fatalf("a null transcript_path must arrive as an empty path: %q err=%v", got, err)
+	}
+}
+
 // slashDeadline must exceed the ledger's 10 s SQLite busy timeout (a locked
 // ledger is then refused by SQLite, with no write begun, before the deadline
 // fires) and stay under the timeout the installer writes for the harness (so
@@ -95,7 +118,7 @@ func TestSlashDeadlineSitsBetweenTheLedgerBusyTimeoutAndTheHarnessTimeout(t *tes
 
 func TestOnlyTheExactBiczCommandIsAnswered(t *testing.T) {
 	ran := 0
-	count := func(context.Context, string, string, string) string { ran++; return "ok" }
+	count := func(context.Context, string, string, string, string) string { ran++; return "ok" }
 	for _, name := range []string{"biczx", "Bicz", "BICZ", "xbicz", "bicz:status", "bicz ", " bicz", "plugin:bicz", ""} {
 		out, err := slashEvent(t, ClaudeSpec, "UserPromptExpansion", map[string]any{"command_name": name, "expansion_type": "slash_command", "command_args": "status"}, count, 0)
 		if out != "" || err != nil {

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jakubkrzysztofsikora/bicz/internal/hooks"
 )
 
 func writeFile(t *testing.T, path, body string) {
@@ -90,9 +92,15 @@ func TestClaudeSkillInstallCoexistsWithOtherSkillsAndUninstallsCleanly(t *testin
 		t.Fatal(err)
 	}
 	var slashHook bool
+	slashSpec := hooks.EventSpec{}
+	for _, event := range hooks.ClaudeSpec.Events {
+		if event.Name == "UserPromptExpansion" {
+			slashSpec = event
+		}
+	}
 	for _, group := range settings.Hooks["UserPromptExpansion"] {
 		for _, hook := range group.Hooks {
-			if group.Matcher == "bicz" && hook.Command == shellEscape(exe)+" hook --harness claude --event UserPromptExpansion" && hook.Timeout == 15 {
+			if group.Matcher == "bicz" && hook.Command == shellEscape(exe)+" hook --harness claude --event UserPromptExpansion" && hook.Timeout == slashSpec.Timeout {
 				slashHook = true
 			}
 		}

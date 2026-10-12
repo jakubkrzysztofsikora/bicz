@@ -355,7 +355,7 @@ func ensureEvent(groups []json.RawMessage, event hooks.EventSpec, command, marke
 				continue
 			}
 			found = true
-			updated, same, err := withCommand(entry, command)
+			updated, same, err := withCommand(entry, command, event.Timeout)
 			if err != nil {
 				return nil, false, err
 			}
@@ -394,7 +394,11 @@ func ensureEvent(groups []json.RawMessage, event hooks.EventSpec, command, marke
 }
 
 // withCommand sets an entry's command, reporting whether it already matched.
-func withCommand(entry json.RawMessage, command string) (json.RawMessage, bool, error) {
+// A matching command also gets the compiled hook timeout refreshed in place:
+// the timeout is bicz's own operational value (internal/hooks slashHookTimeout),
+// not operator configuration, so an older install is upgraded silently instead
+// of pinning a stale bound while the command line stays byte-identical.
+func withCommand(entry json.RawMessage, command string, wantTimeout int) (json.RawMessage, bool, error) {
 	obj, err := parseObject(entry)
 	if err != nil {
 		return nil, false, fmt.Errorf("a bicz hook entry is not a JSON object: %w", err)
@@ -402,6 +406,15 @@ func withCommand(entry json.RawMessage, command string) (json.RawMessage, bool, 
 	var current string
 	_ = json.Unmarshal(obj.vals["command"], &current)
 	if current == command {
+		if wantTimeout > 0 {
+			var have int
+			_ = json.Unmarshal(obj.vals["timeout"], &have)
+			if have != wantTimeout {
+				encoded, _ := json.Marshal(wantTimeout)
+				obj.set("timeout", encoded)
+				return obj.bytes(), false, nil
+			}
+		}
 		return entry, true, nil
 	}
 	encoded, _ := json.Marshal(command)

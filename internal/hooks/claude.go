@@ -50,13 +50,15 @@ var ClaudeSpec = &Spec{
 
 // claudeSlash recognizes a typed /bicz: a UserPromptExpansion for the slash
 // command named exactly "bicz". command_args is the raw text after it; prompt_id
-// identifies this one submission.
-func claudeSlash(fields map[string]json.RawMessage) (string, string, bool) {
+// identifies this one submission; transcript_path is the session transcript
+// Claude Code hands every hook event (observed live, docs/RUNTIME_HOOKS.md
+// section 2), which the executor may use for inference (internal/infer).
+func claudeSlash(fields map[string]json.RawMessage) (string, string, string, bool) {
 	if jsonString(fields, "command_name") != "bicz" {
-		return "", "", false
+		return "", "", "", false
 	}
 	if kind := jsonString(fields, "expansion_type"); kind != "" && kind != "slash_command" {
-		return "", "", false
+		return "", "", "", false
 	}
-	return jsonString(fields, "command_args"), jsonString(fields, "prompt_id"), true
+	return jsonString(fields, "command_args"), jsonString(fields, "prompt_id"), jsonString(fields, "transcript_path"), true
 }

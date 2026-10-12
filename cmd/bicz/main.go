@@ -141,10 +141,12 @@ harness adapters (user-scope only; no elevated privileges; dry-run is exact and 
                    run one harness hook event: event JSON on stdin, harness
                    response JSON on stdout (invoked by the harness, not by hand)
   bicz command   --harness omp|claude|codex|opencode
-                   (--arguments RAW | --arguments-stdin) [--invocation ID] [--json]
+                   (--arguments RAW | --arguments-stdin) [--invocation ID] [--transcript PATH] [--json]
                    run one operator slash command (/bicz loss RULE "reason" ["correction"],
                    /bicz reward AMOUNT "reason", /bicz status, /bicz rules). Identity and ledger come
                    from the harness's installed bicz config; there is no --db/--identity.
+                   --transcript is the session transcript, read only when the adapter config
+                   enables inference (internal/infer), never recorded.
                    exit 0 ok, 1 error, 2 usage, 3 needs_input (nothing was written)
 
 build
@@ -890,8 +892,11 @@ func runHook(ctx context.Context, args []string) error {
 
 // runSlashHook is the executor the Claude Code and Codex hooks call for a typed
 // /bicz. The text arrives as decoded JSON, so it is data here as everywhere.
-func runSlashHook(ctx context.Context, harness, arguments, invocation string) string {
-	return slash.Run(ctx, slash.Request{Harness: harness, Arguments: arguments, Invocation: invocation}).Text
+// transcriptPath is the session transcript the harness supplied with the
+// event; it is read only for inference and never recorded.
+func runSlashHook(ctx context.Context, harness, arguments, invocation, transcriptPath string) string {
+	return slash.Run(ctx, slash.Request{Harness: harness, Arguments: arguments, Invocation: invocation,
+		TranscriptPath: transcriptPath}).Text
 }
 
 // maxCommandStdin bounds the raw arguments read from stdin.
@@ -924,6 +929,7 @@ func runCommand(ctx context.Context, args []string) error {
 	arguments := fs.String("arguments", "", "the exact raw text after /bicz")
 	fromStdin := fs.Bool("arguments-stdin", false, "read the raw text after /bicz from stdin (one trailing newline is dropped)")
 	invocation := fs.String("invocation", "", "id unique to one user submission; a retry with the same id is deduplicated")
+	transcript := fs.String("transcript", "", "session transcript (JSONL) the harness supplied; read only when inference is enabled (internal/infer)")
 	jsonOut := fs.Bool("json", false, "print one JSON object {status, action, text, question, error, code, event_id, replayed}")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -955,7 +961,7 @@ func runCommand(ctx context.Context, args []string) error {
 		raw = strings.TrimSuffix(strings.TrimSuffix(string(body), "\n"), "\r")
 	}
 
-	request := slash.Request{Harness: *harness, Arguments: raw, Invocation: *invocation}
+	request := slash.Request{Harness: *harness, Arguments: raw, Invocation: *invocation, TranscriptPath: *transcript}
 	if !*jsonOut && !*fromStdin && isTerminal(os.Stdin) {
 		request.Prompter = terminalPrompter{in: bufio.NewReader(os.Stdin), out: os.Stderr}
 	}

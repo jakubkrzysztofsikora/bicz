@@ -6,6 +6,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ### Added
 
+- Opt-in inference of missing `/bicz loss` parameters (`internal/infer`): an
+  `inference` block in the harness's bicz config (`endpoint`, `model`,
+  `api_key_env`, all operator-chosen — typically a different model family from
+  the harness's own) lets the slash executor ask an external OpenAI-compatible
+  endpoint to complete (a) an unparsable vent-style `loss` into rule, reason,
+  and correction — the typed text is a locator; the model finds the failure
+  hotspot in the session transcript — and (b) a parsed loss whose correction
+  resolved nowhere. Every drafted field is validated (shipped catalog rule id,
+  parser text bounds), the receipt and evidence carry `model_inferred`
+  provenance with the raw typed text quoted as data, the vent's idempotency
+  key covers the raw text so a retry can never burn twice, and any failure
+  falls back to today's behavior writing nothing. The call happens in the hook
+  or `bicz command` process, never in the supervisor daemon
+  (`docs/SLASH_COMMAND.md`, `docs/CONTRACTS.md` §4).
 - macOS launchd template `scripts/bicz.launchd.plist` and a "Run at login (macOS)" section in `docs/SETUP.md`.
 - Codex runtime verification (`docs/RUNTIME_HOOKS.md` section 3): real `codex-cli 0.162.1` `codex exec`
   runs, hooks trusted via Codex's own `hooks.state` mechanism (no bypass flag), temp home/ledger, local mock

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/jakubkrzysztofsikora/bicz/internal/daemon"
+	"github.com/jakubkrzysztofsikora/bicz/internal/infer"
 	"github.com/jakubkrzysztofsikora/bicz/internal/ledger"
 	"github.com/jakubkrzysztofsikora/bicz/internal/policy"
 	"github.com/jakubkrzysztofsikora/bicz/internal/protocol"
@@ -50,12 +51,17 @@ type Request struct {
 	Harness string
 	// Arguments is the exact raw text after `/bicz`.
 	Arguments string
-	// Invocation is an optional id unique to one user submission. A retry of the
-	// same submission carries the same id and is deduplicated by the ledger; a
-	// new submission carries a new id and is a new event.
+	// Invocation is an optional id unique to one user submission. A retry of
+	// the same submission carries the same id and is deduplicated by the ledger;
+	// a new submission carries a new id and is a new event.
 	Invocation string
 	// Prompter fills a missing correction when a human is at a terminal.
 	Prompter Prompter
+	// TranscriptPath is the session transcript the harness supplied with the
+	// event ("" when it supplied none). It is read only for inference
+	// (internal/infer), only when the adapter config enables it, and it is
+	// never recorded or sent anywhere else.
+	TranscriptPath string
 }
 
 // Response is the structured result every front end renders.
@@ -117,7 +123,7 @@ func failure(action Action, err error) Response {
 func Run(ctx context.Context, request Request) Response {
 	command, err := Parse(request.Arguments)
 	if err != nil {
-		return usageResponse(err)
+		return parseFailure(ctx, request, err)
 	}
 	if command.Action == ActionHelp {
 		return Response{Status: StatusOK, Action: ActionHelp, Text: Usage}
@@ -125,36 +131,127 @@ func Run(ctx context.Context, request Request) Response {
 	if command.Action == ActionRules {
 		return Response{Status: StatusOK, Action: ActionRules, Text: RulesText()}
 	}
-	target, err := ResolveTarget(request.Harness)
-	if err != nil {
-		return failure(command.Action, err)
-	}
-	if info, statErr := os.Stat(target.Ledger); statErr != nil || !info.Mode().IsRegular() {
-		return failure(command.Action, fmt.Errorf("ledger %s named by %s does not exist; refusing to create one from a slash command", target.Ledger, target.ConfigPath))
-	}
-	op, err := daemon.NewOperator(target.Ledger)
+	target, op, projection, err := openTarget(ctx, request.Harness, command.Action)
 	if err != nil {
 		return failure(command.Action, err)
 	}
 	defer op.Close()
-	projection, err := op.Ledger().Projection(ctx, target.Identity)
-	if err != nil {
-		return failure(command.Action, fmt.Errorf("identity %q from %s: %w", target.Identity, target.ConfigPath, err))
-	}
 	switch command.Action {
 	case ActionStatus:
 		return status(target, op, projection)
 	case ActionReward:
 		return reward(ctx, request, target, op, command)
 	default:
-		return loss(ctx, request, target, op, command)
+		return loss(ctx, request, target, op, command, nil)
 	}
+}
+
+// openTarget resolves the installed harness config and opens the ledger and
+// identity projection a state-changing action needs, with the same refusals
+// for every action.
+func openTarget(ctx context.Context, harness string, action Action) (Target, *daemon.Operator, ledger.Projection, error) {
+	target, err := ResolveTarget(harness)
+	if err != nil {
+		return Target{}, nil, ledger.Projection{}, err
+	}
+	if info, statErr := os.Stat(target.Ledger); statErr != nil || !info.Mode().IsRegular() {
+		return target, nil, ledger.Projection{}, fmt.Errorf("ledger %s named by %s does not exist; refusing to create one from a slash command", target.Ledger, target.ConfigPath)
+	}
+	op, err := daemon.NewOperator(target.Ledger)
+	if err != nil {
+		return target, nil, ledger.Projection{}, err
+	}
+	projection, err := op.Ledger().Projection(ctx, target.Identity)
+	if err != nil {
+		op.Close()
+		return target, nil, ledger.Projection{}, fmt.Errorf("identity %q from %s: %w", target.Identity, target.ConfigPath, err)
+	}
+	return target, op, projection, nil
+}
+
+// parseFailure answers a /bicz that did not parse. Everything but a
+// loss-shaped text is today's usage error. A loss-shaped vent — the operator
+// swore at the agent instead of typing RULE "reason" — can be completed by
+// inference when the harness config enables it: the typed text is a locator,
+// the infer model finds the failure hotspot in the transcript
+// (internal/infer), and the result is recorded with model_inferred
+// provenance. A loss that already carries a rule, a reason, and a correction
+// plus extra arguments is a structural error, never rewritten; a tokenize
+// failure (an unterminated quote) is hygiene the model cannot fix. A failed
+// inference falls back to today's usage error plus one disclosure line.
+// Nothing is written on any of those paths.
+func parseFailure(ctx context.Context, request Request, parseErr error) Response {
+	tokens, err := Tokenize(request.Arguments)
+	if err != nil || len(tokens) == 0 || strings.ToLower(tokens[0]) != string(ActionLoss) {
+		return usageResponse(parseErr)
+	}
+	rest := tokens[1:]
+	if len(rest) == 0 {
+		return usageResponse(parseErr) // a bare "loss" is a typo, not a vent
+	}
+	if len(rest) > 3 && len(rest[0]) <= maxRuleRunes && rulePattern.MatchString(rest[0]) &&
+		strings.TrimSpace(rest[1]) != "" && strings.TrimSpace(rest[2]) != "" {
+		return usageResponse(parseErr)
+	}
+	target, err := ResolveTarget(request.Harness)
+	if err != nil {
+		return usageResponse(parseErr)
+	}
+	if info, statErr := os.Stat(target.Ledger); statErr != nil || !info.Mode().IsRegular() {
+		return usageResponse(parseErr)
+	}
+	if target.Inference == nil || !target.Inference.Enabled {
+		return usageResponse(parseErr)
+	}
+	fields, inferErr := infer.Resolve(ctx, *target.Inference, infer.WantAll, request.TranscriptPath, "", "", request.Arguments)
+	if inferErr != nil {
+		response := usageResponse(parseErr)
+		response.Text += "BICZ inference unavailable (" + inferErr.Error() + "); nothing was recorded.\n"
+		return response
+	}
+	command := Command{Action: ActionLoss, Rule: fields.Rule, Reason: fields.Reason}
+	meta := &inferred{raw: request.Arguments, params: "rule,reason,correction",
+		model: strings.TrimSpace(target.Inference.Model), correction: fields.Correction}
+	op, err := daemon.NewOperator(target.Ledger)
+	if err != nil {
+		return failure(ActionLoss, err)
+	}
+	defer op.Close()
+	return loss(ctx, request, target, op, command, meta)
 }
 
 // provenance is the unsigned command provenance appended to the recorded
 // reason. It states the truth: a same-user slash invocation, nothing more.
 func provenance(harness string) string {
 	return " [/bicz via " + harness + ", unsigned same-user]"
+}
+
+// inferred records which parameters of a recorded loss the infer model
+// (internal/infer) supplied: the operator's raw typed text (the locator), the
+// parameters the model drafted, the configured model name, and the model's
+// correction draft for a vent loss. It drives the provenance suffix, the
+// receipt line, and the raw-text idempotency digest.
+type inferred struct {
+	raw        string
+	params     string
+	model      string
+	correction string
+}
+
+// inferredProvenance is the provenance of a loss whose parameters the infer
+// model completed. It states the truth: the model drafted the fields, and
+// the operator's raw typed text (the locator) is quoted as data, bounded.
+func inferredProvenance(harness, raw string) string {
+	return " [/bicz via " + harness + ", params model_inferred; operator typed: " + strconv.Quote(boundRunes(raw, 500)) + "]"
+}
+
+// boundRunes truncates text to at most limit runes.
+func boundRunes(text string, limit int) string {
+	runes := []rune(text)
+	if len(runes) <= limit {
+		return text
+	}
+	return string(runes[:limit]) + "…"
 }
 
 // eventID derives the idempotency key from what the operator typed (never from
@@ -174,25 +271,54 @@ func eventID(action Action, target Target, command Command, invocation string) s
 	return "slash-" + string(action) + "-" + target.Harness + "-" + hex.EncodeToString(digest.Sum(nil))[:20]
 }
 
+// eventIDInferred derives the idempotency key of an inferred loss from the
+// raw typed text, never from what the model resolved: a retry of the same
+// vent is the same event even when the model words the reason differently,
+// so a re-inference cannot burn twice.
+func eventIDInferred(action Action, target Target, rawArgs, invocation string) string {
+	digest := sha256.New()
+	for _, part := range []string{string(action), target.Harness, target.Identity, rawArgs, "model_inferred", invocation} {
+		digest.Write([]byte(strconv.Itoa(len(part))))
+		digest.Write([]byte{0})
+		digest.Write([]byte(part))
+		digest.Write([]byte{0})
+	}
+	return "slash-" + string(action) + "-" + target.Harness + "-" + hex.EncodeToString(digest.Sum(nil))[:20]
+}
+
 func attribution(op *daemon.Operator, target Target) string {
 	return fmt.Sprintf("ATTRIBUTION os_user=%s via /bicz (%s); unsigned same-user record, not cryptographic authentication of a human", op.Actor(), target.Harness)
 }
 
-func loss(ctx context.Context, request Request, target Target, op *daemon.Operator, command Command) Response {
+func loss(ctx context.Context, request Request, target Target, op *daemon.Operator, command Command, meta *inferred) Response {
 	defaults, _ := policy.Load()
 	defaultRule, isDefault := defaults.Rule(command.Rule)
 	// Precedence: what the operator typed, then what the operator saved on an
-	// earlier loss of this rule, then the correction shipped with a default rule,
-	// then a terminal prompt. A shipped default is operator-supplied text, never
-	// a model-written one.
+	// earlier loss of this rule, then the model draft of a vent loss (meta),
+	// then the correction shipped with a default rule, then the model draft
+	// of a parsed loss, then a terminal prompt. A shipped default is
+	// operator-supplied text, never a model-written one; every model draft
+	// is labeled model_inferred in the receipt and the recorded evidence.
 	correction, source := command.Correction, "explicit"
 	if correction == "" {
 		source = "saved"
 		correction = savedCorrection(ctx, op, target.Identity, command.Rule)
 	}
+	if correction == "" && meta != nil && meta.correction != "" {
+		correction, source = meta.correction, "model_inferred"
+	}
 	if correction == "" && isDefault {
 		source = "default"
 		correction = defaultRule.Correction
+	}
+	inferenceProblem := ""
+	if correction == "" && target.Inference != nil && target.Inference.Enabled {
+		fields, err := infer.Resolve(ctx, *target.Inference, infer.WantCorrection, request.TranscriptPath, command.Rule, command.Reason, request.Arguments)
+		if err != nil {
+			inferenceProblem = err.Error()
+		} else if fields.Correction != "" {
+			correction, source = fields.Correction, "model_inferred"
+		}
 	}
 	if correction == "" && request.Prompter != nil {
 		typed, err := request.Prompter.Correction(command.Rule)
@@ -210,10 +336,19 @@ func loss(ctx context.Context, request Request, target Target, op *daemon.Operat
 		question := fmt.Sprintf("No correction is saved for rule %s, it is not a default rule (see /bicz rules), and a loss must state the safe alternative. "+
 			`Nothing was recorded. Re-run with the correction as the third argument: /bicz loss %s %s "<the correction the agent must follow>"`,
 			command.Rule, command.Rule, strconv.Quote(command.Reason))
-		return Response{Status: StatusNeedsInput, Action: ActionLoss, Question: question, Text: "BICZ loss needs input\n" + question}
+		text := "BICZ loss needs input\n" + question
+		if inferenceProblem != "" {
+			text += "\nBICZ inference unavailable (" + inferenceProblem + ")."
+		}
+		return Response{Status: StatusNeedsInput, Action: ActionLoss, Question: question, Text: text}
 	}
 
 	id := eventID(ActionLoss, target, command, request.Invocation)
+	evidence := command.Reason + provenance(target.Harness)
+	if meta != nil {
+		id = eventIDInferred(ActionLoss, target, meta.raw, request.Invocation)
+		evidence = command.Reason + inferredProvenance(target.Harness, meta.raw)
+	}
 	result, err := op.Loss(ctx, daemon.LossRequest{
 		EventID:       id,
 		Identity:      target.Identity,
@@ -221,7 +356,7 @@ func loss(ctx context.Context, request Request, target Target, op *daemon.Operat
 		Correction:    correction,
 		Scope:         defaultRule.Scope,
 		Exceptions:    defaultRule.Exceptions,
-		Evidence:      command.Reason + provenance(target.Harness),
+		Evidence:      evidence,
 		PolicyVersion: target.PolicyVersion,
 		Reason:        command.Reason,
 		Disposition:   string(ledger.DispositionConfirmedBreach),
@@ -235,6 +370,12 @@ func loss(ctx context.Context, request Request, target Target, op *daemon.Operat
 			"An identical /bicz loss was already applied; to record a distinct new loss, change the reason text.\n", result.EventID)
 	} else {
 		fmt.Fprintf(&b, "BICZ loss recorded: event=%s identity=%s rule=%s\n", result.EventID, result.AccountID, result.Rule)
+	}
+	if meta != nil {
+		fmt.Fprintf(&b, "INFERRED params=%s source=model_inferred model=%s; the operator typed %s, quoted as data in the evidence\n",
+			meta.params, meta.model, strconv.Quote(meta.raw))
+	} else if source == "model_inferred" && target.Inference != nil {
+		fmt.Fprintf(&b, "INFERRED params=correction source=model_inferred model=%s\n", strings.TrimSpace(target.Inference.Model))
 	}
 	fmt.Fprintf(&b, "BURN applied=%s credits (%d mc) formula=%d repeats=%d multiplier=%d balance=%s credits (%d mc) outstanding=%s credits (%d mc) role=%s\n",
 		ledger.FormatCredits(result.AppliedAmount), result.AppliedAmount, result.FormulaAmount, result.RepeatCount, result.RepeatMultiplier,

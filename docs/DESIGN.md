@@ -186,7 +186,7 @@ Use a local supervisor daemon with SQLite for a single operator, or a transactio
 
 ### Lightweight packaging and hot path
 
-Ship one small supervisor binary (`bicz`) with SQLite storage and a Unix-domain socket, plus thin harness adapters. No blockchain, vector database, background model, embedding service or remote dependency on the ordinary authorization path. These are proposed interfaces, not commands implemented in this repository:
+Ship one small supervisor binary (`bicz`) with SQLite storage and a Unix-domain socket, plus thin harness adapters. No blockchain, vector database, background model, embedding service or remote dependency on the ordinary authorization path — the supervisor and the adapter protocol make no network calls. One opt-in exception exists outside that path: when the operator enables the `inference` block in a harness's bicz config, the slash executor (a hook or `bicz command` process, not the daemon) may call an operator-configured external OpenAI-compatible endpoint to draft missing `/bicz loss` parameters from the session transcript, with `model_inferred` provenance recorded on any resulting event. These are proposed interfaces, not commands implemented in this repository:
 
 ```sh
 bicz install --harness omp

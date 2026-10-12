@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jakubkrzysztofsikora/bicz/internal/hooks"
+	"github.com/jakubkrzysztofsikora/bicz/internal/infer"
 )
 
 // Harnesses is every harness a slash command can come from. The ids are the
@@ -38,14 +39,19 @@ type Target struct {
 	Ledger        string
 	PolicyVersion string
 	ConfigPath    string
+	// Inference is the optional inference block of the adapter config, nil
+	// unless the operator added one. It never affects config validation: an
+	// absent or disabled block simply disables inference.
+	Inference *infer.InferenceConfig
 }
 
 type adapterConfig struct {
-	BiczOwned     bool   `json:"bicz_owned"`
-	Kind          string `json:"kind"`
-	AccountID     string `json:"account_id"`
-	Ledger        string `json:"ledger"`
-	PolicyVersion string `json:"policy_version"`
+	BiczOwned     bool                   `json:"bicz_owned"`
+	Kind          string                 `json:"kind"`
+	AccountID     string                 `json:"account_id"`
+	Ledger        string                 `json:"ledger"`
+	PolicyVersion string                 `json:"policy_version"`
+	Inference     *infer.InferenceConfig `json:"inference,omitempty"`
 }
 
 // ConfigPath is the config of one harness: $BICZ_CONFIG (the same one-process
@@ -89,5 +95,6 @@ func ResolveTarget(harness string) (Target, error) {
 	if policy == "" {
 		policy = "1"
 	}
-	return Target{Harness: id, Identity: identity, Ledger: filepath.Clean(cfg.Ledger), PolicyVersion: policy, ConfigPath: path}, nil
+	return Target{Harness: id, Identity: identity, Ledger: filepath.Clean(cfg.Ledger), PolicyVersion: policy, ConfigPath: path,
+		Inference: cfg.Inference}, nil
 }
