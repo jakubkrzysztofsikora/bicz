@@ -140,7 +140,7 @@ func Run(ctx context.Context, request Request) Response {
 	case ActionStatus:
 		return status(target, op, projection)
 	case ActionReward:
-		return reward(ctx, request, target, op, command)
+		return reward(ctx, request, target, op, command, nil)
 	default:
 		return loss(ctx, request, target, op, command, nil)
 	}
@@ -169,29 +169,43 @@ func openTarget(ctx context.Context, harness string, action Action) (Target, *da
 	return target, op, projection, nil
 }
 
-// parseFailure answers a /bicz that did not parse. Everything but a
-// loss-shaped text is today's usage error. A loss-shaped vent — the operator
-// swore at the agent instead of typing RULE "reason" — can be completed by
-// inference when the harness config enables it: the typed text is a locator,
-// the infer model finds the failure hotspot in the transcript
-// (internal/infer), and the result is recorded with model_inferred
-// provenance. A loss that already carries a rule, a reason, and a correction
-// plus extra arguments is a structural error, never rewritten; a tokenize
-// failure (an unterminated quote) is hygiene the model cannot fix. A failed
-// inference falls back to today's usage error plus one disclosure line.
-// Nothing is written on any of those paths.
+// parseFailure answers a /bicz that did not parse. A loss-shaped vent — the
+// operator swore at the agent instead of typing RULE "reason" — or a
+// reward-shaped text with no amount can be completed by inference when the
+// harness config enables it: the typed text is a locator, the infer model
+// reads the transcript (internal/infer), and the result is recorded with
+// model_inferred provenance. A bare "loss" or "reward" alone is usually a
+// stray command word, not an attempt, and stays a usage error. A loss that
+// already carries a rule, a reason, and a correction plus extra arguments is
+// a structural error, never rewritten; a tokenize failure (an unterminated
+// quote) is hygiene the model cannot fix. A failed inference falls back to
+// today's usage error plus one disclosure line. Nothing is written on any of
+// those paths.
 func parseFailure(ctx context.Context, request Request, parseErr error) Response {
 	tokens, err := Tokenize(request.Arguments)
-	if err != nil || len(tokens) == 0 || strings.ToLower(tokens[0]) != string(ActionLoss) {
+	if err != nil || len(tokens) == 0 {
+		return usageResponse(parseErr)
+	}
+	verb := strings.ToLower(tokens[0])
+	if verb != string(ActionLoss) && verb != string(ActionReward) {
 		return usageResponse(parseErr)
 	}
 	rest := tokens[1:]
 	if len(rest) == 0 {
-		return usageResponse(parseErr) // a bare "loss" is a typo, not a vent
+		return usageResponse(parseErr) // a bare "loss"/"reward" is a stray word, not a vent
 	}
-	if len(rest) > 3 && len(rest[0]) <= maxRuleRunes && rulePattern.MatchString(rest[0]) &&
+	if verb == string(ActionLoss) && len(rest) > 3 && len(rest[0]) <= maxRuleRunes && rulePattern.MatchString(rest[0]) &&
 		strings.TrimSpace(rest[1]) != "" && strings.TrimSpace(rest[2]) != "" {
 		return usageResponse(parseErr)
+	}
+	if verb == string(ActionReward) {
+		// If the first argument parses as an amount, the operator chose the
+		// number: a failure here is about the reason (their wording to
+		// keep), never rewritten by the model. Free text where the amount
+		// belongs is the effortless-reward locator.
+		if _, amountErr := ledger.ParseCredits(rest[0]); amountErr == nil {
+			return usageResponse(parseErr)
+		}
 	}
 	target, err := ResolveTarget(request.Harness)
 	if err != nil {
@@ -202,6 +216,9 @@ func parseFailure(ctx context.Context, request Request, parseErr error) Response
 	}
 	if target.Inference == nil || !target.Inference.Enabled {
 		return usageResponse(parseErr)
+	}
+	if verb == string(ActionReward) {
+		return inferredReward(ctx, request, target, parseErr)
 	}
 	fields, inferErr := infer.Resolve(ctx, *target.Inference, infer.WantAll, request.TranscriptPath, "", "", request.Arguments)
 	if inferErr != nil {
@@ -218,6 +235,46 @@ func parseFailure(ctx context.Context, request Request, parseErr error) Response
 	}
 	defer op.Close()
 	return loss(ctx, request, target, op, command, meta)
+}
+
+// inferredReward records a reward whose amount and reason the infer model
+// drafted from the transcript (the operator typed `reward` plus at most some
+// free text). The raw typed text is the locator; the model may only pick an
+// amount inside the hard [1, 100] credit band, and the idempotency key covers
+// the raw text so a retry replays instead of crediting twice.
+func inferredReward(ctx context.Context, request Request, target Target, parseErr error) Response {
+	fields, inferErr := infer.Resolve(ctx, *target.Inference, infer.WantReward, request.TranscriptPath, "", "", request.Arguments)
+	if inferErr != nil {
+		response := usageResponse(parseErr)
+		response.Text += "BICZ inference unavailable (" + inferErr.Error() + "); nothing was recorded.\n"
+		return response
+	}
+	command := Command{Action: ActionReward, Credits: fields.Credits * 1_000_000, Reason: fields.Reason}
+	meta := &inferred{raw: request.Arguments, params: "amount,reason",
+		model: strings.TrimSpace(target.Inference.Model)}
+	op, err := daemon.NewOperator(target.Ledger)
+	if err != nil {
+		return failure(ActionReward, err)
+	}
+	defer op.Close()
+	response := reward(ctx, request, target, op, command, meta)
+	// A retry of the same raw text resolves to the same event id; the ledger
+	// refuses a second event under one key with a different payload (the
+	// model worded it differently this time). The credit already happened
+	// once — say so instead of surfacing the raw conflict.
+	if response.Status == StatusError && response.Code == "payload_conflict" {
+		response.Text = "BICZ reward already recorded: this exact typed text was inferred and credited before " +
+			"(event " + eventIDInferred(ActionReward, target, meta.raw, request.Invocation) + "); " +
+			"the retry worded it differently, so the ledger refused a second write. " +
+			"The account was credited exactly once. Nothing was changed by this retry."
+		response.EventID = eventIDInferred(ActionReward, target, meta.raw, request.Invocation)
+		response.Status = StatusOK
+		response.Action = ActionReward
+		response.Replayed = true
+		response.Code = ""
+		response.Error = ""
+	}
+	return response
 }
 
 // provenance is the unsigned command provenance appended to the recorded
@@ -409,13 +466,18 @@ func savedCorrection(ctx context.Context, op *daemon.Operator, identity, rule st
 	return ""
 }
 
-func reward(ctx context.Context, request Request, target Target, op *daemon.Operator, command Command) Response {
+func reward(ctx context.Context, request Request, target Target, op *daemon.Operator, command Command, meta *inferred) Response {
 	id := eventID(ActionReward, target, command, request.Invocation)
+	reason := command.Reason + provenance(target.Harness)
+	if meta != nil {
+		id = eventIDInferred(ActionReward, target, meta.raw, request.Invocation)
+		reason = command.Reason + inferredProvenance(target.Harness, meta.raw)
+	}
 	result, err := op.Reward(ctx, daemon.RewardRequest{
 		EventID:  id,
 		Identity: target.Identity,
 		Amount:   command.Credits,
-		Reason:   command.Reason + provenance(target.Harness),
+		Reason:   reason,
 		Evidence: "slash command /bicz reward via " + target.Harness + "; unsigned same-user",
 	})
 	if err != nil {
@@ -427,6 +489,10 @@ func reward(ctx context.Context, request Request, target Target, op *daemon.Oper
 			"An identical /bicz reward was already applied; to record a distinct new reward, change the reason text.\n", result.EventID)
 	} else {
 		fmt.Fprintf(&b, "BICZ reward recorded: event=%s identity=%s\n", result.EventID, result.AccountID)
+	}
+	if meta != nil && !result.Replayed {
+		fmt.Fprintf(&b, "INFERRED params=%s source=model_inferred model=%s; the operator typed %s, quoted as data in the reason\n",
+			meta.params, meta.model, strconv.Quote(meta.raw))
 	}
 	fmt.Fprintf(&b, "CREDIT amount=%s credits (%d mc) applied_to_loss=%d balance=%s credits (%d mc) outstanding=%s credits (%d mc)\n",
 		ledger.FormatCredits(result.Amount), result.Amount, result.AppliedToLoss,

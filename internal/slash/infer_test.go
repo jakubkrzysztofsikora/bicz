@@ -209,3 +209,66 @@ func TestParsedLossWithoutCorrectionCanBeInferred(t *testing.T) {
 		t.Fatalf("disabled inference must keep needs_input: %+v", disabled)
 	}
 }
+
+// The effortless reward: `/bicz reward <free text>` (no amount) is completed
+// by the infer model — amount inside the hard [1,100] band, factual reason —
+// recorded with model_inferred provenance quoting the raw text, and a retry
+// replays the same event. Disabled inference keeps today's usage error.
+func TestBareRewardIsInferredAndRetrySafe(t *testing.T) {
+	t.Setenv("TEST_INFER_KEY", "k")
+	f := newFixture(t, "claude")
+	writeInferConfig(t, "claude", "alice", f.db, inferEndpoint(t,
+		`{"credits":7,"reason":"shipped the payment module fix with the full suite green"}`, nil).URL)
+	before := eventCount(t, f.db)
+
+	first := Run(context.Background(), Request{Harness: "claude",
+		Arguments: `reward shipped the payment fix`, Invocation: "r1", TranscriptPath: inferTranscript(t)})
+	if first.Status != StatusOK {
+		t.Fatalf("inferred reward: %+v\n%s", first, first.Text)
+	}
+	for _, want := range []string{
+		"INFERRED params=amount,reason source=model_inferred model=infer-model",
+		"CREDIT amount=7 credits (7000000 mc)",
+		`the operator typed "reward shipped the payment fix", quoted as data in the reason`,
+	} {
+		if !strings.Contains(first.Text, want) {
+			t.Errorf("receipt lacks %q:\n%s", want, first.Text)
+		}
+	}
+
+	// Retry: same raw text, different model wording — same event.
+	writeInferConfig(t, "claude", "alice", f.db, inferEndpoint(t,
+		`{"credits":99,"reason":"DIFFERENT"}`, nil).URL)
+	retry := Run(context.Background(), Request{Harness: "claude",
+		Arguments: `reward shipped the payment fix`, Invocation: "r1", TranscriptPath: inferTranscript(t)})
+	if retry.Status != StatusOK || !retry.Replayed || retry.EventID != first.EventID {
+		t.Fatalf("retry must replay: %+v", retry)
+	}
+	if got := eventCount(t, f.db); got != before+1 {
+		t.Fatalf("reward + replay wrote %d events, want 1", got-before)
+	}
+
+	// An out-of-band amount is refused and nothing is written.
+	writeInferConfig(t, "claude", "alice", f.db, inferEndpoint(t,
+		`{"credits":5000,"reason":"way too much"}`, nil).URL)
+	overband := Run(context.Background(), Request{Harness: "claude",
+		Arguments: `reward saved the company`, Invocation: "r2"})
+	if overband.Status != StatusError || overband.Code != "usage" ||
+		!strings.Contains(overband.Text, "inference unavailable") || !strings.Contains(overband.Text, "Nothing was recorded") {
+		t.Fatalf("out-of-band amount must fall back to the usage error: %+v\n%s", overband, overband.Text)
+	}
+
+	// Inference disabled: today's exact usage error, no call.
+	f.writeConfig(t, "claude", "alice", f.db)
+	disabled := Run(context.Background(), Request{Harness: "claude", Arguments: `reward saved the company`})
+	if disabled.Status != StatusError || disabled.Code != "usage" {
+		t.Fatalf("disabled inference must keep the usage error: %+v", disabled)
+	}
+
+	// A reward with an amount but no reason is the operator's wording to
+	// keep: never rewritten by the model.
+	amountOnly := Run(context.Background(), Request{Harness: "claude", Arguments: `reward 5`})
+	if amountOnly.Status != StatusError || amountOnly.Code != "usage" {
+		t.Fatalf("amount without reason must stay a usage error: %+v", amountOnly)
+	}
+}

@@ -2,6 +2,25 @@
 
 Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow SemVer.
 
+## [v0.3.0] - 2026-10-12
+
+### Added
+
+- **The effortless reward**: `/bicz reward <free text>` — no amount, no
+  quoting. When inference is enabled, the infer model reads the transcript,
+  sees what the agent actually finished, and drafts the credit amount and a
+  factual reason. The amount is hard-capped at [1, 100] credits (an
+  out-of-band draft is refused and nothing is written); the receipt carries
+  `INFERRED params=amount,reason source=model_inferred`; the raw typed text
+  is quoted as data in the recorded reason; the idempotency key covers the
+  raw text, so a retry never credits twice (a differently-worded retry is
+  refused by the ledger and reported as "already recorded, credited exactly
+  once"). An explicit amount (`/bicz reward 5 "..."`) is never rewritten.
+- A reward whose first argument does not parse as an amount is now
+  inference-eligible in the same parse-failure path as the vent loss; a
+  bare `loss`/`reward` with no arguments at all is still a stray word and a
+  usage error.
+
 ## [v0.2.2] - 2026-10-12
 
 ### Added

@@ -29,19 +29,23 @@ flags**: the identity and ledger come from the harness's installed config
   **operator-configured external OpenAI-compatible endpoint** — `endpoint`, `model`, and
   `api_key_env` are all yours to set, so the infer model is normally a *different model family*
   from the harness's own; the running harness and its provider are never involved — to complete
-  missing parameters. Two triggers: (a) an unparsable `loss`-shaped vent (you swore at the agent
+  missing parameters. Three triggers: (a) an unparsable `loss`-shaped vent (you swore at the agent
   instead of typing `RULE "reason"`) is completed into `rule`, `reason`, and `correction`; your
   typed text is a **locator, not content**: the model finds the failure hotspot in the session
   transcript (your angry message and the agent turn(s) leading up to it) and drafts a factual
   reason from it; your raw text is quoted verbatim as data in the evidence. (b) A parsed loss
   whose correction resolved nowhere gets a model-drafted correction
-  (`source=model_inferred`). Precedence: typed > saved > shipped default > `model_inferred` >
+  (`source=model_inferred`). (c) **The effortless reward**: `/bicz reward <free text>` with no
+  amount is completed into a credit amount (hard-capped at [1, 100]; the ceiling is absolute) and
+  a factual reason from what the transcript shows the agent finished; an explicit amount is never
+  rewritten. Precedence for corrections: typed > saved > shipped default > `model_inferred` >
   prompted. Every model-drafted parameter is validated (the rule must be a shipped catalog id,
-  never invented; reason/correction pass the same bounds as typed text) and the receipt and
-  recorded evidence say `model_inferred` plus the configured model name. An inferred vent's
-  idempotency key covers your raw text, so a retry — even with different model wording — replays
-  the same event and never burns twice. A missing key, timeout, or invalid reply falls back to
-  today's exact behavior (usage error / `needs_input`) and writes nothing. The endpoint must be
+  never invented; reason/correction pass the same bounds as typed text; a reward amount must sit
+  inside the band) and the receipt and recorded evidence say `model_inferred` plus the configured
+  model name. An inferred command's idempotency key covers your raw text, so a retry — even with
+  different model wording — can never burn or credit twice (a differently-worded retry is refused
+  by the ledger and reported as already-recorded). A missing key, timeout, or invalid reply falls
+  back to today's exact behavior (usage error / `needs_input`) and writes nothing. The endpoint must be
   `https://` (or `http://` on loopback/private addresses, for a local Ollama or llama.cpp); the
   key is read only from the named environment variable. Inference runs in the hook/`bicz command`
   process, never in the supervisor daemon.

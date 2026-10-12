@@ -130,6 +130,7 @@ Two triggers:
 
 - **The vent.** `/bicz loss "you absolute donut, you just stopped again"` does not parse — but your typed text is a *locator*, not content: the model reads the session transcript, finds the failure hotspot (your angry message and the agent turn(s) that caused it), and drafts the `rule` (must be a shipped catalog id, never invented), a factual `reason`, and a `correction`. Your raw words are quoted verbatim as data in the evidence; the receipt says `model_inferred`.
 - **The missing correction.** A parsed loss whose correction is nowhere (not typed, not saved, not a default rule) gets a model-drafted correction, after your typed > saved > shipped defaults.
+- **The effortless reward.** `/bicz reward nice work on the payment fix` — no amount, no quoting. The model reads the transcript, sees what the agent actually finished, and drafts the credit amount (hard-capped at 1–100 credits; the ceiling is absolute) and a factual reason. You never think in microcredits. An explicit amount (`/bicz reward 5 ...`) is always yours and never rewritten.
 
 Guardrails: precedence is typed > saved > default > `model_inferred` > prompted; a retry of the same vent replays the same event even if the model words it differently (no double burn); a timeout, missing key, or invalid reply falls back to today's exact behavior and writes nothing; the call runs in the hook/`bicz command` process, never in the supervisor daemon.
 

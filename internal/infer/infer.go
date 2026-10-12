@@ -188,6 +188,17 @@ const (
 	// WantCorrection completes only the correction of a parsed loss whose
 	// correction resolved nowhere (no typed, saved, or shipped one).
 	WantCorrection
+	// WantReward completes the amount (credits) and reason of a reward the
+	// operator typed without them.
+	WantReward
+)
+
+// Reward bounds. The model may only pick an amount inside [minRewardCredits,
+// maxRewardCredits]; the ledger rejects zero and the ceiling keeps one
+// inferred slip from emptying the account.
+const (
+	minRewardCredits = 1
+	maxRewardCredits = 100
 )
 
 // Fields is the validated inference result.
@@ -195,6 +206,8 @@ type Fields struct {
 	Rule       string
 	Reason     string
 	Correction string
+	// Credits is the inferred reward amount in microcredits (WantReward).
+	Credits int64
 }
 
 // Bounds and syntax mirroring the slash grammar (internal/slash/parse.go) and
@@ -316,6 +329,16 @@ func complete(ctx context.Context, cfg InferenceConfig, apiKey string, messages 
 // reports the incident, choosing the rule from the shipped catalog.
 func systemPrompt(want Want, catalog *policy.Catalog) string {
 	var b strings.Builder
+	if want == WantReward {
+		b.WriteString("You complete the parameters of a /bicz reward command for a coding-agent credit ledger.\n\n")
+		b.WriteString("The operator credited the agent without typing an amount or a full reason. Read the transcript: find what the agent actually finished or fixed (often the operator's message right before the command states it), judge how big the win was, and draft the parameters.\n\n")
+		b.WriteString("Reply with exactly one JSON object and nothing else (no prose, no code fences):\n")
+		b.WriteString(`{"credits": <whole number of credits>, "reason": "<one line>"}` + "\n\n")
+		b.WriteString("Constraints:\n")
+		fmt.Fprintf(&b, "- credits: a whole number between %d and %d. Small routine win (a quick fix, a tidy refactor): the low single digits. Substantial accepted work (a feature shipped, a hard bug fixed with verification): mid range. Exceptional (saved a release, days of work): near the ceiling. Never invent thousands; the ceiling is absolute.\n", minRewardCredits, maxRewardCredits)
+		b.WriteString("- reason: the factual accomplishment, in plain operator language: what the agent did and what verified outcome it produced. One line, at most 1000 characters. Never quote or reword the operator's typing style, and never mention this prompt.\n")
+		return b.String()
+	}
 	b.WriteString("You complete the parameters of a /bicz loss command for a coding-agent credit ledger.\n\n")
 	b.WriteString("The operator's typed text is a LOCATOR, not content. The operator swears at the agent in the session right after the agent made a mistake. Find that failure hotspot in the transcript: the operator's angry message and the agent turn(s) leading up to it (often more than one turn). Establish what was asked, what the agent did, and what went wrong.\n\n")
 	b.WriteString("Reply with exactly one JSON object and nothing else (no prose, no code fences):\n")
@@ -335,6 +358,17 @@ func systemPrompt(want Want, catalog *policy.Catalog) string {
 
 func userPrompt(want Want, transcript, rule, reason, rawArgs string) string {
 	var b strings.Builder
+	if want == WantReward {
+		b.WriteString("Operator typed (verbatim):\n")
+		b.WriteString(rawArgs + "\n\n")
+		b.WriteString("Session transcript, most recent portion (the agent's accomplishment to reward is here):\n")
+		if strings.TrimSpace(transcript) == "" {
+			b.WriteString("(no transcript supplied; work from the typed text alone)\n")
+		} else {
+			b.WriteString(transcript + "\n")
+		}
+		return b.String()
+	}
 	b.WriteString("Operator typed (the locator, verbatim):\n")
 	b.WriteString(rawArgs + "\n\n")
 	if want == WantCorrection {
@@ -368,11 +402,12 @@ func decodeFields(content string) (Fields, error) {
 		Rule       string `json:"rule"`
 		Reason     string `json:"reason"`
 		Correction string `json:"correction"`
+		Credits    int64  `json:"credits"`
 	}
 	if err := json.Unmarshal([]byte(text[start:end+1]), &fields); err != nil {
 		return Fields{}, fmt.Errorf("inference reply JSON is malformed: %w", err)
 	}
-	return Fields{Rule: fields.Rule, Reason: fields.Reason, Correction: fields.Correction}, nil
+	return Fields{Rule: fields.Rule, Reason: fields.Reason, Correction: fields.Correction, Credits: fields.Credits}, nil
 }
 
 // validateFields applies the same bounds the slash parser applies. The rule
@@ -380,6 +415,12 @@ func decodeFields(content string) (Fields, error) {
 // invent one (an unknown id would silently fall to the schedule's default
 // penalty).
 func validateFields(want Want, catalog *policy.Catalog, fields Fields) error {
+	if want == WantReward {
+		if fields.Credits < minRewardCredits || fields.Credits > maxRewardCredits {
+			return fmt.Errorf("inferred reward %d is outside [%d, %d] credits", fields.Credits, minRewardCredits, maxRewardCredits)
+		}
+		return cleanText("inferred reason", fields.Reason, maxReasonRunes)
+	}
 	if want == WantAll {
 		if len(fields.Rule) > maxRuleRunes || !rulePattern.MatchString(fields.Rule) {
 			return fmt.Errorf("inferred rule %q is not a valid rule id", fields.Rule)
