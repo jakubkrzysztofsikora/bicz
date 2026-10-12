@@ -202,7 +202,8 @@ func parseFailure(ctx context.Context, request Request, parseErr error) Response
 		// If the first argument parses as an amount, the operator chose the
 		// number: a failure here is about the reason (their wording to
 		// keep), never rewritten by the model. Free text where the amount
-		// belongs is the effortless-reward locator.
+		// belongs — or no text at all, the transcript alone — is the
+		// effortless-reward locator.
 		if _, amountErr := ledger.ParseCredits(rest[0]); amountErr == nil {
 			return usageResponse(parseErr)
 		}
