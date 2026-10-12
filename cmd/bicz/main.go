@@ -35,6 +35,7 @@ import (
 	"github.com/jakubkrzysztofsikora/bicz/internal/install"
 	"github.com/jakubkrzysztofsikora/bicz/internal/ledger"
 	"github.com/jakubkrzysztofsikora/bicz/internal/rehearsal"
+	"github.com/jakubkrzysztofsikora/bicz/internal/selfupdate"
 	"github.com/jakubkrzysztofsikora/bicz/internal/slash"
 )
 
@@ -68,6 +69,7 @@ func main() {
 		"rules":        runRules,
 		"install":      runInstall,
 		"uninstall":    runUninstall,
+		"update":       runUpdate,
 		"hook":         runHook,
 		"command":      runCommand,
 		"version":      runVersion,
@@ -151,6 +153,11 @@ harness adapters (user-scope only; no elevated privileges; dry-run is exact and 
 
 build
   bicz version [--json]                    print version, commit, Go, OS/arch
+  bicz update [--version TAG] [--install-dir DIR] [--dry-run]
+                   fetch the latest release, verify its SHA256SUMS, swap the
+                   binary atomically (previous kept as bicz.previous), and
+                   reinstall the adapters of every harness that has a bicz
+                   config (identity and operator keys survive)
 
 release gate (Phase A simulation + human-recorded Phase B evidence)
   bicz rehearsal   [--db DIR] [--json] [--record PATH]
@@ -1007,4 +1014,99 @@ func (p terminalPrompter) Correction(rule string) (string, error) {
 	fmt.Fprintf(p.out, "No correction is saved for rule %s. Safe alternative the agent must follow: ", rule)
 	line, _ := p.in.ReadString('\n') // EOF or a blank line both mean "none given"
 	return strings.TrimSpace(line), nil
+}
+
+// --- self-update -------------------------------------------------------------
+
+// installedHarnesses lists the harnesses that have a bicz-owned-looking
+// config: `bicz update` reinstalls exactly these after swapping the binary.
+// A harness whose config is absent, or present but not bicz's, is skipped.
+func installedHarnesses() []string {
+	var out []string
+	for _, harness := range []string{"claude", "codex", "omp", "opencode"} {
+		raw, err := os.ReadFile(install.ConfigPath(harness))
+		if err != nil {
+			continue
+		}
+		var cfg struct {
+			BiczOwned bool   `json:"bicz_owned"`
+			Kind      string `json:"kind"`
+		}
+		if json.Unmarshal(raw, &cfg) != nil || !cfg.BiczOwned {
+			continue
+		}
+		if !strings.HasSuffix(cfg.Kind, "-config") {
+			continue
+		}
+		out = append(out, harness)
+	}
+	return out
+}
+
+// runUpdate fetches the latest bicz release, verifies it against the release's
+// own SHA256SUMS, swaps the running binary atomically (previous kept as
+// bicz.previous), and reinstalls the adapters of every harness that has a bicz
+// config so hook commands and timeouts follow the new binary. Identity,
+// ledger, and operator keys survive that reinstall (the installer preserves
+// them). --dry-run reports the target release and changes nothing.
+func runUpdate(ctx context.Context, args []string) error {
+	fs := newFlagSet("update")
+	installDir := fs.String("install-dir", "", "directory holding the bicz binary (default: the running binary's directory)")
+	version := fs.String("version", "", "update to this release tag instead of the latest")
+	dryRun := fs.Bool("dry-run", false, "report what would happen and change nothing")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() > 0 {
+		return fmt.Errorf("update: unexpected argument %q", fs.Arg(0))
+	}
+
+	installed := installedHarnesses()
+	opts := selfupdate.Options{
+		InstallDir:     *installDir,
+		Version:        *version,
+		DryRun:         *dryRun,
+		RunningVersion: currentBuildInfo().Version,
+	}
+	result, err := selfupdate.Run(opts)
+	if err != nil {
+		return err
+	}
+	if result.Skipped {
+		fmt.Printf("UPDATE up-to-date: running %s, latest release %s; nothing to do (use --force to reinstall)\n", result.From, result.To)
+		return nil
+	}
+	if *dryRun {
+		fmt.Printf("DRY-RUN would update %s -> %s (%s)\n", result.From, result.To, result.Binary)
+		if len(installed) > 0 {
+			fmt.Printf("DRY-RUN would reinstall adapters for: %s\n", strings.Join(installed, ", "))
+		}
+		return nil
+	}
+	fmt.Printf("UPDATED %s -> %s sha256=%s binary=%s\n", result.From, result.To, result.SHA256, result.Binary)
+	if _, err := os.Stat(filepath.Dir(result.Binary) + "/bicz.previous"); err == nil {
+		fmt.Println("ROLLBACK previous binary kept at " + filepath.Join(filepath.Dir(result.Binary), "bicz.previous"))
+	}
+	if len(installed) == 0 {
+		fmt.Println("no bicz adapter configs found; run `bicz install --harness <harness>` to wire one")
+		return nil
+	}
+	fmt.Printf("REINSTALL adapters for: %s\n", strings.Join(installed, ", "))
+	for _, harness := range installed {
+		plan, err := install.PlanInstall(install.Options{Harness: harness})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  %s: refused (%v); run `bicz install --harness %s` by hand\n", harness, err, harness)
+			continue
+		}
+		if plan.Empty() {
+			fmt.Printf("  %s: up-to-date\n", harness)
+			continue
+		}
+		if err := plan.Apply(); err != nil {
+			fmt.Fprintf(os.Stderr, "  %s: failed (%v); run `bicz install --harness %s` by hand\n", harness, err, harness)
+			continue
+		}
+		fmt.Printf("  %s: reinstalled (%d change(s))\n", harness, len(plan.Changes))
+	}
+	return nil
 }

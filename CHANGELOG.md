@@ -2,6 +2,22 @@
 
 Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow SemVer.
 
+## [v0.2.2] - 2026-10-12
+
+### Added
+
+- **`bicz update`** (`internal/selfupdate`): one-command upgrade. Fetches the
+  latest release (or `--version vX.Y.Z`), verifies the archive against the
+  release's own `SHA256SUMS`, validates the archive member list, swaps the
+  running binary atomically (the previous binary is kept as `bicz.previous`
+  for rollback), and reinstalls the adapters of every harness that already has
+  a bicz config so hook commands and hook timeouts follow the new binary.
+  Identity, ledger, and operator keys survive that reinstall. `--dry-run`
+  reports the target release and changes nothing; up-to-date installs skip.
+  Windows is not covered (use `scripts/install.ps1`); checksums protect
+  against corruption relative to the sums served from the same origin, not
+  against a compromised origin.
+
 ## [v0.2.1] - 2026-10-12
 
 ### Fixed

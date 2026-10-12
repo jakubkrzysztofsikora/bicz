@@ -46,6 +46,12 @@ Have Go 1.27+? `go install github.com/jakubkrzysztofsikora/bicz/cmd/bicz@latest`
 
 Check it: `bicz version`. Building from source: [docs/SETUP.md](docs/SETUP.md#install).
 
+**Later:** `bicz update` — fetches the latest release, verifies its SHA256SUMS, swaps the binary
+atomically (the previous one is kept as `bicz.previous` for rollback) and reinstalls the adapters of
+every harness that already has a bicz config, so hook commands and timeouts follow the new binary.
+Identity, ledger and anything you set by hand in the config survive. `--dry-run` reports the target
+release first; `--version vX.Y.Z` pins one.
+
 Set up a ledger, publish prices, hook up your harness (everything except `serve` is one-time; add `--dry-run` to `install` to preview the exact diff):
 
 ```sh
