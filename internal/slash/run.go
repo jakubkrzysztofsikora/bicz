@@ -191,14 +191,14 @@ func parseFailure(ctx context.Context, request Request, parseErr error) Response
 		return usageResponse(parseErr)
 	}
 	rest := tokens[1:]
-	if len(rest) == 0 {
-		return usageResponse(parseErr) // a bare "loss"/"reward" is a stray word, not a vent
+	if len(rest) == 0 && verb != string(ActionReward) {
+		return usageResponse(parseErr) // a bare "loss" is a stray word, not a vent
 	}
 	if verb == string(ActionLoss) && len(rest) > 3 && len(rest[0]) <= maxRuleRunes && rulePattern.MatchString(rest[0]) &&
 		strings.TrimSpace(rest[1]) != "" && strings.TrimSpace(rest[2]) != "" {
 		return usageResponse(parseErr)
 	}
-	if verb == string(ActionReward) {
+	if verb == string(ActionReward) && len(rest) > 0 {
 		// If the first argument parses as an amount, the operator chose the
 		// number: a failure here is about the reason (their wording to
 		// keep), never rewritten by the model. Free text where the amount
