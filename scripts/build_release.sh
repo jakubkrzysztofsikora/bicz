@@ -5,6 +5,10 @@
 #   bicz_<os>_<arch>.tar.gz (zip on windows), plus SHA256SUMS.
 set -eu
 
+# macOS bsdtar writes AppleDouble (._*) members into archives unless this is
+# set; a release archive must hold exactly bicz and LICENSE.
+export COPYFILE_DISABLE=1
+
 version="${1:?usage: build_release.sh VERSION [outdir]}"
 root="$(cd "$(dirname "$0")/.." && pwd)"
 out="${2:-$root/dist}"

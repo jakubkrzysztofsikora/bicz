@@ -27,7 +27,8 @@ func TestIsNewerSemver(t *testing.T) {
 		{"dev", "v0.2.1", true},
 		{"dev", "garbage", false},
 		{"v0.2.1", "not-a-version", false},
-		{"", "v0.2.1", false},
+		{"", "v0.2.1", true},   // an unknown current can always move to a real release
+		{"v0.3.0+dirty", "v0.3.0", true}, // a dirty build moves to its clean release
 	}
 	for _, tc := range cases {
 		if got := IsNewer(tc.current, tc.candidate); got != tc.want {

@@ -128,9 +128,10 @@ func IsNewer(current, candidate string) bool {
 		return false
 	}
 	if !ok1 {
-		// An unparseable current version ("dev") can always move to any real
-		// release; a real current version cannot move to a garbage candidate.
-		return strings.TrimSpace(strings.TrimPrefix(current, "v")) == "dev"
+		// An unparseable current version ("dev", "v0.3.0+dirty", a go
+		// module pseudo-version) can always move to a real release; a real
+		// current version can never move to a garbage candidate.
+		return true
 	}
 	if cand[0] != cur[0] {
 		return cand[0] > cur[0]
@@ -375,6 +376,11 @@ func extractBicz(archive []byte) ([]byte, error) {
 		}
 		members++
 		name := strings.TrimPrefix(header.Name, "./")
+		if strings.HasPrefix(name, "._") || name == "__MACOSX" || strings.HasPrefix(name, "__MACOSX/") {
+			// AppleDouble metadata that macOS archivers inject; never part
+			// of a release payload. Skipped, not honored.
+			continue
+		}
 		isRegular := header.Typeflag == tar.TypeReg
 		switch name {
 		case "bicz":
