@@ -11,7 +11,7 @@ rewards and losses. Every change is an append-only, hash-chained ledger event.
 - **Ledger** (SQLite, hash chain, optional external anchor): balance, holds, role, lessons, price
   schedules. Money is integer microcredits (1 credit = 1,000,000 microcredits). Internal credits
   are **not** provider billing and never equal cash.
-- **Supervisor** (`bicz serve`): the one writer. Adapters talk to it over a local socket.
+- **Supervisor** (`bicz serve`): IPC daemon for harness adapters; serializes with the operator CLI through SQLite WAL transactions (`BEGIN IMMEDIATE`).
 - **Operator CLI**: `open`, `reward`, `reset`, `loss`, `appeal`, `review`, `reinstate`, `price`, `status`,
   `verify`, `anchor`, `doctor`, `lessons`.
 - **Budget reset & auto-reward**: When operators forget to reward frequently and an agent gets blocked,

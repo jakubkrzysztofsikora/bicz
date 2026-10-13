@@ -13,12 +13,17 @@ bicz shapes incentives and keeps the record. It does not enforce anything and it
 
 ## What it is
 
-A local, same-user credit ledger and supervisor for coding-agent harnesses (Claude Code, Codex, Oh My Pi, OpenCode): you fund an agent identity, it spends credits on tool calls, you reward verified work and burn credits for confirmed breaches with `/bicz loss`, and every change is a hash-chained SQLite event.
+A local, same-user credit ledger and supervisor for coding-agent harnesses (Claude Code, Codex, Oh My Pi, OpenCode): you fund an agent identity, it spends credits on tool calls, earns microrewards for passing tests and plan milestones, can have its budget reset when dry without erasing penalties, and loses credits for confirmed breaches with `/bicz loss`. Every change is a hash-chained SQLite event.
 
 ## Why it helps
 
 - **Consequences persist.** A loss is an append-only ledger event. Balance, role and lessons survive restarts and new sessions, and the harness hook shows them to the agent at session start and before its next tool call.
 - **The agent gets the lesson, not just the penalty.** `/bicz loss RULE "reason" "correction"` burns credits, saves the lesson and records the penalty in one transaction. The correction is yours, or shipped from the rule catalog; the only model in the loop is the optional, operator-configured inference endpoint below, and anything it drafts is labeled `model_inferred`. An honest failure costs only its normal operating charge and never triggers the cue.
+- **Stuck agents get unblocked without erasing penalty debt.** When you forget to reward and an agent burns through its balance on long runs, `/bicz reset` / `bicz reset` restores budget headroom up to the baseline ceiling (default 100 credits) strictly to unblock execution: it does not run reward logic, and prior penalties, lessons, and outstanding loss shortfalls remain 100% intact.
+- **Automated microrewards with strict anti-farming invariants.** Bounded microrewards rebate execution costs when tests pass, plan milestones complete, or code reviews pass (`SHIP` verdict). Three mathematical invariants prevent exploitation:
+  1. *Baseline ceiling cap:* Credits are only replenished up to initial capital (`balance <= baseline_ceiling`). At or above baseline, grants are strictly 0 (no credit hoarding).
+  2. *Net non-positive execution parity:* Test rebates are clamped to tool charges (`min(charged, 50,000 mc)`), ensuring a passing test can never yield net credit profit.
+  3. *Loss isolation:* Automated rewards never reduce outstanding loss (`applied_to_loss = 0`). Only explicit operator rewards repay penalty burns.
 - **Rules out of the box.** Ships 15 default rules distilled from real agent failures (fake "done", ignored instructions, "pre-existing" excuses…); `/bicz rules` lists them. See [default policies](docs/DEFAULT_POLICIES.md).
 - **You get a record you can check.** `bicz verify` checks the hash chain; `bicz doctor` lists the call paths bicz cannot see. Once a price schedule is wired in, an empty balance, suspension or dismissal makes the adapter ask the harness to deny priced tool calls.
 
@@ -64,7 +69,7 @@ bicz install --harness claude --account agent      # or: codex | omp | opencode
 bicz serve   --db $DB                              # leave running in its own terminal
 ```
 
-A default install meters nothing: the hooks only charge for tool calls once the adapter config points at the schedule. `/bicz loss`, `reward` and `status` work without that. Wiring, uninstall and release-installer details: [docs/SETUP.md](docs/SETUP.md).
+A default install meters nothing: the hooks run in notice mode and only charge for tool calls once the adapter config points at the schedule (see [docs/SETUP.md](docs/SETUP.md#quickstart-five-minutes-reproducible-no-model-session) for the one-line `jq` setup). Slash commands (`/bicz loss`, `reward`, `reset`, `status`) and accountability cues work immediately without metering. Wiring, uninstall and release-installer details: [docs/SETUP.md](docs/SETUP.md).
 
 ## 60-second demo
 
@@ -88,14 +93,19 @@ ACCOUNTABILITY issued; the agent receives it on its next projection/tool poll:
 > /bicz reward 2 "ran the real suite, 0 failures"
 BICZ reward recorded: event=slash-reward-claude-74dbf455fb2a3acd4382 identity=agent
 CREDIT amount=2 credits (2000000 mc) applied_to_loss=0 balance=97 credits (97000000 mc) outstanding=5 credits (5000000 mc)
+
+> /bicz reset 100 "unblocking after long run"
+BICZ budget reset: event=slash-reset-claude-6e01a8b94098234311ef identity=agent
+BUDGET balance reset from 97 credits (97000000 mc) to 100 credits (100000000 mc) delta=+3 credits (+3000000 mc)
+STATUS role=warned outstanding_loss=5 credits (5000000 mc) (unchanged)
 ```
 
-The loss stays on the record; a reward adds credits, it does not undo it. What the agent sees when its next session starts (the real `SessionStart` hook output, run against the same ledger):
+The loss stays on the record: a reward adds credits, and a budget reset unblocks an agent that ran dry, but neither erases prior burns. Outstanding loss remains required for full recovery. What the agent sees when its next session starts (the real `SessionStart` hook output, run against the same ledger):
 
 ```text
-bicz context: identity agent, role warned, ledger seq 5
-  balance 97000000 mc | held 0 mc | spendable 97000000 mc
-  task budget 97000000 mc (task sponsor 0 mc)
+bicz context: identity agent, role warned, ledger seq 6
+  balance 100000000 mc | held 0 mc | spendable 100000000 mc
+  task budget 100000000 mc (task sponsor 0 mc)
   policy version 1
   warnings 1
   outstanding loss shortfall 5000000 mc
@@ -148,9 +158,11 @@ Per-harness coverage, what each adapter cannot see, and evidence: [docs/HARNESSE
 
 ## How it works
 
-- `bicz serve` is the single writer: a local socket in front of a hash-chained SQLite ledger (balance, holds, role, lessons, price schedules; integer microcredits, 1 credit = 1,000,000).
+- `bicz serve` acts as the IPC supervisor daemon for harness adapters over a local socket, while operator CLI commands and the daemon serialize writes directly through SQLite WAL transactions (`BEGIN IMMEDIATE`) on the hash-chained ledger (balance, holds, role, lessons, price schedules; integer microcredits, 1 credit = 1,000,000).
 - An adapter inside the harness asks the supervisor to reserve credit before a tool call (priced from your schedule) and settles it afterwards, and injects balance, role and lessons into the session.
 - You write rewards and losses with the operator CLI or `/bicz`. A confirmed loss burns credits, stores the lesson and records the penalty in one transaction, then reaches the agent as a cue built from ledger facts.
+- When an agent runs dry during long runs, `bicz reset` / `/bicz reset` unblocks it by restoring baseline budget without modifying penalty history or running reward logic.
+- Automated microrewards rebate tool charges on passing tests and completed plan milestones; mathematical anti-farming invariants (baseline ceiling cap, net non-positive execution parity, loss isolation) prevent surplus hoarding and ensure losses can never be farmed away.
 - `bicz verify` re-checks the chain; `bicz doctor` names what is unobserved.
 
 Parts in detail: [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md).
