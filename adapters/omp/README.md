@@ -119,10 +119,12 @@ no-op (`duplicate_key_ok`) instead of a double charge.
 The extension registers a native `/bicz` slash command with `pi.registerCommand`. OMP runs it before any prompt reaches a model. The handler runs `bicz command --harness omp --arguments-stdin --json --invocation <uuid>`, passing the typed text on stdin through an argv array, so no shell is involved. It shows the result with `ctx.ui.notify`: `info` for ok, `warning` for needs_input, `error` for refusals.
 
 - `/bicz status`
-- `/bicz reward AMOUNT "reason"`
+- `/bicz reward AMOUNT "reason"`: explicit operator reward (or bare `/bicz reward "reason"` with inference)
+- `/bicz reset [AMOUNT] ["reason"]`: unblocks balance up to baseline ceiling (or AMOUNT) without running reward logic or modifying penalty history
 - `/bicz loss RULE "reason" ["correction"]`: when no correction is given or saved, the operator gets the question and nothing is written
+- `/bicz rules`: lists default rules and tiers
 
-The executable is read from `bicz_path` in `omp.json` (written by `bicz install`), then `$BICZ_BIN`, then `bicz` on `PATH`. A slash command is an operator act, not a tool call: it never creates a reservation or settlement.
+The executable is read from `bicz_path` in `omp.json` (written by `bicz install`), then `$BICZ_BIN`, then `bicz` on `PATH`. A slash command is an operator act, not a tool call: it never creates a reservation or settlement. Automated microrewards rebate tool costs on passing tests and plan completions within strict anti-farming invariants (clamped to cost, capped at baseline ceiling).
 
 ## Verified in a real omp
 

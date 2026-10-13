@@ -136,6 +136,9 @@ Off by default. Add an `inference` block to the harness's bicz config (`~/.confi
 
 Any OpenAI-compatible endpoint works — OpenAI, Groq, Scaleway, or a local Ollama/llama.cpp (`http://` is accepted only for loopback/private/tailnet addresses; the key is read from the named environment variable, never stored in the config). `endpoint` and `model` are yours, so the infer model is normally a **different family** from the harness's own; the session's model is never consulted.
 
+> [!TIP]
+> When routing inference through a gateway or proxy (such as LiteLLM or vLLM over Tailscale), ensure `model` matches a model registered on that proxy (e.g. `scaleway/qwen3.6`). An unrecognized model ID causes HTTP 400 Bad Request, falling back to manual parameter prompts.
+
 Two triggers:
 
 - **The vent.** `/bicz loss "you absolute donut, you just stopped again"` does not parse — but your typed text is a *locator*, not content: the model reads the session transcript, finds the failure hotspot (your angry message and the agent turn(s) that caused it), and drafts the `rule` (must be a shipped catalog id, never invented), a factual `reason`, and a `correction`. Your raw words are quoted verbatim as data in the evidence; the receipt says `model_inferred`.

@@ -104,6 +104,25 @@ you actually want to move them; either flag alone wins for its own key while the
 stored. Everything else you set by hand in the config (schedule, policy version, an `inference`
 block) is carried over the same way.
 
+## Optional: inference configuration
+
+If you enable model-assisted parameter deduction (for unformatted `/bicz loss` vents or effortless `/bicz reward`), add an `inference` block to `<config dir>/<harness>.json`:
+
+```json
+{
+  "inference": {
+    "enabled": true,
+    "endpoint": "http://100.x.y.z:4000/v1/chat/completions",
+    "api_key_env": "LITELLM_MASTER_KEY",
+    "model": "scaleway/qwen3.6",
+    "timeout_ms": 60000,
+    "max_output_tokens": 4096
+  }
+}
+```
+
+Verify that `model` matches an active model returned by `GET /v1/models` on your endpoint or proxy (e.g. LiteLLM, vLLM, Ollama). If the model name is unrecognized, the endpoint returns HTTP 400 Bad Request, and `bicz` fails open by asking the operator for manual arguments.
+
 ## Schedule: why the default charges nothing
 
 `bicz install` writes the adapter config with `no_schedule_mode: "notice"` and **no schedule**. In
