@@ -26,6 +26,7 @@ const (
 	kindTask         = "task"
 	kindLesson       = "lesson"
 	kindReview       = "review"
+	kindAutoreward   = "autoreward"
 )
 
 // Event is one decoded `events` row as this package reads it back.

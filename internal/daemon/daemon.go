@@ -322,6 +322,8 @@ func (d *Daemon) handle(ctx context.Context, request protocol.Request) protocol.
 		return d.handleLessonPropose(ctx, request, response)
 	case protocol.MethodStatus:
 		return d.handleStatus(ctx, response)
+	case protocol.MethodAutoreward:
+		return d.handleAutoreward(ctx, request, response)
 	default:
 		response.Error = protocol.Errorf(protocol.CodeMalformedRequest, "unknown op %q", string(request.Op))
 		return response
@@ -585,6 +587,38 @@ func (d *Daemon) handleLessonPropose(ctx context.Context, request protocol.Reque
 		Status:     protocol.ProposalStatusProposed,
 		ProposalID: stored.Proposal.ID,
 		Replayed:   stored.Replayed,
+	})
+	return response
+}
+
+// handleAutoreward records a bounded microreward to replenish spent credits.
+func (d *Daemon) handleAutoreward(ctx context.Context, request protocol.Request, response protocol.Response) protocol.Response {
+	var payload protocol.AutorewardPayload
+	if err := decodePayload(request, &payload); err != nil {
+		response.Error = asProtocolError(err)
+		return response
+	}
+	if err := payload.Validate(); err != nil {
+		response.Error = asProtocolError(err)
+		return response
+	}
+	result, err := d.ledger.RecordAutoreward(ctx, request.IdempotencyKey, payload.AccountID, payload.Amount, payload.Trigger, payload.Reason, payload.Evidence)
+	if err != nil {
+		response.Decision = protocol.DecisionDeny
+		response.Reason = ledgerCode(err)
+		response.Notice = err.Error()
+		return response
+	}
+	response.Decision = protocol.DecisionAllow
+	if result.Replayed {
+		response.Reason = protocol.CodeDuplicateKeyOK
+		response.Notice = "duplicate key: the prior autoreward is returned unchanged"
+	}
+	attachState(&response, protocol.AutorewardState{
+		Granted:  result.AmountGranted,
+		Balance:  result.BalanceAfter,
+		Trigger:  result.Trigger,
+		Replayed: result.Replayed,
 	})
 	return response
 }

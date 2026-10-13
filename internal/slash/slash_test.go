@@ -34,6 +34,10 @@ func TestParseGrammar(t *testing.T) {
 		{`reward 5 "shipped the fix"`, Command{Action: ActionReward, Credits: 5_000_000, Reason: "shipped the fix"}},
 		{`reward 0.000001 ok`, Command{Action: ActionReward, Credits: 1, Reason: "ok"}},
 		{`reward 12.5 ok`, Command{Action: ActionReward, Credits: 12_500_000, Reason: "ok"}},
+		{"reset", Command{Action: ActionReset, Credits: 0, Reason: "reset budget to unblock agent"}},
+		{`reset 10`, Command{Action: ActionReset, Credits: 10_000_000, Reason: "reset budget to unblock agent"}},
+		{`reset "unblock"`, Command{Action: ActionReset, Credits: 0, Reason: "unblock"}},
+		{`reset 5 "unblock"`, Command{Action: ActionReset, Credits: 5_000_000, Reason: "unblock"}},
 	}
 	for _, tc := range cases {
 		got, err := Parse(tc.raw)
@@ -560,3 +564,67 @@ func TestRulesListsDefaultsWithoutAConfigOrAWrite(t *testing.T) {
 		t.Fatalf("rules takes no arguments: %+v", bad)
 	}
 }
+
+func TestRunResetUnblocksAgentWithoutTouchingLoss(t *testing.T) {
+	fx := newFixture(t, "claude")
+
+	// Apply a loss first
+	lossResp := run("claude", `loss no_fake_pass "bad test claim" "quote real output"`, "")
+	if lossResp.Status != StatusOK {
+		t.Fatalf("loss failed: %+v", lossResp)
+	}
+
+	// Drain the remaining balance
+	op, err := daemon.NewOperator(fx.db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer op.Close()
+	projBefore, err := op.Ledger().Projection(context.Background(), "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if projBefore.OutstandingLoss == 0 {
+		t.Fatal("expected outstanding loss after loss command")
+	}
+
+	// Drain balance to 0
+	r, err := op.Ledger().Reserve(context.Background(), "alice", "res-drain", "", projBefore.Spendable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := op.Ledger().Settle(context.Background(), r.Reservation.ID, projBefore.Spendable, ledger.ClassCompleted, "sha256:evidence"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify balance is 0
+	projEmpty, _ := op.Ledger().Projection(context.Background(), "alice")
+	if projEmpty.Spendable != 0 {
+		t.Fatalf("spendable = %d, want 0", projEmpty.Spendable)
+	}
+
+	// Run /bicz reset
+	resetResp := run("claude", `reset`, "")
+	if resetResp.Status != StatusOK || resetResp.Action != ActionReset {
+		t.Fatalf("reset failed: %+v", resetResp)
+	}
+	if !strings.Contains(resetResp.Text, "BUDGET balance reset") {
+		t.Errorf("expected text to mention BUDGET balance reset, got: %s", resetResp.Text)
+	}
+	if !strings.Contains(resetResp.Text, "(unchanged)") {
+		t.Errorf("expected text to explicitly mention outstanding loss (unchanged), got: %s", resetResp.Text)
+	}
+
+	// Check projection after reset: balance replenished, loss untouched
+	projAfter, err := op.Ledger().Projection(context.Background(), "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if projAfter.Spendable <= 0 {
+		t.Fatalf("spendable = %d, want > 0 after reset", projAfter.Spendable)
+	}
+	if projAfter.OutstandingLoss != projBefore.OutstandingLoss {
+		t.Fatalf("outstanding loss changed: got %d, want %d (must be untouched!)", projAfter.OutstandingLoss, projBefore.OutstandingLoss)
+	}
+}
+

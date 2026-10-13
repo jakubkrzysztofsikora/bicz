@@ -126,6 +126,62 @@ func (o *Operator) Reward(ctx context.Context, request RewardRequest) (ledger.Re
 		request.Amount, request.Reason, request.Evidence, request.AppliedToLoss)
 }
 
+// ResetRequest restores an identity's budget without running reward logic.
+type ResetRequest struct {
+	EventID       string
+	Identity      string
+	TargetBalance int64
+	Reason        string
+	Evidence      string
+}
+
+// Reset restores an identity's balance to TargetBalance without running reward logic.
+// Outstanding loss, lessons, and role are untouched.
+func (o *Operator) Reset(ctx context.Context, request ResetRequest) (ledger.ResetResult, error) {
+	if request.Identity == "" {
+		return ledger.ResetResult{}, protocol.Errorf(protocol.CodeUnknownIdentity, "reset requires an identity")
+	}
+	if request.Reason == "" {
+		request.Reason = "reset budget to unblock agent"
+	}
+	if err := guard(request.Reason); err != nil {
+		return ledger.ResetResult{}, err
+	}
+	return o.ledger.ResetBudget(ctx, eventIDOr(request.EventID, "reset"), request.Identity,
+		request.TargetBalance, request.Reason, request.Evidence)
+}
+
+// AutorewardRequest records a bounded microreward to replenish spent credits.
+type AutorewardRequest struct {
+	EventID  string
+	Identity string
+	Amount   int64
+	Trigger  string
+	Reason   string
+	Evidence string
+}
+
+// Autoreward records a bounded microreward to replenish spent credits up to baseline ceiling.
+func (o *Operator) Autoreward(ctx context.Context, request AutorewardRequest) (ledger.AutorewardResult, error) {
+	if request.Identity == "" {
+		return ledger.AutorewardResult{}, protocol.Errorf(protocol.CodeUnknownIdentity, "autoreward requires an identity")
+	}
+	if request.Trigger == "" {
+		return ledger.AutorewardResult{}, protocol.Errorf(protocol.CodeMalformedRequest, "autoreward requires a trigger")
+	}
+	if err := protocol.ValidateMicrocredits(request.Amount); err != nil {
+		return ledger.AutorewardResult{}, err
+	}
+	if request.Reason == "" {
+		request.Reason = "autoreward for " + request.Trigger
+	}
+	if err := guard(request.Reason); err != nil {
+		return ledger.AutorewardResult{}, err
+	}
+	return o.ledger.RecordAutoreward(ctx, eventIDOr(request.EventID, "autoreward"), request.Identity,
+		request.Amount, request.Trigger, request.Reason, request.Evidence)
+}
+
 // LossRequest finalizes a burn.
 type LossRequest struct {
 	EventID       string

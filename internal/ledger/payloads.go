@@ -186,3 +186,25 @@ type reviewPayload struct {
 	PreviousRole string `json:"previous_role"`
 	Warnings     int64  `json:"warnings"`
 }
+
+type resetPayload struct {
+	Phase         string `json:"phase"`
+	AccountID     string `json:"account_id"`
+	TargetBalance int64  `json:"target_balance"`
+	BalanceBefore int64  `json:"balance_before"`
+	BalanceAfter  int64  `json:"balance_after"`
+	Delta         int64  `json:"delta"`
+}
+
+type autorewardPayload struct {
+	AccountID       string `json:"account_id"`
+	Trigger         string `json:"trigger"`
+	RequestedAmount int64  `json:"requested_amount"`
+	GrantedAmount   int64  `json:"granted_amount"`
+	BaselineCeiling int64  `json:"baseline_ceiling"`
+	BalanceBefore   int64  `json:"balance_before"`
+	BalanceAfter    int64  `json:"balance_after"`
+	Reason          string `json:"reason"`
+	Evidence        string `json:"evidence"`
+}
+

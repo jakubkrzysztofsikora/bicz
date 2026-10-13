@@ -12,8 +12,14 @@ rewards and losses. Every change is an append-only, hash-chained ledger event.
   schedules. Money is integer microcredits (1 credit = 1,000,000 microcredits). Internal credits
   are **not** provider billing and never equal cash.
 - **Supervisor** (`bicz serve`): the one writer. Adapters talk to it over a local socket.
-- **Operator CLI**: `open`, `reward`, `loss`, `appeal`, `review`, `reinstate`, `price`, `status`,
+- **Operator CLI**: `open`, `reward`, `reset`, `loss`, `appeal`, `review`, `reinstate`, `price`, `status`,
   `verify`, `anchor`, `doctor`, `lessons`.
+- **Budget reset & auto-reward**: When operators forget to reward frequently and an agent gets blocked,
+  `bicz reset` / `/bicz reset` restores budget to baseline (or a specified amount) strictly to unblock the
+  agent: it does not run reward logic and leaves `outstanding_loss` unchanged. Automated microrewards
+  replenish small credit amounts for verified progress (passing test rebates, completed todolist tasks,
+  review "SHIP" verdicts); hard invariants prevent farming (clamped strictly to the baseline ceiling so no
+  surplus can be hoarded, test rebates cost at least as much as they return, and auto-rewards never reduce loss).
 - **Automatic accountability cue**: `bicz loss` (disposition `confirmed_breach` by default;
   `--disposition integrity_breach|administrative`) writes the burn, the lesson and the penalty in one
   transaction. A confirmed penalty prints a deterministic cue on the operator receipt and reaches every

@@ -426,3 +426,35 @@ type Coverage struct {
 	// and so on.
 	Note string `json:"note,omitempty"`
 }
+
+// AutorewardPayload is the `autoreward` request body.
+type AutorewardPayload struct {
+	AccountID string `json:"account_id"`
+	Amount    int64  `json:"amount"`
+	Trigger   string `json:"trigger"`
+	Reason    string `json:"reason,omitempty"`
+	Evidence  string `json:"evidence,omitempty"`
+}
+
+// Validate checks the autoreward payload.
+func (p AutorewardPayload) Validate() error {
+	if p.AccountID == "" {
+		return Errorf(CodeUnknownIdentity, "autoreward requires account_id")
+	}
+	if p.Trigger == "" {
+		return Errorf(CodeMalformedRequest, "autoreward requires trigger")
+	}
+	if err := ValidateMicrocredits(p.Amount); err != nil {
+		return err
+	}
+	return nil
+}
+
+// AutorewardState is the `state` object of an autoreward response.
+type AutorewardState struct {
+	Granted  int64  `json:"granted"`
+	Balance  int64  `json:"balance"`
+	Trigger  string `json:"trigger"`
+	Replayed bool   `json:"replayed"`
+}
+

@@ -219,6 +219,7 @@ the command.
 | --- | --- |
 | `operator grant` | Provision identity / initial capital (one event, once). |
 | `operator reward` | Append a `reward` event; credit `K`. |
+| `operator reset` | Replenish balance `K` up to target amount (default baseline 100 credits) to unblock an agent; **does NOT run reward logic and does NOT reduce `outstanding_loss`**; preserves lessons and role. |
 | `operator loss` | Append a `loss` event; burn `K` by the §6 formula; write the `lesson`; carry the explicit `disposition` (§6.4), which decides whether an accountability cue is issued. |
 | `operator review` | Record an adjudication verdict; may revoke a task lease. |
 | `operator role` | Role transition (`active`/`warned`/`probation`/`suspended`/`dismissed`). |
@@ -467,6 +468,26 @@ Every **new** `loss` event states why it was written. The `loss` payload carries
   receipt and cue and appends nothing.
 - It is a deterministic, behavior-specific accountability statement. It does **not** assert,
   require, or reward any feeling, and bicz has no way to verify one.
+
+### 6.5 Budget reset and auto-reward mechanics (anti-farming and loss isolation)
+
+When operators forget to reward frequently, agents may exhaust their budget and become blocked despite following instructions. Two mechanisms handle this without weakening loss logic or incentivizing credit farming:
+
+1. **Budget Reset (`operator reset` / `/bicz reset`):**
+   - **Purpose:** Unblock an insolvent or depleted agent when there is no specific behavior being rewarded.
+   - **Target balance:** Replenishes `accounts.balance` up to `target_balance` (defaults to baseline ceiling: 100 credits = 100,000,000 mc).
+   - **No reward logic:** Appends a `grant` event (phase `"reset"`). It does **NOT** run `RecordReward` logic.
+   - **Loss isolation:** `outstanding_loss` is **strictly untouched** (never decreased or repaid). Shortfalls from prior confirmed penalties remain fully recorded and required for recovery.
+   - **Role and lesson preservation:** Employment state, warnings, and active lessons remain completely unchanged.
+   - **Idempotent:** Replaying the same event id replays the receipt and adds zero new credit.
+
+2. **Auto-Reward Microreplenishment (`autoreward`):**
+   - **Purpose:** Grant small microrewards when an agent demonstrates verified progress and compliance (e.g. passing test suites, completing todolist items, or receiving an adversarial review "SHIP" verdict).
+   - **Anti-farming baseline ceiling:** Auto-rewards are strictly clamped to `headroom = BaselineCeiling - balance`. If `balance >= BaselineCeiling` (100 credits), the granted amount is strictly 0. An agent can **never** accumulate net surplus capital or farm credits beyond its normal operating budget.
+   - **Economic net-negative/net-zero on test loops:** The passing test auto-reward is a rebate of the tool execution charge (`min(charged, 50,000 mc)`). Because executing a test costs at least as much as what is rebated, looping test execution yields zero or negative net profit.
+   - **Zero loss recovery:** Auto-rewards strictly specify `applied_to_loss = 0`. An agent cannot wash away or repay an outstanding penalty through automated microrewards; outstanding losses require genuine operator rewards or explicit audited recovery.
+   - **Role gating:** Suspended and dismissed identities cannot receive auto-rewards (`suspended` / `dismissed` refusal).
+   - **Idempotency & deduplication:** Deduplicated by action digest and event key; identical runs cannot be credited twice.
 
 ## 7. Error and edge-case table
 

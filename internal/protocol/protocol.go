@@ -61,6 +61,9 @@ const (
 	MethodProjection Method = "projection"
 	// MethodStatus reads daemon and coverage status. Read-only.
 	MethodStatus Method = "status"
+	// MethodAutoreward records a bounded microreward to replenish spent credits.
+	// Mutating: it credits the account and appends a ledger event.
+	MethodAutoreward Method = "autoreward"
 )
 
 // MethodAliasProject is accepted for MethodProjection. The frozen contract names
@@ -82,6 +85,8 @@ func ParseMethod(op string) (Method, bool) {
 		return MethodProjection, true
 	case MethodStatus:
 		return MethodStatus, true
+	case MethodAutoreward:
+		return MethodAutoreward, true
 	default:
 		return "", false
 	}
@@ -91,7 +96,7 @@ func ParseMethod(op string) (Method, bool) {
 // method MUST carry an idempotency key (docs/CONTRACTS.md §5).
 func (m Method) Mutating() bool {
 	switch m {
-	case MethodAuthorize, MethodSettle, MethodLessonPropose:
+	case MethodAuthorize, MethodSettle, MethodLessonPropose, MethodAutoreward:
 		return true
 	default:
 		return false

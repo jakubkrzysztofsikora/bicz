@@ -11,10 +11,15 @@ flags**: the identity and ledger come from the harness's installed config
 ```text
 /bicz loss RULE "reason" ["correction"]   burn credits for a confirmed breach of RULE
 /bicz reward AMOUNT "reason"              credit AMOUNT, a decimal credit count with up to 6 decimals
+/bicz reset [AMOUNT] ["reason"]           reset budget to AMOUNT (default 100 credits) to unblock agent without running reward logic
 /bicz status                              balance, outstanding loss, role, newest penalty
 /bicz rules                               list the default rules: id, tier, on/off, statement
 ```
 
+- **Reset unblocks without running reward logic.** When an agent runs out of credits because rewards
+  were forgotten, `/bicz reset` replenishes the balance up to AMOUNT (or the default baseline of 100
+  credits). Unlike `/bicz reward`, it **never** runs reward logic: `outstanding_loss` is strictly
+  unchanged (it does not repay prior penalties), lessons are not modified, and role warnings remain intact.
 - **Loss needs a correction.** Give it as the third argument, or it is reused from the correction
   saved by your earlier loss of the same RULE, or, for a RULE listed by `/bicz rules`, the shipped
   default correction is used (the receipt says `source=default`; see

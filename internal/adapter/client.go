@@ -135,6 +135,23 @@ func (c *Client) Settle(ctx context.Context, idempotencyKey string, payload prot
 	return state, nil
 }
 
+// Autoreward records a bounded microreward to replenish spent credits.
+func (c *Client) Autoreward(ctx context.Context, idempotencyKey string, payload protocol.AutorewardPayload) (protocol.AutorewardState, error) {
+	response, err := c.call(ctx, protocol.MethodAutoreward, idempotencyKey, payload)
+	if err != nil {
+		return protocol.AutorewardState{}, err
+	}
+	if response.Decision == protocol.DecisionDeny {
+		return protocol.AutorewardState{}, protocol.Errorf(response.Reason, "%s", response.Notice)
+	}
+	var state protocol.AutorewardState
+	if err := json.Unmarshal(response.State, &state); err != nil {
+		return protocol.AutorewardState{}, protocol.Errorf(protocol.CodeMalformedRequest, "autoreward state: %v", err)
+	}
+	return state, nil
+}
+
+
 // Projection reads the read-only context block.
 func (c *Client) Projection(ctx context.Context, payload protocol.ProjectionPayload) (protocol.Projection, error) {
 	response, err := c.call(ctx, protocol.MethodProjection, "", payload)

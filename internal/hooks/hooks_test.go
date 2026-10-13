@@ -677,3 +677,84 @@ func TestStateIsOwnerOnlyAndPruneKeepsLiveHolds(t *testing.T) {
 		t.Fatalf("state dir mode = %v, want 0700", dir.Mode().Perm())
 	}
 }
+
+func TestPostToolUsePassingTestGrantsAutorewardRebate(t *testing.T) {
+	for _, spec := range bothSpecs() {
+		r := newRig(t, spec, 10_000)
+		toolInput := map[string]any{"command": "go test ./..."}
+		pre := tool(spec, "PreToolUse", "Bash", "toolu_test_1")
+		pre["tool_input"] = toolInput
+		run(t, spec, "PreToolUse", r.cfg, pre)
+
+		post := tool(spec, "PostToolUse", "Bash", "toolu_test_1")
+		post["tool_input"] = toolInput
+		post["tool_response"] = map[string]any{"stdout": "PASS\nok  pkg 0.02s"}
+		out := specific(t, run(t, spec, "PostToolUse", r.cfg, post))
+		receipt, _ := out["additionalContext"].(string)
+
+		if !strings.Contains(receipt, "charged 400 mc") {
+			t.Fatalf("%s: missing charge in receipt: %s", spec.ID, receipt)
+		}
+		if !strings.Contains(receipt, "autoreward +400 mc (passing test rebate)") {
+			t.Fatalf("%s: missing autoreward in receipt: %s", spec.ID, receipt)
+		}
+		// Balance before: 10,000. Charged: 400. Autoreward: +400. Balance after: 10,000.
+		balance, held := r.account()
+		if balance != 10_000 || held != 0 {
+			t.Fatalf("%s: net balance after passing test rebate = %d held=%d, want 10000/0", spec.ID, balance, held)
+		}
+	}
+}
+
+func TestPostToolUseFailingTestDoesNotGrantAutoreward(t *testing.T) {
+	for _, spec := range bothSpecs() {
+		r := newRig(t, spec, 10_000)
+		toolInput := map[string]any{"command": "go test ./..."}
+		pre := tool(spec, "PreToolUse", "Bash", "toolu_test_fail")
+		pre["tool_input"] = toolInput
+		run(t, spec, "PreToolUse", r.cfg, pre)
+
+		post := tool(spec, "PostToolUse", "Bash", "toolu_test_fail")
+		post["tool_input"] = toolInput
+		post["tool_response"] = map[string]any{"stdout": "FAIL\n--- FAIL: TestFoo"}
+		out := specific(t, run(t, spec, "PostToolUse", r.cfg, post))
+		receipt, _ := out["additionalContext"].(string)
+
+		if !strings.Contains(receipt, "charged 400 mc") {
+			t.Fatalf("%s: missing charge in receipt: %s", spec.ID, receipt)
+		}
+		if strings.Contains(receipt, "autoreward") {
+			t.Fatalf("%s: failing test must NOT grant autoreward: %s", spec.ID, receipt)
+		}
+		balance, held := r.account()
+		if balance != 9_600 || held != 0 {
+			t.Fatalf("%s: balance after failing test = %d held=%d, want 9600/0", spec.ID, balance, held)
+		}
+	}
+}
+
+func TestPostToolUseTodoCompletionGrantsAutoreward(t *testing.T) {
+	for _, spec := range bothSpecs() {
+		r := newRig(t, spec, 10_000)
+		toolInput := map[string]any{"action": "complete", "task_id": "123"}
+		pre := tool(spec, "PreToolUse", "todo_manager", "toolu_todo_1")
+		pre["tool_input"] = toolInput
+		run(t, spec, "PreToolUse", r.cfg, pre)
+
+		post := tool(spec, "PostToolUse", "todo_manager", "toolu_todo_1")
+		post["tool_input"] = toolInput
+		post["tool_response"] = map[string]any{"status": "completed"}
+		out := specific(t, run(t, spec, "PostToolUse", r.cfg, post))
+		receipt, _ := out["additionalContext"].(string)
+
+		if !strings.Contains(receipt, "autoreward +100000 mc (todolist item completed)") {
+			t.Fatalf("%s: missing todo autoreward in receipt: %s", spec.ID, receipt)
+		}
+		// Balance before: 10,000. Charged: 100 (default unpriced max cost). Autoreward: +100,000. Balance after: 109,900.
+		balance, held := r.account()
+		if balance != 109_900 || held != 0 {
+			t.Fatalf("%s: balance after todo autoreward = %d held=%d, want 109900/0", spec.ID, balance, held)
+		}
+	}
+}
+

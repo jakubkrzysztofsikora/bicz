@@ -56,6 +56,7 @@ func main() {
 		"init":         runInit,
 		"open":         runOpen,
 		"reward":       runReward,
+		"reset":        runReset,
 		"loss":         runLoss,
 		"appeal":       runAppeal,
 		"review":       runReview,
@@ -118,6 +119,8 @@ operator (state-changing; --reason is REQUIRED and must be non-empty)
   bicz open    --db PATH --identity ID [--capital MC] --reason TEXT
   bicz reward  --db PATH --identity ID --amount MC --reason TEXT
                [--evidence TEXT] [--applied-to-loss MC] [--event ID]
+  bicz reset   --db PATH --identity ID [--amount MC] [--reason TEXT]
+               [--evidence TEXT] [--event ID]
   bicz loss    --db PATH --identity ID --rule RULE --correction TEXT --reason TEXT
                [--amount MC] [--scope TEXT] [--exceptions TEXT] [--evidence TEXT]
                [--policy-version V] [--self-disclosed] [--event ID]
@@ -145,7 +148,7 @@ harness adapters (user-scope only; no elevated privileges; dry-run is exact and 
   bicz command   --harness omp|claude|codex|opencode
                    (--arguments RAW | --arguments-stdin) [--invocation ID] [--transcript PATH] [--json]
                    run one operator slash command (/bicz loss RULE "reason" ["correction"],
-                   /bicz reward AMOUNT "reason", /bicz status, /bicz rules). Identity and ledger come
+                   /bicz reward AMOUNT "reason", /bicz reset [AMOUNT], /bicz status, /bicz rules). Identity and ledger come
                    from the harness's installed bicz config; there is no --db/--identity.
                    --transcript is the session transcript, read only when the adapter config
                    enables inference (internal/infer), never recorded.
@@ -332,6 +335,49 @@ func runReward(ctx context.Context, args []string) error {
 	return nil
 }
 
+func runReset(ctx context.Context, args []string) error {
+	fs := newFlagSet("reset")
+	db := fs.String("db", "", "ledger database")
+	identity := fs.String("identity", "", "identity whose budget is reset")
+	amount := fs.String("amount", "0", "target balance in microcredits (0 = default baseline)")
+	reason := fs.String("reason", "reset budget to unblock agent", "operator reason")
+	evidence := fs.String("evidence", "", "evidence linkage")
+	event := fs.String("event", "", "idempotency key (generated when absent)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *db == "" || *identity == "" {
+		return errors.New("reset: --db and --identity are required")
+	}
+	var targetMC int64
+	if *amount != "" && *amount != "0" {
+		var err error
+		targetMC, err = ledger.ParseMicrocredits(*amount)
+		if err != nil {
+			return err
+		}
+	}
+	op, err := operator(*db)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	result, err := op.Reset(ctx, daemon.ResetRequest{
+		EventID:       *event,
+		Identity:      *identity,
+		TargetBalance: targetMC,
+		Reason:        *reason,
+		Evidence:      *evidence,
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("RESET event=%s account=%s delta=%d balance_before=%d balance_after=%d outstanding_loss=%d role=%s replayed=%t\n",
+		result.EventID, result.AccountID, result.Delta, result.BalanceBefore, result.BalanceAfter,
+		result.OutstandingLoss, result.Role, result.Replayed)
+	return nil
+}
+
 func runLoss(ctx context.Context, args []string) error {
 	fs := newFlagSet("loss")
 	db := fs.String("db", "", "ledger database")
@@ -470,9 +516,9 @@ func runReview(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("REVIEW event=%s account=%s verdict=%q task=%s revoked=%t role=%s warnings=%d replayed=%t\n",
+	fmt.Printf("REVIEW event=%s account=%s verdict=%q task=%s revoked=%t role=%s warnings=%d autoreward=%d replayed=%t\n",
 		result.EventID, result.AccountID, result.Verdict, emptyAs(result.TaskID, "-"),
-		result.TaskRevoked, result.Role, result.Warnings, result.Replayed)
+		result.TaskRevoked, result.Role, result.Warnings, result.AutorewardGranted, result.Replayed)
 	return nil
 }
 

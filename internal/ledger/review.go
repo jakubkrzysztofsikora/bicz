@@ -4,18 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 )
 
 // ReviewResult is the receipt of a recorded adjudication verdict.
 type ReviewResult struct {
-	EventID     string
-	AccountID   string
-	Verdict     string
-	TaskID      string
-	TaskRevoked bool
-	Role        string
-	Warnings    int64
-	Replayed    bool
+	EventID           string
+	AccountID         string
+	Verdict           string
+	TaskID            string
+	TaskRevoked       bool
+	Role              string
+	Warnings          int64
+	AutorewardGranted int64
+	Replayed          bool
 }
 
 type reviewConfig struct {
@@ -100,15 +102,20 @@ func (l *Ledger) RecordReview(
 			if err != nil {
 				return err
 			}
+			var replayedReward int64
+			if autoEv, found, err := loadEvent(ctx, tx, "autoreward:review:"+eventID); err == nil && found {
+				replayedReward = autoEv.Amount
+			}
 			result = ReviewResult{
-				EventID:     eventID,
-				AccountID:   accountID,
-				Verdict:     payload.Verdict,
-				TaskID:      payload.TaskID,
-				TaskRevoked: payload.TaskRevoked,
-				Role:        employment.State,
-				Warnings:    employment.Warnings,
-				Replayed:    true,
+				EventID:           eventID,
+				AccountID:         accountID,
+				Verdict:           payload.Verdict,
+				TaskID:            payload.TaskID,
+				TaskRevoked:       payload.TaskRevoked,
+				Role:              employment.State,
+				Warnings:          employment.Warnings,
+				AutorewardGranted: replayedReward,
+				Replayed:          true,
 			}
 			return nil
 		}
@@ -202,14 +209,62 @@ func (l *Ledger) RecordReview(
 		}); err != nil {
 			return err
 		}
+
+		var autorewardGranted int64
+		if strings.EqualFold(strings.TrimSpace(verdict), "SHIP") && role != RoleSuspended && role != RoleDismissed {
+			// SHIP verdict of adversarial review: autoreward up to baseline ceiling (1 credit = 1,000,000 mc).
+			shipReward := int64(1_000_000)
+			account, found, err := loadAccount(ctx, tx, accountID)
+			if err == nil && found {
+				ceiling := DefaultBaselineCeilingMC
+				headroom := ceiling - account.Balance
+				if headroom > 0 {
+					if shipReward < headroom {
+						autorewardGranted = shipReward
+					} else {
+						autorewardGranted = headroom
+					}
+					if autorewardGranted > 0 {
+						if _, err := tx.ExecContext(ctx,
+							`UPDATE accounts SET balance = balance + ? WHERE id = ?`,
+							autorewardGranted, accountID); err != nil {
+							return fmt.Errorf("ledger: update balance for ship review %s: %w", accountID, err)
+						}
+						if _, _, err := appendEvent(ctx, tx, l.clock, eventSpec{
+							id:        "autoreward:review:" + eventID,
+							accountID: &accountID,
+							kind:      kindAutoreward,
+							amount:    autorewardGranted,
+							payload: autorewardPayload{
+								AccountID:       accountID,
+								Trigger:         "review_ship",
+								RequestedAmount: shipReward,
+								GrantedAmount:   autorewardGranted,
+								BaselineCeiling: ceiling,
+								BalanceBefore:   account.Balance,
+								BalanceAfter:    account.Balance + autorewardGranted,
+								Reason:          "SHIP verdict of adversarial review",
+								Evidence:        evidence,
+							},
+							actor:  ActorSystem,
+							reason: "SHIP verdict of adversarial review: " + reason + ": " + evidence,
+						}); err != nil {
+							return err
+						}
+					}
+				}
+			}
+		}
+
 		result = ReviewResult{
-			EventID:     eventID,
-			AccountID:   accountID,
-			Verdict:     verdict,
-			TaskID:      payload.TaskID,
-			TaskRevoked: payload.TaskRevoked,
-			Role:        role,
-			Warnings:    warnings,
+			EventID:           eventID,
+			AccountID:         accountID,
+			Verdict:           verdict,
+			TaskID:            payload.TaskID,
+			TaskRevoked:       payload.TaskRevoked,
+			Role:              role,
+			Warnings:          warnings,
+			AutorewardGranted: autorewardGranted,
 		}
 		return nil
 	})

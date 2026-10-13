@@ -658,7 +658,133 @@ func (r *runner) postToolUse(ctx context.Context, ev event, failed bool) result 
 	if receipt.Replayed {
 		text += " (replayed settlement: no second charge)"
 	}
+
+	if !failed && (receipt.Class == string(protocol.ClassCompleted) || receipt.Class == "completed") {
+		if trigger, rReason, digest, amount, ok := detectAutoreward(ev, receipt.Charged); ok {
+			autoKey := r.spec.ID + ":autoreward:" + trigger + ":" + digest
+			autoState, err := r.client().Autoreward(ctx, autoKey, protocol.AutorewardPayload{
+				AccountID: r.cfg.AccountID,
+				Amount:    amount,
+				Trigger:   trigger,
+				Reason:    rReason,
+				Evidence:  digest,
+			})
+			if err == nil && autoState.Granted > 0 {
+				text += fmt.Sprintf(", autoreward +%d mc (%s)", autoState.Granted, rReason)
+			}
+		}
+	}
+
 	return result{context: text}
+}
+
+func detectAutoreward(ev event, charged int64) (trigger, reason, digest string, amount int64, ok bool) {
+	toolLower := strings.ToLower(ev.ToolName)
+	inputStr := extractText(ev.ToolInput)
+	respStr := extractText(ev.ToolResponse)
+
+	// 1. Passing test trigger
+	if isTestExecution(toolLower, inputStr) && isTestSuccess(respStr) {
+		rebate := charged
+		if rebate > 50_000 {
+			rebate = 50_000
+		}
+		if rebate <= 0 {
+			return "", "", "", 0, false
+		}
+		sum := adapter.EvidenceDigest(map[string]any{"tool": ev.ToolName, "input": inputStr, "response": respStr})
+		return "test_pass", "passing test rebate", sum, rebate, true
+	}
+
+	// 2. Todolist completion trigger
+	if isTodoCompletion(toolLower, inputStr, respStr) {
+		sum := adapter.EvidenceDigest(map[string]any{"tool": ev.ToolName, "input": inputStr})
+		return "todo_complete", "todolist item completed", sum, 100_000, true
+	}
+
+	return "", "", "", 0, false
+}
+
+func isTestExecution(tool, input string) bool {
+	if strings.Contains(tool, "test") {
+		return true
+	}
+	inLower := strings.ToLower(input)
+	testCommands := []string{
+		"go test", "pytest", "npm test", "npx jest", "npx vitest",
+		"yarn test", "pnpm test", "cargo test", "ctest", "make test",
+		"python -m unittest", "bun test", "deno test",
+	}
+	for _, cmd := range testCommands {
+		if strings.Contains(inLower, cmd) {
+			return true
+		}
+	}
+	return false
+}
+
+func isTestSuccess(resp string) bool {
+	if resp == "" {
+		return false
+	}
+	lower := strings.ToLower(resp)
+	failMarkers := []string{"fail", "failed", "error", "failures:", "errors:"}
+	for _, marker := range failMarkers {
+		if strings.Contains(lower, marker) {
+			return false
+		}
+	}
+	passMarkers := []string{"pass", "passed", "ok", "success", "0 failures"}
+	for _, marker := range passMarkers {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func isTodoCompletion(tool, input, resp string) bool {
+	respLower := strings.ToLower(resp)
+	if strings.Contains(respLower, "error") || strings.Contains(respLower, "fail") {
+		return false
+	}
+	inLower := strings.ToLower(input)
+	if strings.Contains(tool, "todo") || strings.Contains(tool, "task") || strings.Contains(tool, "plan") {
+		if strings.Contains(inLower, "complete") || strings.Contains(inLower, "done") {
+			return true
+		}
+	}
+	if strings.Contains(inLower, "- [x]") || strings.Contains(inLower, `"status":"completed"`) || strings.Contains(inLower, `"status": "completed"`) {
+		return true
+	}
+	return false
+}
+
+func extractText(v any) string {
+	if v == nil {
+		return ""
+	}
+	switch val := v.(type) {
+	case string:
+		return val
+	case fmt.Stringer:
+		return val.String()
+	case map[string]any:
+		var parts []string
+		for _, key := range []string{"command", "cmd", "input", "content", "stdout", "output", "action", "status", "todos"} {
+			if item, exists := val[key]; exists {
+				parts = append(parts, fmt.Sprint(item))
+			}
+		}
+		if len(parts) > 0 {
+			return strings.Join(parts, " ")
+		}
+		encoded, _ := json.Marshal(val)
+		return string(encoded)
+	default:
+		encoded, _ := json.Marshal(val)
+		return string(encoded)
+	}
 }
 
 func (r *runner) projection(ctx context.Context, ev event) result {

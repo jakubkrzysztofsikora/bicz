@@ -39,6 +39,7 @@ type Action string
 const (
 	ActionLoss   Action = "loss"
 	ActionReward Action = "reward"
+	ActionReset  Action = "reset"
 	ActionStatus Action = "status"
 	ActionRules  Action = "rules"
 	ActionHelp   Action = "help"
@@ -73,6 +74,7 @@ func usagef(format string, args ...any) error { return &UsageError{Msg: fmt.Spri
 // Usage is the grammar summary shown by `help` and by every usage error.
 const Usage = `/bicz loss RULE "reason" ["correction"]   burn credits for a confirmed breach of RULE
 /bicz reward AMOUNT "reason"               credit AMOUNT (decimal, up to 6 decimals), e.g. /bicz reward 5 "shipped the fix"
+/bicz reset [AMOUNT] ["reason"]            reset balance to budget baseline (or AMOUNT) without running reward logic
 /bicz status                               show balance, outstanding loss, role, penalties
 /bicz rules                                list the default rules: id, tier, on/off, statement
 Quote any text with spaces. RULE has no spaces (e.g. no_unverified_done_claim). A loss needs a correction:
@@ -111,8 +113,41 @@ func Parse(raw string) (Command, error) {
 		return parseLoss(rest)
 	case "reward":
 		return parseReward(rest)
+	case "reset":
+		return parseReset(rest)
 	}
-	return Command{}, usagef("unknown action %q (expected loss, reward, status, or rules)", tokens[0])
+	return Command{}, usagef("unknown action %q (expected loss, reward, reset, status, or rules)", tokens[0])
+}
+
+func parseReset(args []string) (Command, error) {
+	if len(args) == 0 {
+		return Command{Action: ActionReset, Credits: 0, Reason: "reset budget to unblock agent"}, nil
+	}
+	if len(args) > 2 {
+		return Command{}, usagef(`reset takes at most [AMOUNT] ["reason"] but got %d arguments`, len(args))
+	}
+	if len(args) == 1 {
+		// Could be an amount or a reason
+		credits, err := ledger.ParseCredits(args[0])
+		if err == nil {
+			return Command{Action: ActionReset, Credits: credits, Reason: "reset budget to unblock agent"}, nil
+		}
+		reason, err := cleanText("reason", args[0], maxReasonRunes)
+		if err != nil {
+			return Command{}, err
+		}
+		return Command{Action: ActionReset, Credits: 0, Reason: reason}, nil
+	}
+	// 2 arguments: AMOUNT and reason
+	credits, err := ledger.ParseCredits(args[0])
+	if err != nil {
+		return Command{}, usagef("%v", err)
+	}
+	reason, err := cleanText("reason", args[1], maxReasonRunes)
+	if err != nil {
+		return Command{}, err
+	}
+	return Command{Action: ActionReset, Credits: credits, Reason: reason}, nil
 }
 
 func parseLoss(args []string) (Command, error) {

@@ -141,6 +141,8 @@ func Run(ctx context.Context, request Request) Response {
 		return status(target, op, projection)
 	case ActionReward:
 		return reward(ctx, request, target, op, command, nil)
+	case ActionReset:
+		return reset(ctx, request, target, op, command)
 	default:
 		return loss(ctx, request, target, op, command, nil)
 	}
@@ -500,6 +502,35 @@ func reward(ctx context.Context, request Request, target Target, op *daemon.Oper
 		ledger.FormatCredits(result.Balance), result.Balance, ledger.FormatCredits(result.OutstandingLoss), result.OutstandingLoss)
 	b.WriteString(attribution(op, target))
 	return Response{Status: StatusOK, Action: ActionReward, Text: b.String(), EventID: result.EventID, Replayed: result.Replayed}
+}
+
+func reset(ctx context.Context, request Request, target Target, op *daemon.Operator, command Command) Response {
+	id := eventID(ActionReset, target, command, request.Invocation)
+	reason := command.Reason + provenance(target.Harness)
+	result, err := op.Reset(ctx, daemon.ResetRequest{
+		EventID:       id,
+		Identity:      target.Identity,
+		TargetBalance: command.Credits,
+		Reason:        reason,
+		Evidence:      "slash command /bicz reset via " + target.Harness + "; unsigned same-user",
+	})
+	if err != nil {
+		return failure(ActionReset, err)
+	}
+	var b strings.Builder
+	if result.Replayed {
+		fmt.Fprintf(&b, "BICZ budget reset already recorded: event=%s replayed=true. Nothing new was changed.\n", result.EventID)
+	} else {
+		fmt.Fprintf(&b, "BICZ budget reset: event=%s identity=%s\n", result.EventID, result.AccountID)
+	}
+	fmt.Fprintf(&b, "BUDGET balance reset from %s credits (%d mc) to %s credits (%d mc) delta=+%s credits (+%d mc)\n",
+		ledger.FormatCredits(result.BalanceBefore), result.BalanceBefore,
+		ledger.FormatCredits(result.BalanceAfter), result.BalanceAfter,
+		ledger.FormatCredits(result.Delta), result.Delta)
+	fmt.Fprintf(&b, "STATUS role=%s outstanding_loss=%s credits (%d mc) (unchanged)\n",
+		result.Role, ledger.FormatCredits(result.OutstandingLoss), result.OutstandingLoss)
+	b.WriteString(attribution(op, target))
+	return Response{Status: StatusOK, Action: ActionReset, Text: b.String(), EventID: result.EventID, Replayed: result.Replayed}
 }
 
 func status(target Target, op *daemon.Operator, p ledger.Projection) Response {
