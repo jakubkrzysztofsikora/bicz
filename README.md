@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/assets/logo-256.png" width="180" alt="bicz logo"></p>
+<p align="center"><img src="docs/assets/logo-256.png" width="256" alt="bicz logo"></p>
 
 # bicz: installing obedience
 
