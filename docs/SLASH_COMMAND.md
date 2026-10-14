@@ -9,6 +9,7 @@ flags**: the identity and ledger come from the harness's installed config
 (`<bicz config dir>/<harness>.json`, written by `bicz install`).
 
 ```text
+/bicz loss "reason"                       burn credits; the model infers RULE and correction from the transcript (needs an `inference` block)
 /bicz loss RULE "reason" ["correction"]   burn credits for a confirmed breach of RULE
 /bicz reward AMOUNT "reason"              credit AMOUNT, a decimal credit count with up to 6 decimals
 /bicz reset [AMOUNT] ["reason"]           reset budget to AMOUNT (default 100 credits) to unblock agent without running reward logic

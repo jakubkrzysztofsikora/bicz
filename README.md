@@ -75,6 +75,8 @@ A default install meters nothing: the hooks run in notice mode and only charge f
 
 Type `/bicz ...` in Claude Code (`$bicz ...` in Codex). Output below is copied from a real run on a throwaway `HOME` through the same executor, `bicz command --harness claude --arguments '...'`. The `ATTRIBUTION` line (it prints your OS username) is dropped and the ledger path is shortened.
 
+Fastest loss: `/bicz loss "what went wrong"`. With an `inference` block configured ([setup](#optional-let-a-model-finish-an-angry-loss)), the model picks the rule and correction from the transcript. Without it, use the explicit form shown here.
+
 ```text
 > /bicz status
 BICZ status identity=agent harness=claude ledger=~/.bicz/ledger.sqlite

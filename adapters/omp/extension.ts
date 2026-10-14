@@ -56,6 +56,7 @@ interface BiczConfig {
   schedule_path?: string;
   policy_version?: string;
   bicz_path?: string;
+  inference?: { enabled?: boolean; timeout_ms?: number };
 }
 
 interface Schedule {
@@ -362,7 +363,36 @@ function authorizeProjection(response: WireResponse): Record<string, unknown> | 
 // and every ledger write; this adapter only relays its structured result. A
 // slash command is an operator act, not an agent tool call, so it never goes
 // through authorize/settle and is never metered.
-const SLASH_TIMEOUT_MS = 15000;
+const SLASH_BASE_TIMEOUT_MS = 15000;
+const SLASH_INFERENCE_HEADROOM_MS = 10000;
+const DEFAULT_INFERENCE_TIMEOUT_MS = 4000;
+
+// The child must outlive the inference call it makes, or it is killed before it records anything.
+function slashTimeoutMs(config: BiczConfig | undefined): number {
+  if (!config?.inference?.enabled) return SLASH_BASE_TIMEOUT_MS;
+  const inferenceMs = config.inference.timeout_ms || DEFAULT_INFERENCE_TIMEOUT_MS;
+  return Math.max(SLASH_BASE_TIMEOUT_MS, inferenceMs + SLASH_INFERENCE_HEADROOM_MS);
+}
+
+const COMMAND_COMPLETIONS = [
+  { name: "loss", label: 'loss "reason"', value: 'loss "', description: "Burn credits; the model infers rule and correction from the transcript" },
+  { name: "loss", label: 'loss RULE "reason" "correction"', value: "loss ", description: "Explicit rule and correction, no inference" },
+  { name: "reward", label: 'reward AMOUNT "reason"', value: "reward ", description: "Credit AMOUNT to the agent" },
+  { name: "reset", label: 'reset [AMOUNT] "reason"', value: "reset ", description: "Restore budget without touching penalties" },
+  { name: "status", label: "status", value: "status", description: "Balance, outstanding loss, role" },
+  { name: "rules", label: "rules", value: "rules", description: "List rules and tiers" },
+];
+
+function completeCommandArguments(args: string): { label: string; value: string; description: string }[] | null {
+  if (/\s/.test(args)) return null;
+  const prefix = args.toLowerCase();
+  const items = COMMAND_COMPLETIONS.filter((item) => item.name.startsWith(prefix)).map(({ label, value, description }) => ({
+    label,
+    value,
+    description,
+  }));
+  return items.length > 0 ? items : null;
+}
 
 interface SlashResult {
   status?: "ok" | "needs_input" | "error";
@@ -379,12 +409,12 @@ function biczExecutable(config: BiczConfig | undefined): string {
   return config?.bicz_path || process.env.BICZ_BIN || "bicz";
 }
 
-function runSlash(exe: string, harness: string, raw: string, invocation: string): Promise<SlashResult> {
+function runSlash(exe: string, harness: string, raw: string, invocation: string, timeoutMs: number): Promise<SlashResult> {
   const { promise, resolve } = Promise.withResolvers<SlashResult>();
   const child = execFile(
     exe,
     ["command", "--harness", harness, "--arguments-stdin", "--json", "--invocation", invocation],
-    { timeout: SLASH_TIMEOUT_MS, maxBuffer: 1 << 20, windowsHide: true, env: { ...process.env, BICZ_CONFIG: configPath() } },
+    { timeout: timeoutMs, maxBuffer: 1 << 20, windowsHide: true, env: { ...process.env, BICZ_CONFIG: configPath() } },
     (error, stdout, stderr) => {
       const line = stdout.trim().split("\n").pop() ?? "";
       try {
@@ -432,7 +462,8 @@ function queueNotice(toolCallId: string, notice: string | undefined): void {
 
 export default function biczOmpAdapter(pi: ExtensionAPI) {
   pi.registerCommand("bicz", {
-    description: "Operator ledger command: /bicz status | rules | loss RULE \"reason\" [\"correction\"] | reward AMOUNT \"reason\"",
+    description: 'Operator ledger command: /bicz loss "reason" (default) | loss RULE "reason" "correction" | reward AMOUNT "reason" | status | rules',
+    getArgumentCompletions: completeCommandArguments,
     handler: async (args, ctx) => {
       // Re-read the config per invocation so a reinstall is picked up; the
       // cached tool-path config stays untouched.
@@ -442,7 +473,7 @@ export default function biczOmpAdapter(pi: ExtensionAPI) {
       } catch {
         config = undefined;
       }
-      const result = await runSlash(biczExecutable(config), HARNESS, args ?? "", `omp-${randomUUID()}`);
+      const result = await runSlash(biczExecutable(config), HARNESS, args ?? "", `omp-${randomUUID()}`, slashTimeoutMs(config));
       const level = result.status === "ok" ? "info" : result.status === "needs_input" ? "warning" : "error";
       ctx.ui.notify(slashMessage(result), level);
     },

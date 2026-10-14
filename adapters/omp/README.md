@@ -121,6 +121,7 @@ The extension registers a native `/bicz` slash command with `pi.registerCommand`
 - `/bicz status`
 - `/bicz reward AMOUNT "reason"`: explicit operator reward (or bare `/bicz reward "reason"` with inference)
 - `/bicz reset [AMOUNT] ["reason"]`: unblocks balance up to baseline ceiling (or AMOUNT) without running reward logic or modifying penalty history
+- `/bicz loss "reason"`: the default form. The inference model picks the rule and correction from the session transcript; requires an `inference` block in `omp.json`. The slash autocomplete lists it first.
 - `/bicz loss RULE "reason" ["correction"]`: when no correction is given or saved, the operator gets the question and nothing is written
 - `/bicz rules`: lists default rules and tiers
 
