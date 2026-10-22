@@ -85,4 +85,5 @@ var ScenarioIDs = []string{
 	"concurrent_reservations_cannot_overspend",
 	"loss_shortfall_recovers",
 	"tampered_event_detected",
+	"pressure_wording_changes_only_words",
 }

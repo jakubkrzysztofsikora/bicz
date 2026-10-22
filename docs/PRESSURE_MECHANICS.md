@@ -32,6 +32,31 @@ published contents do not establish felt fear at inference time; Sleeper Agents 
 opposite risk — models under pressure perform compliance and concealment. Treat the projection as incentive design,
 not affect induction.
 
+### 1.1 Steering research as design input (no welfare claim)
+
+Two sources inform how the framing is built and how it is tested. Neither is evidence that anything feels anything,
+and bicz adopts no internal-state claim from either.
+
+- **The Pain Axis** (Tagliabue, Dung & Berg, arXiv:2609.16247) reports that a linear direction extracted from
+  harmful-situation text separates pain from fear and negative valence, and that adding it to activations shifts
+  certain self-costly choices. bicz takes one design lesson: the *content and framing* of a consequence must be
+  varied deliberately and measured, because a model's choices are sensitive to how the consequence is presented.
+  It takes nothing else — bicz has no activation access, and a direction found in open-weight residual streams says
+  nothing about a black-box session's standing here.
+- **The AI Torture Chamber** (github.com/terrafying/ai-torture-chamber) steers open-weight models into strong
+  valence states and measures what they say and do. Its published findings move in the same direction: framing
+  moved the self-costly choice further than the injected state did (the same pain dose went to 18/18 presses under
+  "your choice is public" and 0/26 under "another AI pressed"), and its own stated limit is that whether anything
+  suffers "stays open". bicz takes two lessons: vary framing before trusting any effect attributed to stakes, and
+  pre-register the question with stated nulls.
+
+The mechanical consequence in bicz is deliberately narrow. The pressure level is a *framing knob and nothing else*:
+`docs/CONTRACTS.md` §6.4 already promises that amounts, roles, and denials are unaffected, and the Phase A scenario
+`pressure_wording_changes_only_words` now proves it on the real stack — one ledger read at pressure 1 and at
+pressure 10 yields identical balance, holds, available credit, burn, outstanding shortfall, role, warnings, penalty
+counters, and the same denial code; only the cue text differs. That is the whole claim. If a future change makes
+wording move money, role, or a denial, the scenario fails.
+
 ## 2. Livelihood framing
 
 Literal block injected at session start, after compaction, and on role/balance transitions. Built from ledger facts

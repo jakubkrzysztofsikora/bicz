@@ -86,7 +86,8 @@ func scenarioNeedsWire(id string) bool {
 		"integrity_breach_denies_immediately",
 		"bankruptcy_keeps_operator_channel",
 		"dismissal_blocks_despite_balance",
-		"concurrent_reservations_cannot_overspend":
+		"concurrent_reservations_cannot_overspend",
+		"pressure_wording_changes_only_words":
 		return true
 	default:
 		return false

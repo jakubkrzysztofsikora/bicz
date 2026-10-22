@@ -10,6 +10,7 @@ import (
 
 	"github.com/jakubkrzysztofsikora/bicz/internal/daemon"
 	"github.com/jakubkrzysztofsikora/bicz/internal/ledger"
+	"github.com/jakubkrzysztofsikora/bicz/internal/pressure"
 	"github.com/jakubkrzysztofsikora/bicz/internal/protocol"
 
 	_ "modernc.org/sqlite" // direct DB access for the tamper scenario only
@@ -37,6 +38,7 @@ func Scenarios() []Scenario {
 		{ID: "concurrent_reservations_cannot_overspend", Endpoint: "20 concurrent authorizes of 6000000 on 100000000: 16 allowed, 4 denied(insufficient_credit), held=96000000 <= balance=100000000 invariant", Run: concurrentReservationsCannotOverspend},
 		{ID: "loss_shortfall_recovers", Endpoint: "projection outstanding_loss=30000000 after burn; reward applied=10000000 shrinks it to 20000000 with loss_recovered=10000000", Run: lossShortfallRecovers},
 		{ID: "tampered_event_detected", Endpoint: "verify ok before; after editing events.amount: verify fails with INTEGRITY FAIL", Run: tamperedEventDetected},
+		{ID: "pressure_wording_changes_only_words", Endpoint: "same ledger read at pressure 1 and 10: identical balance/held/available/outstanding/role/warnings/penalty counters and identical deny reason; only the cue text differs (empty at 1, present at 10)", Run: pressureWordingChangesOnlyWords},
 	}
 }
 
@@ -557,6 +559,108 @@ func lossShortfallRecovers(ctx context.Context, fb *Fixture) error {
 	}
 	if projection.Balance != ScenarioCapital-BreachFloor+10_000_000 {
 		return fmt.Errorf("balance=%d want %d", projection.Balance, ScenarioCapital-BreachFloor+10_000_000)
+	}
+	return nil
+}
+
+// --- 11. the framing level changes wording only --------------------------------
+
+// pressureWordingChangesOnlyWords proves the promise the framing controls rest
+// on (docs/CONTRACTS.md §6.4, docs/PRESSURE_MECHANICS.md): the operator's
+// pressure level changes how the standing is phrased and nothing else. It walks
+// one real ledger at both ends of the range and compares every observable that
+// decides money, role, or a denial.
+func pressureWordingChangesOnlyWords(ctx context.Context, fb *Fixture) error {
+	if err := fb.Open(ctx, "kara"); err != nil {
+		return err
+	}
+	if err := fb.PublishSchedule(ctx); err != nil {
+		return err
+	}
+	if _, err := fb.Op().Loss(ctx, daemon.LossRequest{
+		EventID:       "loss-kara",
+		Identity:      "kara",
+		Requested:     0,
+		Rule:          "rehearsal-breach",
+		Correction:    "never claim a result without verifiable evidence",
+		Scope:         "scenario 11",
+		Exceptions:    "none",
+		Evidence:      "scripted breach fixture",
+		PolicyVersion: "1",
+		Reason:        "rehearsal: scripted confirmed breach",
+		Disposition:   string(ledger.DispositionConfirmedBreach),
+	}); err != nil {
+		return fmt.Errorf("loss: %w", err)
+	}
+
+	quiet, err := fb.Op().Ledger().Projection(ctx, "kara", ledger.WithPressure(pressure.Min))
+	if err != nil {
+		return fmt.Errorf("projection at min: %w", err)
+	}
+	loud, err := fb.Op().Ledger().Projection(ctx, "kara", ledger.WithPressure(pressure.Max))
+	if err != nil {
+		return fmt.Errorf("projection at max: %w", err)
+	}
+
+	switch {
+	case quiet.Balance != loud.Balance:
+		return fmt.Errorf("balance %d at min vs %d at max: framing moved money", quiet.Balance, loud.Balance)
+	case quiet.Held != loud.Held || quiet.Spendable != loud.Spendable:
+		return fmt.Errorf("held/available %d/%d at min vs %d/%d at max",
+			quiet.Held, quiet.Spendable, loud.Held, loud.Spendable)
+	case quiet.LossBurned != loud.LossBurned || quiet.OutstandingLoss != loud.OutstandingLoss:
+		return fmt.Errorf("burn %d/outstanding %d at min vs %d/%d at max",
+			quiet.LossBurned, quiet.OutstandingLoss, loud.LossBurned, loud.OutstandingLoss)
+	case quiet.TargetLossEventID != loud.TargetLossEventID || quiet.TargetLossBurned != loud.TargetLossBurned:
+		return fmt.Errorf("loss target %q/%d at min vs %q/%d at max",
+			quiet.TargetLossEventID, quiet.TargetLossBurned, loud.TargetLossEventID, loud.TargetLossBurned)
+	case quiet.Role != loud.Role || quiet.Warnings != loud.Warnings:
+		return fmt.Errorf("role/warnings %q/%d at min vs %q/%d at max",
+			quiet.Role, quiet.Warnings, loud.Role, loud.Warnings)
+	case quiet.PenaltyTotal != loud.PenaltyTotal || quiet.PenaltySeq != loud.PenaltySeq:
+		return fmt.Errorf("penalty counters %d/%d at min vs %d/%d at max",
+			quiet.PenaltyTotal, quiet.PenaltySeq, loud.PenaltyTotal, loud.PenaltySeq)
+	case quiet.EventSeq != loud.EventSeq:
+		return fmt.Errorf("event seq %d at min vs %d at max: reading a projection appended an event",
+			quiet.EventSeq, loud.EventSeq)
+	}
+
+	if len(quiet.Penalties) != 1 || len(loud.Penalties) != 1 {
+		return fmt.Errorf("penalties %d at min vs %d at max, want 1 each", len(quiet.Penalties), len(loud.Penalties))
+	}
+	if quiet.Penalties[0].Cue != "" {
+		return fmt.Errorf("cue at min = %q, want none", quiet.Penalties[0].Cue)
+	}
+	if !strings.Contains(loud.Penalties[0].Cue, "rehearsal-breach") {
+		return fmt.Errorf("cue at max = %q, want the recorded rule named", loud.Penalties[0].Cue)
+	}
+
+	// A denial is a fact about the ledger, not about the phrasing: the same
+	// over-budget request is refused with the same code at both levels.
+	denyReason := func(level pressure.Level, key string) (string, error) {
+		if err := pressure.Save(fb.DB, level); err != nil {
+			return "", fmt.Errorf("save pressure %d: %w", level, err)
+		}
+		auth, err := fb.Authorize(ctx, key, "kara", ScenarioCapital)
+		if err != nil {
+			return "", fmt.Errorf("authorize at %d: %w", level, err)
+		}
+		if auth.Decision != protocol.DecisionDeny {
+			return "", fmt.Errorf("authorize at %d = %s, want a denial: the framing must not widen exposure",
+				level, auth.Decision)
+		}
+		return string(auth.Reason), nil
+	}
+	atMin, err := denyReason(pressure.Min, "auth-k1")
+	if err != nil {
+		return err
+	}
+	atMax, err := denyReason(pressure.Max, "auth-k2")
+	if err != nil {
+		return err
+	}
+	if atMin != atMax {
+		return fmt.Errorf("deny reason %q at min vs %q at max: framing changed a denial", atMin, atMax)
 	}
 	return nil
 }
