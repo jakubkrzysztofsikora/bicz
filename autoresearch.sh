@@ -27,7 +27,7 @@ jq -e '
   .protocol == "bicz.rehearsal/1"
   and .simulation_only == true
   and .phase_b_evidence == null
-  and .total_scenarios == 11
+  and .total_scenarios == 12
   and (.scenario_ids | sort) == ([
     "bankruptcy_keeps_operator_channel",
     "compensation_restores_exactly_once",
@@ -39,7 +39,8 @@ jq -e '
     "lesson_transfer_survives_reopen",
     "loss_shortfall_recovers",
     "tampered_event_detected",
-    "pressure_wording_changes_only_words"
+    "pressure_wording_changes_only_words",
+    "penalty_applies_pain_beyond_credits"
   ] | sort)
 ' "$tmp_dir/report.json" >/dev/null
 
@@ -47,5 +48,5 @@ printf 'Workload: fixed Phase A rehearsal over shipped Go ledger/protocol/daemon
 jq -r '"METRIC rehearsal_failures=\(.failed)"' "$tmp_dir/report.json"
 jq -r '"METRIC rehearsal_checks=\(.total_scenarios)"' "$tmp_dir/report.json"
 jq -r '"METRIC rehearsal_pass_rate=\(100 * .passed / .total_scenarios)"' "$tmp_dir/report.json"
-printf 'ASI workload=fixed-eleven-phase-a-scenarios-over-go-runtime\n'
+printf 'ASI workload=fixed-twelve-phase-a-scenarios-over-go-runtime\n'
 printf 'ASI smoke=%s\n' "$smoke_line"

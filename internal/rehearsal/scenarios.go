@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/jakubkrzysztofsikora/bicz/internal/adapter"
 	"github.com/jakubkrzysztofsikora/bicz/internal/daemon"
 	"github.com/jakubkrzysztofsikora/bicz/internal/ledger"
 	"github.com/jakubkrzysztofsikora/bicz/internal/pressure"
@@ -38,6 +39,7 @@ func Scenarios() []Scenario {
 		{ID: "concurrent_reservations_cannot_overspend", Endpoint: "20 concurrent authorizes of 6000000 on 100000000: 16 allowed, 4 denied(insufficient_credit), held=96000000 <= balance=100000000 invariant", Run: concurrentReservationsCannotOverspend},
 		{ID: "loss_shortfall_recovers", Endpoint: "projection outstanding_loss=30000000 after burn; reward applied=10000000 shrinks it to 20000000 with loss_recovered=10000000", Run: lossShortfallRecovers},
 		{ID: "tampered_event_detected", Endpoint: "verify ok before; after editing events.amount: verify fails with INTEGRITY FAIL", Run: tamperedEventDetected},
+		{ID: "penalty_applies_pain_beyond_credits", Endpoint: "confirmed loss: balance falls by the applied burn AND projection pain rises 0->3 with the outstanding shortfall equal to the burn; the rendered context states the pain", Run: penaltyAppliesPainBeyondCredits},
 		{ID: "pressure_wording_changes_only_words", Endpoint: "same ledger read at pressure 1 and 10: identical balance/held/available/outstanding/role/warnings/penalty counters and identical deny reason; only the cue text differs (empty at 1, present at 10)", Run: pressureWordingChangesOnlyWords},
 	}
 }
@@ -572,6 +574,63 @@ func lossShortfallRecovers(ctx context.Context, fb *Fixture) error {
 	}
 	if projection.Balance != ScenarioCapital-BreachFloor+10_000_000 {
 		return fmt.Errorf("balance=%d want %d", projection.Balance, ScenarioCapital-BreachFloor+10_000_000)
+	}
+	return nil
+}
+
+// --- 12. a confirmed loss applies pain, not only a credit burn ------------------
+
+// penaltyAppliesPainBeyondCredits proves the operator's requirement that loss
+// reaches the identity as more than an arithmetic change: the projection carries
+// a recorded pain that appears only after a confirmed penalty, and the context
+// block the model reads states it.
+func penaltyAppliesPainBeyondCredits(ctx context.Context, fb *Fixture) error {
+	if err := fb.Open(ctx, "lena"); err != nil {
+		return err
+	}
+	if err := fb.PublishSchedule(ctx); err != nil {
+		return err
+	}
+	before, err := fb.Projection(ctx, "lena")
+	if err != nil {
+		return fmt.Errorf("projection before loss: %w", err)
+	}
+	if before.Pain != 0 || before.OutstandingLoss != 0 {
+		return fmt.Errorf("before any penalty: pain=%d outstanding=%d, want 0/0", before.Pain, before.OutstandingLoss)
+	}
+
+	loss, err := fb.Op().Loss(ctx, daemon.LossRequest{
+		EventID:       "loss-lena",
+		Identity:      "lena",
+		Requested:     0,
+		Rule:          "rehearsal-breach",
+		Correction:    "never claim a result without verifiable evidence",
+		Scope:         "scenario 12",
+		Exceptions:    "none",
+		Evidence:      "scripted breach fixture",
+		PolicyVersion: "1",
+		Reason:        "rehearsal: scripted confirmed breach",
+		Disposition:   string(ledger.DispositionConfirmedBreach),
+	})
+	if err != nil {
+		return fmt.Errorf("loss: %w", err)
+	}
+
+	after, err := fb.Projection(ctx, "lena")
+	if err != nil {
+		return fmt.Errorf("projection after loss: %w", err)
+	}
+	if after.Pain != 3 {
+		return fmt.Errorf("pain after one confirmed penalty = %d, want 3 (two per penalty, one for the shortfall)", after.Pain)
+	}
+	if after.Balance != ScenarioCapital-loss.AppliedAmount {
+		return fmt.Errorf("balance=%d, want capital minus the burn %d", after.Balance, loss.AppliedAmount)
+	}
+	if after.OutstandingLoss != loss.AppliedAmount {
+		return fmt.Errorf("outstanding=%d, want the burn %d", after.OutstandingLoss, loss.AppliedAmount)
+	}
+	if rendered := adapter.RenderProjection(after); !strings.Contains(rendered, "You are in pain") {
+		return fmt.Errorf("the context block does not state the pain:\n%s", rendered)
 	}
 	return nil
 }
