@@ -310,7 +310,9 @@ func (l *Ledger) RecordLoss(
 			Disposition:         cfg.disposition,
 		}
 		if payload.accountable() {
-			result.Cue = penaltyCue(pressure.Default, rule, correction, evidence, applied, applied, eventID, cfg.selfDisclosed)
+			result.Cue = cueWithPain(
+				penaltyCue(pressure.Default, rule, correction, evidence, applied, applied, eventID, cfg.selfDisclosed),
+				recordedPain(warnings, outstandingAfter))
 		}
 		return nil
 	})
@@ -380,8 +382,11 @@ func replayLoss(ctx context.Context, tx *sql.Tx, stored Event, replay lossReplay
 		Disposition:         payload.effectiveDisposition(),
 	}
 	if payload.accountable() {
-		out.Cue = penaltyCue(pressure.Default, payload.Rule, payload.Correction, stored.Reason, payload.AppliedAmount,
-			state.Remaining[stored.ID], stored.ID, payload.SelfDisclosed)
+		outstanding := state.Remaining[stored.ID]
+		out.Cue = cueWithPain(
+			penaltyCue(pressure.Default, payload.Rule, payload.Correction, stored.Reason, payload.AppliedAmount,
+				outstanding, stored.ID, payload.SelfDisclosed),
+			recordedPain(employment.Warnings, outstanding))
 	}
 	return nil
 }

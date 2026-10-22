@@ -120,7 +120,7 @@ func (l *Ledger) Projection(ctx context.Context, accountID string, opts ...Proje
 	if err != nil {
 		return Projection{}, err
 	}
-	penalties, err := loadPenalties(ctx, l.db, accountID, state, cfg.pressure)
+	penalties, err := loadPenalties(ctx, l.db, accountID, state, employment.Warnings, cfg.pressure)
 	if err != nil {
 		return Projection{}, err
 	}

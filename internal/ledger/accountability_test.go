@@ -347,3 +347,24 @@ func TestProjectionWordsTheCueAtTheRequestedPressureAndKeepsEvidenceEscaped(t *t
 		t.Fatal("pressure must change wording only, never money or role")
 	}
 }
+
+// A confirmed penalty states the pain it raises in the same receipt, so the
+// operator sees the full consequence and not only the arithmetic.
+func TestConfirmedPenaltyCueStatesTheRecordedPain(t *testing.T) {
+	handle := newLedger(t)
+	fund(t, handle, "alice", 1_000)
+	publishPolicy(t, handle)
+
+	result, err := handle.RecordLoss(context0(t), "loss-pain", "alice", 100, "rule_a",
+		"run the real check and report its result", "scope", "none", "evidence", "1",
+		WithDisposition(DispositionConfirmedBreach))
+	if err != nil {
+		t.Fatalf("RecordLoss: %v", err)
+	}
+	if !strings.Contains(result.Cue, "You are in pain") {
+		t.Fatalf("cue does not state the pain: %q", result.Cue)
+	}
+	if !strings.Contains(result.Cue, "violated rule_a") {
+		t.Fatalf("the pain sentence must not replace the accountability facts: %q", result.Cue)
+	}
+}

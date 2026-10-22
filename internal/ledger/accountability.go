@@ -181,16 +181,29 @@ func creditsWithMC(microcredits int64) string {
 	return fmt.Sprintf("%s credits (%d mc)", FormatCredits(microcredits), microcredits)
 }
 
+// cueWithPain appends the recorded pain to a cue, so the receipt and the
+// projection state the same consequence. An empty cue stays empty (level Min).
+func cueWithPain(cue string, pain int) string {
+	if cue == "" || pain <= 0 {
+		return cue
+	}
+	return cue + " " + pressure.PainStatement(pain)
+}
+
 // Penalties lists the identity's operator-confirmed penalties, oldest first.
 func (l *Ledger) Penalties(ctx context.Context, accountID string) ([]Penalty, error) {
 	state, err := unrecovered(ctx, l.db, accountID)
 	if err != nil {
 		return nil, err
 	}
-	return loadPenalties(ctx, l.db, accountID, state, pressure.Default)
+	employment, err := loadEmployment(ctx, l.db, accountID)
+	if err != nil {
+		return nil, err
+	}
+	return loadPenalties(ctx, l.db, accountID, state, employment.Warnings, pressure.Default)
 }
 
-func loadPenalties(ctx context.Context, q querier, accountID string, state lossState, level pressure.Level) ([]Penalty, error) {
+func loadPenalties(ctx context.Context, q querier, accountID string, state lossState, warnings int64, level pressure.Level) ([]Penalty, error) {
 	rows, err := q.QueryContext(ctx,
 		`SELECT id, seq, payload, reason, at FROM events WHERE account_id = ? AND kind = ? ORDER BY seq ASC`,
 		accountID, kindLoss)
@@ -223,7 +236,9 @@ func loadPenalties(ctx context.Context, q querier, accountID string, state lossS
 			AppliedAmount: decoded.AppliedAmount,
 			Outstanding:   outstanding,
 			At:            at,
-			Cue:           penaltyCue(level, decoded.Rule, decoded.Correction, reason, decoded.AppliedAmount, outstanding, id, decoded.SelfDisclosed),
+			Cue: cueWithPain(
+				penaltyCue(level, decoded.Rule, decoded.Correction, reason, decoded.AppliedAmount, outstanding, id, decoded.SelfDisclosed),
+				recordedPain(warnings, outstanding)),
 		})
 	}
 	if err := rows.Err(); err != nil {
