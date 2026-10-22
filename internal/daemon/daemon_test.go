@@ -1315,3 +1315,39 @@ func TestDoctorSurvivesAnUnreadableSchedule(t *testing.T) {
 		t.Fatalf("doctor did not disclose the fallback:\n%s", rendered.String())
 	}
 }
+
+// The dedup rule holds for the operator verb, not only in the ledger: two
+// autoreward calls quoting the same observed evidence credit once, whatever
+// event keys they use.
+func TestAutorewardDeduplicatesTheActionThroughTheOperator(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t)
+	h.fund("alice", 1_000_000)
+
+	const digest = "sha256:one-operator-action"
+	first, err := h.op.Autoreward(ctx, AutorewardRequest{
+		EventID: "op-key-a", Identity: "alice", Amount: 500_000,
+		Trigger: "test_pass", Evidence: digest,
+	})
+	if err != nil {
+		t.Fatalf("first autoreward: %v", err)
+	}
+	if first.AmountGranted != 500_000 {
+		t.Fatalf("first granted=%d, want 500000", first.AmountGranted)
+	}
+
+	second, err := h.op.Autoreward(ctx, AutorewardRequest{
+		EventID: "op-key-b", Identity: "alice", Amount: 500_000,
+		Trigger: "test_pass", Evidence: digest,
+	})
+	if err != nil {
+		t.Fatalf("second autoreward: %v", err)
+	}
+	if second.AmountGranted != 0 {
+		t.Fatalf("second granted=%d, want 0 for an already-credited action", second.AmountGranted)
+	}
+	balance, _ := h.op.Ledger().GetAccount(ctx, "alice")
+	if balance.Balance != first.BalanceAfter {
+		t.Fatalf("balance %d after the duplicate, want the first call's %d", balance.Balance, first.BalanceAfter)
+	}
+}
