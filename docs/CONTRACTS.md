@@ -192,11 +192,15 @@ with the **first inconsistent** position and the **differing field(s)**:
 
 ### 3.6 Required anchoring cadence
 
-Normative default (operator-configurable, recorded in policy): **anchor at least
-once per 24 hours AND at least once per 1,000 appended events, whichever comes
-first.** `doctor` reports `anchored` when the most recent anchor is within the
-cadence window, `stale-anchor` when older than 2× the cadence, and `unmanaged`
-when no anchor exists. The exact cadence value is provisional (see §9).
+Normative default: **anchor at least once per 24 hours AND at least once per
+1,000 appended events, whichever comes first.** In this version both values are
+fixed constants in `doctor` (`AnchorCadence`, `anchorEventThreshold`); they are
+not yet operator-configurable and are not read from the price schedule. §9.4
+records that. `doctor` reports `anchored` when the most recent anchor is within
+both windows, `stale-anchor` when it is older than 2× the cadence or more than
+1,000 events behind the anchor's block, and `unmanaged` when no anchor exists.
+The report states the event count (`events_since`) so the window is checkable
+rather than inferred.
 
 ---
 
