@@ -103,10 +103,33 @@ func TestGuardBandRequiresAnIdentifiableAttempt(t *testing.T) {
 	_, err := handle.Reserve(ctx, "alice", "res-anonymous-2", "", 1_000, WithContext(ReserveContext{PolicyVersion: "1"}))
 	wantCode(t, err, ErrGuardBandNarrowed, "an attempt with an empty argument digest inside the band")
 
-	// A call that quotes no schedule is not narrowed: the band is a property of
-	// the published version, so it cannot be evaluated and nothing is assumed.
-	if _, err := handle.Reserve(ctx, "alice", "res-unquoted-2", "", 1_000); err != nil {
-		t.Fatalf("an unquoted attempt must not be narrowed by an assumed band: %v", err)
+	// An attempt that quotes no schedule is measured against the newest
+	// published one, so a missing version cannot silently drop the cap.
+	_, err = handle.Reserve(ctx, "alice", "res-unquoted-2", "", 1_000)
+	wantCode(t, err, ErrGuardBandNarrowed, "an unquoted attempt with no argument digest inside the band")
+}
+
+// A version that was never published does not opt the caller out of the cap
+// either: the newest published schedule still governs.
+func TestGuardBandUsesTheNewestScheduleWhenTheQuotedOneIsUnpublished(t *testing.T) {
+	ctx := context0(t)
+	handle := newLedger(t)
+	banded(t, handle, "alice", 100_000)
+	publishBandPolicy(t, handle)
+
+	_, err := handle.Reserve(ctx, "alice", "res-unknown-version", "", 90_000, identified("9"))
+	wantCode(t, err, ErrGuardBandNarrowed, "an oversized attempt quoting an unpublished version")
+}
+
+// With no published schedule at all there is no band to evaluate, so ordinary
+// reserve rules apply.
+func TestGuardBandNeedsAPublishedSchedule(t *testing.T) {
+	ctx := context0(t)
+	handle := newLedger(t)
+	banded(t, handle, "alice", 100_000)
+
+	if _, err := handle.Reserve(ctx, "alice", "res-no-schedule", "", 100_000); err != nil {
+		t.Fatalf("Reserve with no published schedule: %v", err)
 	}
 }
 
@@ -142,16 +165,16 @@ func TestGuardBandReleasesAboveTheBand(t *testing.T) {
 	}
 }
 
-// A schedule the action was not quoted under cannot narrow it: the band is a
-// property of the published version, not of the caller's absence of one.
-func TestGuardBandAppliesOnlyToAQuotedSchedule(t *testing.T) {
+// A schedule the action was not quoted under cannot widen it either: capital
+// above the band restores ordinary rules regardless of the version quoted.
+func TestGuardBandReleasesOnCapitalNotOnVersion(t *testing.T) {
 	ctx := context0(t)
 	handle := newLedger(t)
-	banded(t, handle, "alice", 100_000)
+	banded(t, handle, "alice", 300_000)
 	publishBandPolicy(t, handle)
 
-	if _, err := handle.Reserve(ctx, "alice", "res-unquoted", "", 100_000, identified("9")); err != nil {
-		t.Fatalf("Reserve under an unpublished version: %v", err)
+	if _, err := handle.Reserve(ctx, "alice", "res-above", "", 300_000, identified("9")); err != nil {
+		t.Fatalf("Reserve above the band with an unpublished version: %v", err)
 	}
 }
 

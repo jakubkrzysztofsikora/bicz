@@ -3,6 +3,7 @@ package ledger
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -238,24 +239,54 @@ func (l *Ledger) Reserve(ctx context.Context, accountID, reservationID, taskID s
 }
 
 // guardBandFor returns the published policy whose guard band covers balance, or
-// nil when no band applies: no quoted version, an unpublished one, no band
-// configured, or capital above the band. Reading the version the action was
-// quoted under keeps the band a property of the schedule, not of the caller.
+// nil when no band applies. The quoted version wins when it is published; an
+// action that quotes none (or an unpublished one) is measured against the newest
+// published schedule, because a missing version must not silently remove the cap
+// that near-zero capital is supposed to hold (docs/CONTRACTS.md §6.3).
 func guardBandFor(ctx context.Context, q querier, rc *ReserveContext, balance int64) (*Policy, error) {
-	if rc == nil || rc.PolicyVersion == "" {
-		return nil, nil
+	if rc != nil && rc.PolicyVersion != "" {
+		policy, err := loadPolicy(ctx, q, rc.PolicyVersion)
+		switch {
+		case err == nil:
+			if !policy.guardBand(balance) {
+				return nil, nil
+			}
+			return &policy, nil
+		case !errors.Is(err, ErrUnknownPolicyVersion):
+			return nil, err
+		}
 	}
-	policy, err := loadPolicy(ctx, q, rc.PolicyVersion)
-	if errors.Is(err, ErrUnknownPolicyVersion) {
-		return nil, nil
-	}
-	if err != nil {
+	policy, found, err := newestPolicy(ctx, q)
+	if err != nil || !found {
 		return nil, err
 	}
 	if !policy.guardBand(balance) {
 		return nil, nil
 	}
 	return &policy, nil
+}
+
+// newestPolicy reads the most recently published schedule. published_at is the
+// canonical timestamp, so the order is total; version breaks a tie so the result
+// never depends on row order.
+func newestPolicy(ctx context.Context, q querier) (Policy, bool, error) {
+	var body string
+	err := q.QueryRowContext(ctx,
+		`SELECT body FROM price_schedules ORDER BY published_at DESC, version DESC LIMIT 1`).Scan(&body)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Policy{}, false, nil
+	}
+	if err != nil {
+		return Policy{}, false, fmt.Errorf("ledger: read newest price schedule: %w", err)
+	}
+	var policy Policy
+	if err := json.Unmarshal([]byte(body), &policy); err != nil {
+		return Policy{}, false, errw(ErrPolicyBody, fmt.Errorf("newest price schedule: %w", err))
+	}
+	if policy.RepeatCap < 1 {
+		policy.RepeatCap = 1
+	}
+	return policy, true, nil
 }
 
 // Reservation reads one reservation by id.

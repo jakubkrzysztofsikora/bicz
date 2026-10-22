@@ -423,9 +423,11 @@ real receipt, real persistence.
     25%), when the attempt carries no argument digest, or when it draws on a task
     lease. Unscoped work from the identity's own credit stays available.
   - The band is read from the schedule version the action was quoted under
-    (`ReserveContext.PolicyVersion`); a call that quotes no published version is
-    not narrowed, because the band is a property of the schedule and not an
-    assumption about the caller.
+    (`ReserveContext.PolicyVersion`). An action that quotes none, or quotes a
+    version that was never published, is measured against the newest published
+    schedule, so an absent version never silently removes the cap; with no
+    published schedule at all there is no band to evaluate and ordinary reserve
+    rules apply.
   - Above the band, ordinary reserve rules return: nothing is remembered and no
     role changes. The band is a floor on exposure, never a status.
 - **active → warned:** signed warning records mistake + correction + financial
