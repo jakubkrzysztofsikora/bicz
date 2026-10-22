@@ -211,6 +211,14 @@ func (c *Client) call(ctx context.Context, method protocol.Method, idempotencyKe
 	if err := ctx.Err(); err != nil {
 		return protocol.Response{}, &UnmanagedError{Endpoint: c.Endpoint, Cause: ctx.Err()}
 	}
+	// A mutating op without a key cannot be replayed safely, so it is refused
+	// here rather than after a round trip: the caller gets the distinct
+	// missing_idempotency_key code instead of a generic malformed_request from
+	// the supervisor (docs/CONTRACTS.md §5, §5.5).
+	if method.Mutating() && idempotencyKey == "" {
+		return protocol.Response{}, protocol.Errorf(protocol.CodeMissingIdempotencyKey,
+			"op %q is mutating and requires an idempotency key", method)
+	}
 	body, err := protocol.MarshalPayload(payload)
 	if err != nil {
 		return protocol.Response{}, err

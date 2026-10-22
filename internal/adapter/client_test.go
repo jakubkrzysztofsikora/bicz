@@ -3,6 +3,7 @@ package adapter
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"os"
 	"path/filepath"
@@ -230,5 +231,30 @@ func TestClientContextCancelIsUnmanaged(t *testing.T) {
 	_, err := client.Projection(ctx, protocol.ProjectionPayload{AccountID: "alice"})
 	if err == nil || !IsUnmanaged(err) {
 		t.Fatalf("cancelled context must be unmanaged, got %v", err)
+	}
+}
+
+// A mutating call with no idempotency key is refused before the socket is
+// touched, with the code reserved for exactly that case (docs/CONTRACTS.md §5.5).
+func TestMutatingCallWithoutAKeyIsRefusedBeforeDialing(t *testing.T) {
+	client := NewClient(filepath.Join(t.TempDir(), "absent.sock"))
+
+	_, err := client.Authorize(context.Background(), "", protocol.AuthorizePayload{
+		AccountID: "alice", MaxCost: 1_000,
+	})
+	if err == nil {
+		t.Fatal("Authorize with no idempotency key succeeded")
+	}
+	var protocolErr *protocol.ProtocolError
+	if !errors.As(err, &protocolErr) || protocolErr.Code != protocol.CodeMissingIdempotencyKey {
+		t.Fatalf("error=%v, want code %s", err, protocol.CodeMissingIdempotencyKey)
+	}
+	if IsUnmanaged(err) {
+		t.Fatal("the refusal dialed the supervisor; it must fail before the round trip")
+	}
+
+	// A read-only call needs no key and still reaches the (absent) supervisor.
+	if _, err := client.Projection(context.Background(), protocol.ProjectionPayload{AccountID: "alice"}); !IsUnmanaged(err) {
+		t.Fatalf("read-only call error=%v, want an unmanaged transport error", err)
 	}
 }
