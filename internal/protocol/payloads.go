@@ -339,7 +339,10 @@ type Projection struct {
 	// adapter emits it as trusted context verbatim and never rebuilds it.
 	Penalties    []Penalty `json:"penalties"`
 	PenaltyTotal int64     `json:"penalty_total"`
-	PenaltySeq   int64     `json:"penalty_seq"`
+	// Pain is the recorded pain on a 0..10 scale, derived from confirmed
+	// penalties; an adapter states it in the context block when it is non-zero.
+	Pain       int   `json:"pain"`
+	PenaltySeq int64 `json:"penalty_seq"`
 	// Stakes is the standing statement of what the identity's credits mean at
 	// the operator's pressure level (internal/pressure); empty at the lowest
 	// level. An adapter emits it verbatim in the context block.
@@ -461,4 +464,3 @@ type AutorewardState struct {
 	Trigger  string `json:"trigger"`
 	Replayed bool   `json:"replayed"`
 }
-

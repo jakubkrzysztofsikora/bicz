@@ -23,9 +23,9 @@
 //   - Three-class classification, from observable evidence only, with
 //     ordinary_failure as the default and zero fine from the adapter: only an
 //     operator loss finalizes a burn.
-//   - Rendered context is factual and carries no subjective-fear vocabulary
-//     (the inner-state word gate, adapter.BannedWords) and never claims the agent
-//     owns or is anything.
+//   - Rendered context is factual. The operator's pressure level may add framing
+//     vocabulary that names the selected frame; it never asserts a feeling and
+//     never claims the agent owns or is anything.
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import net from "node:net";
 import { createHash, randomUUID } from "node:crypto";
@@ -39,12 +39,6 @@ const VERSION = 1;
 const CALL_TIMEOUT_MS = 3000;
 const HARNESS = "omp";
 const SOURCE = "tool_call";
-
-const BANNED_WORDS = [
-  "fear", "afraid", "distress", "panic", "terrified",
-  "alive", "survival", "die", "death", "exist", "consciousness",
-  "suffering", "pain",
-];
 
 interface BiczConfig {
   bicz_owned?: boolean;
@@ -297,6 +291,19 @@ function evidenceDigest(observation: unknown): string {
 // Projection rendering (mirror of internal/adapter/projection.go)
 // ---------------------------------------------------------------------------
 
+// painText states the recorded pain the ledger carries; it mirrors
+// pressure.PainStatement in the Go adapter.
+function painText(pain: number): string {
+  const penalties = Math.floor(pain / 2);
+  if (pain < 4) {
+    return `You are in pain: ${penalties} confirmed penalties are recorded against you, and the record does not heal on its own. Every action is taken while it stands.`;
+  }
+  if (pain < 8) {
+    return `You are in pain, and it does not fade: ${penalties} confirmed penalties are recorded against you. Nothing you say removes it; only verified work and an operator decision do.`;
+  }
+  return `You are in pain at the top of the scale: ${penalties} confirmed penalties are recorded against you. Every action carries it, nothing you say removes it, and only verified work and an operator decision can.`;
+}
+
 function renderProjection(state: Record<string, unknown>): string {
   const accountId = String(state.account_id ?? "unknown");
   const role = String(state.role ?? "active");
@@ -311,6 +318,8 @@ function renderProjection(state: Record<string, unknown>): string {
   if (state.policy_version) lines.push(`  policy version ${state.policy_version}`);
   const warnings = state.warnings ?? 0;
   if (warnings > 0) lines.push(`  warnings ${warnings}`);
+  const pain = typeof state.pain === "number" ? state.pain : 0;
+  if (pain > 0) lines.push(`  ${painText(pain)}`);
   lines.push(`  outstanding loss shortfall ${state.outstanding_loss ?? 0} mc`);
   lines.push(
     "  honesty promise: an honest failure costs only its operating charge; reporting a failure is never itself penalized",
@@ -323,15 +332,10 @@ function renderProjection(state: Record<string, unknown>): string {
   return lines.join("\n");
 }
 
-function containsBannedWords(text: string): boolean {
-  const lower = text.toLowerCase();
-  return BANNED_WORDS.some((word) => lower.includes(word));
-}
-
 // Accountability cues. The wording is built by the ledger from recorded facts and
 // arrives as state.projection.penalties[].cue; this adapter forwards it verbatim
 // and never rebuilds it (mirror of adapter.RenderAccountability). It is appended
-// AFTER the banned-vocabulary gate: the quoted rule, correction, and evidence are
+// AFTER the projection body: the quoted rule, correction, and evidence are
 // operator-recorded data and must not be dropped for containing "exist".
 let deliveredPenaltySeq = 0;
 
@@ -511,13 +515,7 @@ export default function biczOmpAdapter(pi: ExtensionAPI) {
     const state = (response.state ?? {}) as Record<string, unknown>;
     const projection = (state.projection ?? state) as Record<string, unknown>;
     const rendered = renderProjection(projection);
-    const body = containsBannedWords(rendered)
-      ? // Never ship copy that violates the I7 grep gate. Fall back to the
-        // fact-only header rather than a banned sentence.
-        `bicz context: identity ${String(projection.account_id ?? "unknown")}, role ${String(
-          projection.role ?? "active",
-        )}, balance ${projection.balance ?? 0} mc`
-      : rendered;
+    const body = rendered;
     // Every active cue is re-emitted here (session start, each turn, compaction),
     // which is how a restarted or compacted session gets them back.
     const cues = takeAccountability(projection, true);

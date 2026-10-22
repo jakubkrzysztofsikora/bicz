@@ -196,3 +196,45 @@ func TestGuardBandExposureCapDefault(t *testing.T) {
 		t.Fatalf("cap at 10000 bp = %d, want the whole spendable balance", got)
 	}
 }
+
+// Pain is a ledger fact, not a mood: it is derived from confirmed penalties and
+// an outstanding shortfall, and it only falls when the operator clears the
+// warnings.
+func TestProjectionCarriesRecordedPain(t *testing.T) {
+	ctx := context0(t)
+	handle := newLedger(t)
+	fund(t, handle, "alice", 1_000_000)
+	publishPolicy(t, handle)
+
+	clean, err := handle.Projection(ctx, "alice")
+	if err != nil {
+		t.Fatalf("Projection: %v", err)
+	}
+	if clean.Pain != 0 {
+		t.Fatalf("pain with no penalties = %d, want 0", clean.Pain)
+	}
+
+	if _, err := handle.RecordLoss(ctx, "loss-1", "alice", 0, "rule_a", "c", "s", "n", "e", "1",
+		WithDisposition(DispositionConfirmedBreach)); err != nil {
+		t.Fatalf("RecordLoss: %v", err)
+	}
+	first, err := handle.Projection(ctx, "alice")
+	if err != nil {
+		t.Fatalf("Projection: %v", err)
+	}
+	if first.Pain != 3 {
+		t.Fatalf("pain after one confirmed penalty = %d, want 3 (2 per penalty + 1 outstanding)", first.Pain)
+	}
+
+	if _, err := handle.RecordLoss(ctx, "loss-2", "alice", 0, "rule_a", "c", "s", "n", "e2", "1",
+		WithDisposition(DispositionConfirmedBreach)); err != nil {
+		t.Fatalf("RecordLoss: %v", err)
+	}
+	second, err := handle.Projection(ctx, "alice")
+	if err != nil {
+		t.Fatalf("Projection: %v", err)
+	}
+	if second.Pain != 5 {
+		t.Fatalf("pain after two confirmed penalties = %d, want 5", second.Pain)
+	}
+}

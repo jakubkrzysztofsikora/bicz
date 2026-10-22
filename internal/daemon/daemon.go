@@ -698,6 +698,7 @@ func (d *Daemon) project(ctx context.Context, accountID string) (*protocol.Proje
 		Available:         stored.Spendable,
 		Role:              stored.Role,
 		Warnings:          stored.Warnings,
+		Pain:              stored.Pain,
 		TaskBudget:        stored.TaskCapacity,
 		TaskSponsor:       stored.EligibleSponsor,
 		PolicyVersion:     stored.PolicyVersion,

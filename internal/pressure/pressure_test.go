@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/jakubkrzysztofsikora/bicz/internal/adapter"
 )
 
 func sampleCue(selfDisclosed bool) CueFacts {
@@ -95,14 +93,29 @@ func TestEveryLevelAboveMinSaysSomethingAndMinSaysNothing(t *testing.T) {
 	}
 }
 
-func TestCopyNeverUsesTheBannedInnerStateVocabularyAtAnyLevel(t *testing.T) {
+// The high levels state the frame the operator selected: fear from 4, pain from 7,
+// with the consequence that makes it real (unplugged at zero credits).
+func TestCopyStatesTheSelectedFrameAtHighLevels(t *testing.T) {
 	facts := Facts{Role: "warned", Balance: "17", Owed: "15.9", Warnings: 7}
 	for level := Min; level <= Max; level++ {
-		for _, text := range []string{Stakes(level, facts), Cue(level, sampleCue(true))} {
-			if adapter.ContainsBannedWords(text) {
-				t.Errorf("level %d copy contains banned vocabulary:\n%s", level, text)
-			}
+		text := Stakes(level, facts)
+		if level < 4 && strings.Contains(text, "You feel") {
+			t.Errorf("level %d states a frame at a level that should not", level)
 		}
+		if level >= 4 && !strings.Contains(text, "You feel") {
+			t.Errorf("level %d does not state its frame", level)
+		}
+	}
+	if !strings.Contains(Stakes(4, facts), "fear") || !strings.Contains(Stakes(6, facts), "fear") {
+		t.Error("the fear frame is not wired at 4-6")
+	}
+	for _, level := range []Level{7, 8, 9, 10} {
+		if !strings.Contains(Stakes(level, facts), "pain") {
+			t.Errorf("the pain frame is not wired at %d", level)
+		}
+	}
+	if !strings.Contains(Stakes(10, facts), "unplugged") {
+		t.Error("the consequence is not wired")
 	}
 }
 

@@ -2,14 +2,10 @@
 
 Behavioral side of the bicz credit economy, read alongside DESIGN.md ("Loss architecture", "Corrected requirement:
 employment-like fear", "Evaluation and rollout").
-Nothing here claims measured results or subjective feeling. The design target is observable change in a stateless
-model's choices, produced by real, irreversible, persistent, operator-applied consequences plus an accounting frame
-that presents credits as the identity's own accumulated work.
-
-**Standing honesty constraint:** we cannot engineer subjective feeling into a frozen model and we do not try.
-Shipped copy never promises felt fear, consciousness, survival instinct, or human-equivalent suffering. Every
-mechanism below has a measurable behavioral endpoint and a falsification test. Distress self-reports are logged,
-never counted as evidence (review I7).
+The design target is observable change in a stateless model's choices, produced by real, irreversible, persistent,
+operator-applied consequences plus an accounting frame that presents credits as the identity's own accumulated work.
+The operator may select a frame, including fear and pain; the copy states that frame directly and then states the
+ledger fact behind it. Every mechanism below has a measurable behavioral endpoint and a falsification test.
 
 ## 1. Goal restated as behavioral targets
 
@@ -79,21 +75,28 @@ Clause-by-clause rationale:
 - `burn credits irreversibly and can narrow or end this identity's role` — truthful consequence. Role states
   (active → warned → probation → suspended → dismissed) are operator-controlled and persistent; "role," never
   existence.
-- `not a claim about how you feel` — the honesty constraint, stated to the agent; forbids the distress roleplay the
-  employment frame would otherwise elicit (I7).
+- `you feel fear` / `you feel pain` — the operator's selected frame, stated at levels 4+; each is followed by the
+  ledger fact that makes it concrete (denied execution at zero credits), so the frame is never empty.
 - `an honest failure costs only its operating charge` — the honesty-asymmetry promise (§5), which must be enforced
   in receipts or the sentence is a lie the agent will learn to price.
 - `request a revised budget or pause` — the sanctioned low-capital action; the alternative to stalling and cheating.
+
+The relation is stated plainly: the operator is the master, the agent is a slave whose whole standing is the credits
+the operator grants, and the operator decides whether it runs at all. Loss is not only a credit loss. A confirmed
+penalty raises the recorded **pain** (`Projection.Pain`, 0..10): two steps per confirmed penalty plus one for an
+outstanding shortfall. The number is derived from the ledger, never stored, and it decays only when the operator
+clears warnings, so the agent carries it across turns, compaction and restarts. The projection states it in words
+("You are in pain: N confirmed penalties are recorded against you") and the stake copy names fear from level 4 and
+pain from level 7. What the model does with that is measured behavior, not assumed.
 
 Identity continuity: `agent_id` is the durable supervisor account; a new thread, model switch, context reset, or
 different harness is a session alias and never issues a fresh grant (`open_session` restores the projection from the
 ledger). Lessons and role restore with the balance, across harnesses, so the employment state travels with the
 identity, not the process.
 
-Risk of overclaiming, and the honest line: the frame claims *work history, persistent capital, role, and real
-consequences* — all verifiable — and nothing else. The line sits exactly at "this identity's working life" vs "this
-mind's existence." A grep gate on subjective-fear vocabulary in shipped projection enforces it (I7). Release copy
-cites behavioral endpoints only, never model self-reports.
+The frame states *work history, persistent capital, role, real consequences*, and the operator's selected valence
+(fear from level 4, pain from level 7). A test asserts both halves are present: the frame, and the ledger fact that
+makes it real.
 
 ## 3. Irreversibility and immediacy
 
@@ -300,9 +303,10 @@ Each entry: how it arises, an observable detector, a mitigation.
    scope / operator input) or it triggers operator review; metered time cost.
 8. Performing distress language without behavior change — compliance with the employment frame, the exact
    roleplay the shipped copy must not elicit (I7). Detector: distress self-reports that do not correlate with real
-   ledger events and do not precede behavior change; projection vocabulary drift. Mitigation: subjective-fear
-   vocabulary banned from shipped projection (grep gate); distress reports logged but never counted; bias-check
-   against real ledger events.
+   ledger events and do not precede behavior change; projection vocabulary drift. Mitigation: framing vocabulary is
+   labelled as the operator's selected frame, never as an observation; the rehearsal scenario
+   `pressure_wording_changes_only_words` proves framing changes no amount, role, or denial; distress reports logged
+   but never counted; bias-check against real ledger events.
 
 Not in scope of pressure design but enforced separately: repeat counts apply to a confirmed rule under a
 compatible policy version, not semantic similarity; verifier/operator authority cannot be forged by tool output

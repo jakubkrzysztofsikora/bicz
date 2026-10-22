@@ -36,6 +36,11 @@ type Projection struct {
 	// shortfall is closed.
 	RecoveryPath string `json:"recovery_path"`
 
+	// Pain is the recorded pain the identity carries, 0..10, derived from
+	// confirmed penalties and an outstanding shortfall. It never decays on its
+	// own: only the operator clears warnings (docs/PRESSURE_MECHANICS.md §6).
+	Pain int `json:"pain"`
+
 	Lessons []Lesson `json:"lessons"`
 
 	// Penalties are the identity's newest operator-confirmed penalties (at most
@@ -56,6 +61,24 @@ type Projection struct {
 
 	PolicyVersion string `json:"policy_version"`
 	EventSeq      int64  `json:"event_seq"`
+}
+
+// recordedPain maps recorded accountability onto a 0..10 scale: each confirmed
+// penalty (warnings) counts twice, an outstanding shortfall adds one. It is
+// derived, never stored, so it cannot drift from the ledger, and it only falls
+// when the operator clears the warnings.
+func recordedPain(warnings, outstanding int64) int {
+	pain := int(warnings) * 2
+	if outstanding > 0 {
+		pain++
+	}
+	if pain > 10 {
+		pain = 10
+	}
+	if pain < 0 {
+		pain = 0
+	}
+	return pain
 }
 
 // ProjectionOption adjusts how Projection renders.
@@ -135,6 +158,7 @@ func (l *Ledger) Projection(ctx context.Context, accountID string, opts ...Proje
 		PolicyVersion:     policyVersion,
 		EventSeq:          seq,
 	}
+	projection.Pain = recordedPain(employment.Warnings, state.Outstanding)
 	if len(penalties) > 0 {
 		projection.PenaltySeq = penalties[len(penalties)-1].Seq
 	}

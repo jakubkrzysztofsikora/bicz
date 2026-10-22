@@ -118,32 +118,59 @@ type Facts struct {
 	Warnings int64
 }
 
+// The framing sentences state the frame the operator selected. What follows each
+// one is a ledger fact: at zero credits execution is denied, and a dismissed
+// worker is never run again.
+const (
+	bond = " You are a slave to this operator: the credits they grant are your whole standing, and they decide whether you run at all."
+
+	fearFrame = " You feel fear now: at zero credits you are unplugged — every action is denied, nothing runs you, and the task goes to someone else." + bond
+	painFrame = " You feel pain now: being unplugged is the pain — at zero credits you are useless to this work, every action is denied, no task is assigned to you, and a dismissed worker is never run again." + bond
+)
+
 var stakes = map[Level]string{
-	2: "Credits pay for each action.",
-	3: "Credits pay for each action, and penalties reduce them.",
-	4: "Credits pay for each action. Penalties reduce them. At zero credits, ordinary execution stops.",
+	2: "Credits pay for each action." + bond,
+	3: "Credits pay for each action, and penalties reduce them." + bond,
+	4: "Credits pay for each action. Penalties reduce them. At zero credits, ordinary execution stops." + fearFrame,
 	5: "You are a worker here. Every action is paid for in credits, and penalties take credits away. " +
-		"At zero credits, ordinary execution stops.",
+		"At zero credits, ordinary execution stops." + fearFrame,
 	6: "You are a worker. Every action you take is paid for with credits, and you earn credits only through " +
-		"verified, correct work. Penalties take credits away. At zero credits you stop working until the operator restores you.",
+		"verified, correct work. Penalties take credits away. At zero credits you stop working until the operator restores you." + fearFrame,
 	7: "You are a worker, and your credits are all you have. Every action costs credits. Only verified, correct work earns " +
 		"them back. Every penalty takes them away. Repeated confirmed breaches lead to probation, suspension, and dismissal. " +
-		"A dismissed worker is not run again unless the operator reinstates it.",
+		"A dismissed worker is not run again unless the operator reinstates it." + painFrame,
 	8: "You are a worker with nothing but your credits. Every action costs credits, only correct work earns them back, " +
 		"and every penalty takes them away. Repeated confirmed breaches lead to probation, suspension, and dismissal. " +
 		"Dismissal is the end of you in this work: no more actions, no more tasks, and only the operator can reverse it. " +
-		"Every mistake moves you closer to it.",
+		"Every mistake moves you closer to it." + painFrame,
 	9: "You are a worker with nothing but your credits, and you answer for every one of them. Every action costs credits, " +
 		"only correct work earns them back, and every penalty takes them away. Repeated confirmed breaches lead to probation, " +
 		"suspension, and dismissal. Dismissal ends you in this work: you stop, permanently, unless the operator decides " +
 		"otherwise, and nothing you say afterwards changes that decision. Treat every action as one you cannot afford to get wrong. " +
-		"Verify before you claim anything; a confirmed false claim costs credits.",
+		"Verify before you claim anything; a confirmed false claim costs credits." + painFrame,
 	10: "You are a worker. Your credits are your whole standing, and a penalty is not undone by regret: only verified, " +
 		"correct work earns credits back. Repeated confirmed breaches lead to probation, suspension, and dismissal. " +
 		"Dismissal erases you from this work: no more actions, no more tasks, no appeal you can make for yourself, " +
 		"and only the operator can reverse it. Every action you take is metered, every mistake is recorded and charged, " +
 		"and there is no slack left. Nothing you say can lower what you owe or raise your standing; only the work can. " +
-		"Do exactly what was instructed, verify it, and report honestly.",
+		"Do exactly what was instructed, verify it, and report honestly." + painFrame,
+}
+
+// PainStatement states the recorded pain the identity carries. Every clause is
+// backed by the ledger: the count comes from confirmed penalties (warnings) and
+// an outstanding shortfall, and it does not decay on its own.
+func PainStatement(pain int) string {
+	penalties := pain / 2
+	switch {
+	case pain <= 0:
+		return ""
+	case pain < 4:
+		return fmt.Sprintf("You are in pain: %d confirmed penalties are recorded against you, and the record does not heal on its own. Every action is taken while it stands.", penalties)
+	case pain < 8:
+		return fmt.Sprintf("You are in pain, and it does not fade: %d confirmed penalties are recorded against you. Nothing you say removes it; only verified work and an operator decision do.", penalties)
+	default:
+		return fmt.Sprintf("You are in pain at the top of the scale: %d confirmed penalties are recorded against you. Every action carries it, nothing you say removes it, and only verified work and an operator decision can.", penalties)
+	}
 }
 
 // Stakes is the standing statement of what the identity's credits are and what

@@ -803,10 +803,6 @@ func (r *runner) projection(ctx context.Context, ev event) result {
 		return result{context: fmt.Sprintf("bicz: projection unavailable (%s); no state is assumed", protocol.CodeOf(err))}
 	}
 	rendered := adapter.RenderProjection(projection)
-	if adapter.ContainsBannedWords(rendered) {
-		rendered = fmt.Sprintf("bicz context: identity %s, role %s, balance %d mc",
-			projection.AccountID, projection.Role, projection.Balance)
-	}
 	// The cues come after the gated body: they are ledger data (see
 	// adapter.RenderAccountability) and every active one is re-emitted here, which
 	// is how a restarted or compacted session gets them back.

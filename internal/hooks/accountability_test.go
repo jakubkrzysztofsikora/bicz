@@ -90,7 +90,7 @@ func TestConfirmedPenaltyReachesALiveSessionOncePerPenalty(t *testing.T) {
 func TestSessionStartAndCompactionReinjectActivePenalties(t *testing.T) {
 	for _, spec := range bothSpecs() {
 		r := newRig(t, spec, 5_000_000)
-		// "existing" contains a banned substring; recorded data must still arrive.
+		// Operator-recorded data must arrive verbatim.
 		r.penalize("loss-1", "integrity_breach", "never edit existing evidence", false)
 
 		start := contextOf(t, run(t, spec, "SessionStart", r.cfg, map[string]any{"session_id": "a", "hook_event_name": "SessionStart"}))

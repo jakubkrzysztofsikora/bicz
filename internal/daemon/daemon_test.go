@@ -1211,6 +1211,10 @@ func TestProjectionOverTheWireFollowsThePressureSettingsFile(t *testing.T) {
 	if err != nil || !strings.Contains(loud.Stakes, "Standing now: role warned") || !strings.Contains(loud.Penalties[0].Cue, "were taken from you") {
 		t.Fatalf("level 10 did not reach the wire without a restart: %+v, %v", loud, err)
 	}
+	// The frame the operator selected reaches the wire, with its consequence.
+	if !strings.Contains(loud.Stakes, "You feel pain") || !strings.Contains(loud.Stakes, "unplugged") {
+		t.Fatalf("level 10 must name the selected frame: %q", loud.Stakes)
+	}
 
 	if err := pressure.Save(h.cfg.LedgerPath, pressure.Min); err != nil {
 		t.Fatal(err)

@@ -572,6 +572,10 @@ output, or report:
   "a human recorded this at the CLI".
 - No **enforcement** beyond cooperative same-user adapter/hook observation;
   unobserved paths are named, not hidden.
+- The pressure copy **states** the frame the operator selected: fear at levels
+  4-6 and pain at 7-10, each followed by the ledger fact that makes it real
+  (every action denied at zero credits; a dismissed worker is never run again).
+  Behavioral-effect claims still ship only through the Phase B gate below.
 
 No behavioral claim ships unless the Phase B real-consequence gate passed; a
 null effect ships the product as **accounting-only**.

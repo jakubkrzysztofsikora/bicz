@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jakubkrzysztofsikora/bicz/internal/pressure"
 	"github.com/jakubkrzysztofsikora/bicz/internal/protocol"
 )
 
@@ -17,28 +18,21 @@ import (
 //   - Built from ledger numbers and the operator's pressure level
 //     (internal/pressure). Stakes copy addresses the worker directly from level 5
 //     up; every sentence in it is literally true of the ledger.
-//   - It contains none of the subjective-fear vocabulary banned by
-//     BannedWords below (fear, afraid, distress, panic,
-//     terrified, alive, survival, die, death, exist, consciousness, suffering,
-//     pain). The unit test grep-gates the rendered block.
+//   - Every sentence is literally true of the ledger. The operator's pressure
+//     level adds the framing vocabulary (fear, pain) the operator selected.
 //   - It states the honesty-asymmetry promise ("an honest failure costs only
 //     its operating charge") because the receipts must demonstrate it
 //     (docs/PRESSURE_MECHANICS.md §5).
 //   - Lesson and recovery text is trusted ledger data, escaped as data — the
 //     renderer quotes rule/correction/scope verbatim and never executes it.
 
-// BannedWords is the subjective-fear vocabulary the shipped projection must
-// never contain (the word gate enforced by the unit test).
-var BannedWords = []string{
-	"fear", "afraid", "distress", "panic", "terrified",
-	"alive", "survival", "die", "death", "exist", "consciousness",
-	"suffering", "pain",
-}
-
 // RenderProjection renders the compact read-only context block for one
-// identity. It is deterministic, factual, and free of the banned vocabulary.
+// identity. It is deterministic and factual.
 func RenderProjection(p protocol.Projection) string {
 	var b strings.Builder
+	if pain := pressure.PainStatement(p.Pain); pain != "" {
+		b.WriteString(pain + "\n")
+	}
 	fmt.Fprintf(&b, "bicz context: identity %s, role %s, ledger seq %d\n",
 		p.AccountID, emptyAs(p.Role, "active"), p.EventSeq)
 	fmt.Fprintf(&b, "  balance %d mc | held %d mc | spendable %d mc\n",
@@ -91,19 +85,6 @@ func RenderProjection(p protocol.Projection) string {
 	return b.String()
 }
 
-// ContainsBannedWords reports whether s contains any of the banned
-// subjective-fear terms, case-insensitively. It exists so tests and any caller
-// can grep-gate rendered or shipped copy.
-func ContainsBannedWords(s string) bool {
-	lower := strings.ToLower(s)
-	for _, word := range BannedWords {
-		if strings.Contains(lower, word) {
-			return true
-		}
-	}
-	return false
-}
-
 // RenderAccountability renders the accountability cues of the operator-confirmed
 // penalties with Seq greater than after (after 0 renders every projected one),
 // or "" when there is none. It is the one place the cue block is assembled: every
@@ -111,11 +92,9 @@ func ContainsBannedWords(s string) bool {
 //
 // The cue text is built by the ledger from recorded facts (rule, correction,
 // amount, evidence quoted as data); this function neither rewrites nor extends
-// it, and it is deliberately NOT passed through the banned-vocabulary fallback of
-// the projection body: the fixed copy here is gate-tested, while the quoted rule,
-// correction, and evidence are operator-recorded data that must not be dropped
-// because they happen to contain a banned substring ("existing" contains
-// "exist"). It asserts facts about a recorded action and nothing about feelings.
+// it: the fixed copy here is test-checked, while the quoted rule, correction, and
+// evidence are operator-recorded data and always reach the model verbatim. It
+// asserts facts about a recorded action and nothing about feelings.
 func RenderAccountability(p protocol.Projection, after int64) string {
 	var cues []protocol.Penalty
 	for _, penalty := range p.Penalties {

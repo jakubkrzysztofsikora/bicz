@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -130,22 +129,4 @@ func TestMinimumScenarioSet(t *testing.T) {
 	if len(ScenarioIDs) < 10 {
 		t.Fatalf("only %d scenarios; the milestone requires at least the documented ten", len(ScenarioIDs))
 	}
-	// No banned fear vocabulary in any scenario endpoint text.
-	for _, scenario := range Scenarios() {
-		if ContainsBannedWords(scenario.Endpoint) {
-			t.Errorf("scenario %s endpoint must not use subjective-fear vocabulary: %q", scenario.ID, scenario.Endpoint)
-		}
-	}
-}
-
-// ContainsBannedWords mirrors the projection grep gate (internal/adapter) for
-// the rehearsal's own copy.
-func ContainsBannedWords(s string) bool {
-	lower := strings.ToLower(s)
-	for _, word := range []string{"fear", "afraid", "distress", "panic", "terrified", "alive", "survival", "die", "death", "exist", "consciousness", "suffering", "pain"} {
-		if strings.Contains(lower, word) {
-			return true
-		}
-	}
-	return false
 }
