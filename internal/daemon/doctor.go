@@ -12,15 +12,11 @@ import (
 	"github.com/jakubkrzysztofsikora/bicz/internal/protocol"
 )
 
-// Anchor cadence. docs/CONTRACTS.md §3.6 sets a provisional default of at least
-// once per 24 hours and at least once per 1,000 events; the exact operator-facing
-// window is not finalized (§9.4). The staleness threshold is 2x the cadence, as
-// §3.6 specifies.
-const (
-	AnchorCadence        = 24 * time.Hour
-	AnchorStaleMultiple  = 2
-	anchorEventThreshold = 1000
-)
+// AnchorStaleMultiple is the staleness window: an anchor older than this many
+// cadences is reported stale (docs/CONTRACTS.md §3.6). The cadence itself and the
+// event threshold come from the newest published schedule, or the ledger's
+// documented defaults.
+const AnchorStaleMultiple = 2
 
 // Anchor statuses reported by doctor.
 const (
@@ -63,6 +59,11 @@ type DoctorReport struct {
 	// AnchorEventsSince is how many events were appended after the block the
 	// last anchor committed to.
 	AnchorEventsSince int64
+	// AnchorWindow is the anchoring cadence in force, from the newest published
+	// schedule or the documented default (docs/CONTRACTS.md §3.6).
+	AnchorWindow time.Duration
+	// AnchorEventWindow is how many appended events make an anchor due.
+	AnchorEventWindow int64
 	// Daemon is the supervisor's recording state, or unmanaged.
 	Daemon protocol.StatusState
 	// Coverage is the disclosed observed/unobserved table.
@@ -130,13 +131,20 @@ func (o *Operator) Doctor(ctx context.Context, cfg Config) (DoctorReport, error)
 	}
 	report.UnsealedTail = stats.Seq - sealed
 
+	cadence, threshold, err := o.ledger.AnchoringCadence(ctx)
+	if err != nil {
+		return report, err
+	}
+	report.AnchorWindow = cadence
+	report.AnchorEventWindow = threshold
+
 	report.AnchorStatus = AnchorStatusUnmanaged
 	if len(anchors) > 0 {
 		last := anchors[len(anchors)-1]
 		report.LastAnchor = &last
 		report.AnchorStatus = AnchorStatusAnchored
-		// §3.6 requires an anchor at least once per 24 hours AND at least once
-		// per 1,000 appended events, whichever comes first, so the event count is
+		// §3.6 requires an anchor at least once per cadence window AND at least
+		// once per event threshold, whichever comes first, so the event count is
 		// measured from the block the anchor committed to, not from the last seal.
 		for _, block := range blocks {
 			if block.Height == last.Height {
@@ -144,11 +152,11 @@ func (o *Operator) Doctor(ctx context.Context, cfg Config) (DoctorReport, error)
 				break
 			}
 		}
-		report.AnchorThresholdHit = report.AnchorEventsSince >= anchorEventThreshold
+		report.AnchorThresholdHit = report.AnchorEventsSince >= threshold
 		age, ageErr := anchorAge(last.At, o.ledger.Clock().Now())
 		if ageErr == nil {
 			report.AnchorAge = age
-			if age > AnchorCadence*AnchorStaleMultiple || report.AnchorThresholdHit {
+			if age > cadence*AnchorStaleMultiple || report.AnchorThresholdHit {
 				report.AnchorStatus = AnchorStatusStale
 			}
 		} else {
@@ -182,15 +190,16 @@ func (r DoctorReport) Render(w io.Writer) {
 	fmt.Fprintf(w, "BLOCKS sealed=%d unsealed_tail=%d\n", r.Stats.Height, r.UnsealedTail)
 	switch {
 	case r.LastAnchor != nil:
-		fmt.Fprintf(w, "ANCHOR status=%s height=%d age=%s events_since=%d destination=%s\n",
+		fmt.Fprintf(w, "ANCHOR status=%s height=%d age=%s events_since=%d window=%s/%d destination=%s\n",
 			r.AnchorStatus, r.LastAnchor.Height, r.AnchorAge.Round(time.Second),
-			r.AnchorEventsSince, r.LastAnchor.Destination)
+			r.AnchorEventsSince, r.AnchorWindow, r.AnchorEventWindow, r.LastAnchor.Destination)
 	default:
-		fmt.Fprintf(w, "ANCHOR status=%s note=no external anchor exists; tampering is not externally detectable until one is written\n", r.AnchorStatus)
+		fmt.Fprintf(w, "ANCHOR status=%s window=%s/%d note=no external anchor exists; tampering is not externally detectable until one is written\n",
+			r.AnchorStatus, r.AnchorWindow, r.AnchorEventWindow)
 	}
 	if r.AnchorThresholdHit {
 		fmt.Fprintf(w, "ANCHOR WARNING %d events appended since the last anchor (cadence is one per %d)\n",
-			r.AnchorEventsSince, anchorEventThreshold)
+			r.AnchorEventsSince, r.AnchorEventWindow)
 	}
 	fmt.Fprintf(w, "DAEMON status=%s socket=%s\n", r.Daemon.Daemon, r.Daemon.Socket)
 	if r.Daemon.Note != "" {

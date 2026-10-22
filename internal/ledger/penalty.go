@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jakubkrzysztofsikora/bicz/internal/canonical"
 )
@@ -37,9 +38,43 @@ type Policy struct {
 	// GuardBandMaxExposureBP caps one attempt inside the guard band, in basis
 	// points of spendable credit (docs/CONTRACTS.md §6.3). Zero takes
 	// DefaultGuardBandMaxExposureBP.
-	GuardBandMaxExposureBP int64                  `json:"guard_band_max_exposure_bp"`
-	DefaultRule            PenaltyRule            `json:"default_penalty"`
-	Rules                  map[string]PenaltyRule `json:"penalties"`
+	GuardBandMaxExposureBP int64 `json:"guard_band_max_exposure_bp"`
+	// AnchorCadenceHours and AnchorEventThreshold are the anchoring cadence of
+	// docs/CONTRACTS.md §3.6: an anchor is due once per this many hours or once
+	// per this many appended events, whichever comes first. Zero takes the
+	// documented defaults.
+	AnchorCadenceHours   int64                  `json:"anchor_cadence_hours"`
+	AnchorEventThreshold int64                  `json:"anchor_event_threshold"`
+	DefaultRule          PenaltyRule            `json:"default_penalty"`
+	Rules                map[string]PenaltyRule `json:"penalties"`
+}
+
+// Documented anchoring cadence, used when a schedule does not state one.
+const (
+	// DefaultAnchorCadenceHours is the anchoring window in hours
+	// (docs/CONTRACTS.md §3.6).
+	DefaultAnchorCadenceHours int64 = 24
+	// DefaultAnchorEventThreshold is how many appended events make an anchor due.
+	DefaultAnchorEventThreshold int64 = 1_000
+)
+
+// Cadence is the anchoring window in force: the schedule's value, or the
+// documented default.
+func (p Policy) Cadence() time.Duration {
+	hours := p.AnchorCadenceHours
+	if hours <= 0 {
+		hours = DefaultAnchorCadenceHours
+	}
+	return time.Duration(hours) * time.Hour
+}
+
+// EventThreshold is how many events beyond the last anchor make a new one due.
+func (p Policy) EventThreshold() int64 {
+	threshold := p.AnchorEventThreshold
+	if threshold <= 0 {
+		threshold = DefaultAnchorEventThreshold
+	}
+	return threshold
 }
 
 // ruleFor returns the parameters for a rule id, falling back to the schedule's

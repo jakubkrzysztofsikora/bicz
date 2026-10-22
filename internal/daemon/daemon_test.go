@@ -1133,7 +1133,8 @@ func TestDoctorFlagsAnAnchorStaleAfterTheEventCadence(t *testing.T) {
 
 	// §3.6 requires an anchor at least once per 1,000 appended events, whichever
 	// comes first, so the event count alone must make the anchor stale.
-	for i := 0; i < anchorEventThreshold; i++ {
+	window := report.AnchorEventWindow
+	for i := int64(0); i < window; i++ {
 		if _, err := h.op.Reward(ctx, RewardRequest{
 			EventID: fmt.Sprintf("cadence-reward-%d", i), Identity: "alice", Amount: 1,
 			Reason: "cadence fixture",
@@ -1147,7 +1148,7 @@ func TestDoctorFlagsAnAnchorStaleAfterTheEventCadence(t *testing.T) {
 	}
 	if !report.AnchorThresholdHit {
 		t.Fatalf("after %d events the threshold did not fire (since=%d)",
-			anchorEventThreshold, report.AnchorEventsSince)
+			window, report.AnchorEventsSince)
 	}
 	if report.AnchorStatus != AnchorStatusStale {
 		t.Fatalf("anchor status = %s, want stale-anchor once the event cadence is exceeded", report.AnchorStatus)
@@ -1224,5 +1225,53 @@ func TestProjectionOverTheWireFollowsThePressureSettingsFile(t *testing.T) {
 	}
 	if _, err := read(); err == nil {
 		t.Fatal("a malformed settings file must fail the projection, not fall back silently")
+	}
+}
+
+// The cadence is schedule data, not a constant: a published policy with a short
+// window must decide the status (docs/CONTRACTS.md §3.6).
+func TestDoctorTakesTheAnchorCadenceFromThePublishedSchedule(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t)
+	h.fund("alice", 1_000)
+	if err := h.op.Price(ctx, "1", []byte(`{"initial_capital_mc":1000000,"guard_band_bp":0,`+
+		`"repeat_multipliers":[1],"repeat_multiplier_cap":1,`+
+		`"anchor_cadence_hours":1,"anchor_event_threshold":3,`+
+		`"default_penalty":{"floor_mc":1000,"fraction_bp":0,"lmax_mc":10000},"penalties":{}}`),
+		"cadence policy"); err != nil {
+		t.Fatalf("Price: %v", err)
+	}
+	destination := filepath.Join(t.TempDir(), "anchors.log")
+	if _, err := h.op.Anchor(ctx, destination, "initial anchor"); err != nil {
+		t.Fatalf("Anchor: %v", err)
+	}
+
+	report, err := h.op.Doctor(ctx, h.cfg)
+	if err != nil {
+		t.Fatalf("Doctor: %v", err)
+	}
+	if report.AnchorWindow != time.Hour || report.AnchorEventWindow != 3 {
+		t.Fatalf("window=%s/%d, want 1h/3", report.AnchorWindow, report.AnchorEventWindow)
+	}
+	if report.AnchorThresholdHit {
+		t.Fatal("a fresh anchor hit the threshold immediately")
+	}
+
+	// Three appended events are due under the published schedule, not a thousand.
+	for i := int64(0); i < 3; i++ {
+		if _, err := h.op.Reward(ctx, RewardRequest{
+			EventID: fmt.Sprintf("cadence-policy-%d", i), Identity: "alice", Amount: 1,
+			Reason: "cadence fixture",
+		}); err != nil {
+			t.Fatalf("reward %d: %v", i, err)
+		}
+	}
+	report, err = h.op.Doctor(ctx, h.cfg)
+	if err != nil {
+		t.Fatalf("Doctor: %v", err)
+	}
+	if !report.AnchorThresholdHit || report.AnchorStatus != AnchorStatusStale {
+		t.Fatalf("threshold=%v status=%s, want true/stale-anchor under a 3-event window",
+			report.AnchorThresholdHit, report.AnchorStatus)
 	}
 }

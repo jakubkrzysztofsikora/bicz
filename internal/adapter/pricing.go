@@ -41,11 +41,15 @@ type Schedule struct {
 	GuardBandBP    int64 `json:"guard_band_bp"`
 	// GuardBandMaxExposureBP caps one attempt inside the guard band, in basis
 	// points of spendable credit. Zero takes the ledger's documented default.
-	GuardBandMaxExposureBP int64                  `json:"guard_band_max_exposure_bp"`
-	RepeatMultipliers      []int64                `json:"repeat_multipliers"`
-	RepeatCap              int64                  `json:"repeat_multiplier_cap"`
-	DefaultPenalty         PenaltyRule            `json:"default_penalty"`
-	Penalties              map[string]PenaltyRule `json:"penalties"`
+	GuardBandMaxExposureBP int64 `json:"guard_band_max_exposure_bp"`
+	// AnchorCadenceHours and AnchorEventThreshold are the anchoring cadence; zero
+	// takes the ledger's documented defaults.
+	AnchorCadenceHours   int64                  `json:"anchor_cadence_hours"`
+	AnchorEventThreshold int64                  `json:"anchor_event_threshold"`
+	RepeatMultipliers    []int64                `json:"repeat_multipliers"`
+	RepeatCap            int64                  `json:"repeat_multiplier_cap"`
+	DefaultPenalty       PenaltyRule            `json:"default_penalty"`
+	Penalties            map[string]PenaltyRule `json:"penalties"`
 
 	// DefaultMaxCostMC is the conservative per-action bound applied when the
 	// schedule has no entry for the tool in question.
@@ -69,6 +73,8 @@ func (s *Schedule) Validate() error {
 	check("initial_capital_mc", s.InitialCapital)
 	check("guard_band_bp", s.GuardBandBP)
 	check("guard_band_max_exposure_bp", s.GuardBandMaxExposureBP)
+	check("anchor_cadence_hours", s.AnchorCadenceHours)
+	check("anchor_event_threshold", s.AnchorEventThreshold)
 	check("repeat_multiplier_cap", s.RepeatCap)
 	check("default_penalty.floor_mc", s.DefaultPenalty.Floor)
 	check("default_penalty.fraction_bp", s.DefaultPenalty.FractionBP)

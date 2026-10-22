@@ -193,12 +193,14 @@ with the **first inconsistent** position and the **differing field(s)**:
 ### 3.6 Required anchoring cadence
 
 Normative default: **anchor at least once per 24 hours AND at least once per
-1,000 appended events, whichever comes first.** In this version both values are
-fixed constants in `doctor` (`AnchorCadence`, `anchorEventThreshold`); they are
-not yet operator-configurable and are not read from the price schedule. §9.4
-records that. `doctor` reports `anchored` when the most recent anchor is within
-both windows, `stale-anchor` when it is older than 2× the cadence or more than
-1,000 events behind the anchor's block, and `unmanaged` when no anchor exists.
+1,000 appended events, whichever comes first.** Both values are operator data:
+`anchor_cadence_hours` and `anchor_event_threshold` in the price schedule, with
+those numbers as the defaults when a schedule states none. `doctor` reads the
+newest published schedule, the same convention the guard band uses when an action
+quotes no version, so the two never disagree about which schedule governs.
+`doctor` reports `anchored` when the most recent anchor is within both windows,
+`stale-anchor` when it is older than 2× the cadence or at least the event
+threshold behind the anchor's block, and `unmanaged` when no anchor exists.
 The report states the event count (`events_since`) so the window is checkable
 rather than inferred.
 
@@ -588,9 +590,10 @@ null effect ships the product as **accounting-only**.
    penalty floors/fractions/caps, and bounded token/CPU/time caps for policy
    version `1` are not finalized; `price_schedules.body` schema is fixed, its
    values are not.
-4. **Anchor cadence** — §3.6 sets a provisional default (≤ 24 h and ≤ 1,000
-   events); the exact operator-facing cadence and the staleness window are not
-   finalized.
+4. **Anchor cadence** — resolved: both windows are schedule data
+   (`anchor_cadence_hours`, `anchor_event_threshold`) with the documented defaults,
+   and `doctor` reads the newest published schedule (§3.6). What remains open is
+   only the default numbers themselves, which are operator policy.
 5. **Policy version `1` parameterization** — the guard-band threshold (20% of
    initial capital), probation recovery criteria (`N` clean tasks), and the
    repetition-multiplier cap are starting values, not calibrated constants.

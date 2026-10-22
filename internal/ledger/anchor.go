@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/jakubkrzysztofsikora/bicz/internal/canonical"
 	"github.com/jakubkrzysztofsikora/bicz/internal/integrity"
@@ -163,4 +164,20 @@ func appendLine(destination, line string) error {
 		return fmt.Errorf("ledger: flush anchor line to %s: %w", destination, err)
 	}
 	return file.Close()
+}
+
+// AnchoringCadence reports the anchoring cadence in force for this ledger: the
+// values of the newest published schedule, or the documented defaults when no
+// schedule has been published (docs/CONTRACTS.md §3.6). Reading the newest
+// published version is the same convention the guard band uses when an action
+// quotes none, so the two never disagree about which schedule governs.
+func (l *Ledger) AnchoringCadence(ctx context.Context) (time.Duration, int64, error) {
+	policy, found, err := newestPolicy(ctx, l.db)
+	if err != nil {
+		return 0, 0, err
+	}
+	if !found {
+		return time.Duration(DefaultAnchorCadenceHours) * time.Hour, DefaultAnchorEventThreshold, nil
+	}
+	return policy.Cadence(), policy.EventThreshold(), nil
 }
