@@ -49,6 +49,38 @@ func (l *Ledger) OpenTask(ctx context.Context, eventID, taskID, accountID string
 	}
 	var task Task
 	err := l.mutate(ctx, func(tx *sql.Tx) error {
+		// The event key identifies the lease that was opened, so it is resolved
+		// before the lease is: reusing it for another task is a payload conflict
+		// rather than an untyped storage error (docs/CONTRACTS.md §2, §5.5).
+		stored, found, err := loadEvent(ctx, tx, eventID)
+		if err != nil {
+			return err
+		}
+		if found {
+			if stored.Kind != kindTask {
+				return errf(ErrPayloadConflict,
+					"event %q is recorded as kind %q, not %q", eventID, stored.Kind, kindTask)
+			}
+			var payload taskPayload
+			if err := decodePayload(stored, &payload); err != nil {
+				return err
+			}
+			if payload.TaskID != taskID || payload.AccountID != accountID || payload.Sponsor != sponsor {
+				return errf(ErrPayloadConflict,
+					"task %q replayed with a different payload (event %q records task %q for %q)",
+					taskID, eventID, payload.TaskID, payload.AccountID)
+			}
+			existing, found, err := loadTask(ctx, tx, taskID)
+			if err != nil {
+				return err
+			}
+			if !found {
+				return errf(ErrUnknownTask, "%q", taskID)
+			}
+			task = existing
+			return nil
+		}
+
 		existing, found, err := loadTask(ctx, tx, taskID)
 		if err != nil {
 			return err
