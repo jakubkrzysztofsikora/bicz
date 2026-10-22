@@ -206,5 +206,9 @@ type autorewardPayload struct {
 	BalanceAfter    int64  `json:"balance_after"`
 	Reason          string `json:"reason"`
 	Evidence        string `json:"evidence"`
+	// DuplicateOf names the autoreward event that already credited the action
+	// this row refers to, when this row credits nothing (docs/CONTRACTS.md §6.5
+	// dedup by action digest). Empty on every crediting reward.
+	DuplicateOf string `json:"duplicate_of,omitempty"`
 }
 

@@ -221,3 +221,86 @@ func TestAutorewardReplayDifferentPayloadReturnsConflict(t *testing.T) {
 	}
 }
 
+// A retried PostToolUse carries a fresh idempotency key but quotes the same
+// observed action digest, so the event key alone does not stop a second
+// credit (docs/CONTRACTS.md §6.5).
+func TestAutorewardDeduplicatesTheActionDigestAcrossEventKeys(t *testing.T) {
+	ctx := context0(t)
+	handle := newLedger(t)
+	if _, err := handle.OpenAccount(ctx, "agent", WithInitialCapital(1_000_000)); err != nil {
+		t.Fatalf("OpenAccount: %v", err)
+	}
+
+	const digest = "sha256:identical-action"
+	first, err := handle.RecordAutoreward(ctx, "auto-key-a", "agent", 100_000, "test_pass", "passing test", digest)
+	if err != nil {
+		t.Fatalf("first autoreward: %v", err)
+	}
+	if first.AmountGranted != 100_000 || first.Replayed {
+		t.Fatalf("first = %+v, want a fresh 100000 grant", first)
+	}
+
+	second, err := handle.RecordAutoreward(ctx, "auto-key-b", "agent", 100_000, "test_pass", "passing test", digest)
+	if err != nil {
+		t.Fatalf("second autoreward: %v", err)
+	}
+	if !second.Replayed || second.EventID != first.EventID {
+		t.Fatalf("second = %+v, want the prior receipt under event %s", second, first.EventID)
+	}
+	balance, _ := mustBalance(t, handle, "agent")
+	if balance != 1_100_000 {
+		t.Fatalf("balance = %d, want 1100000: one observed action earns one credit", balance)
+	}
+
+	// The refused key is bound to the action it quoted, so it cannot be spent
+	// on a different one later (docs/CONTRACTS.md §2 idempotency rule).
+	_, err = handle.RecordAutoreward(ctx, "auto-key-b", "agent", 100_000, "test_pass", "passing test", "sha256:later-action")
+	wantCode(t, err, ErrPayloadConflict, "reusing a deduped key with a different action digest")
+	balance, _ = mustBalance(t, handle, "agent")
+	if balance != 1_100_000 {
+		t.Fatalf("balance = %d, want the conflicting replay to write nothing", balance)
+	}
+
+	// One key returns one prior result: retrying B quotes the same action and
+	// must yield the same receipt the first call to B returned.
+	retry, err := handle.RecordAutoreward(ctx, "auto-key-b", "agent", 100_000, "test_pass", "passing test", digest)
+	if err != nil {
+		t.Fatalf("retry of the deduped key: %v", err)
+	}
+	if second != retry {
+		t.Fatalf("retry = %+v, want the first call's receipt %+v", retry, second)
+	}
+
+	// The dedup is scoped to the observed action: a different action is
+	// creditable, and so is the same digest quoted by another identity.
+	other, err := handle.RecordAutoreward(ctx, "auto-key-c", "agent", 100_000, "test_pass", "passing test", "sha256:other-action")
+	if err != nil {
+		t.Fatalf("distinct action: %v", err)
+	}
+	if other.AmountGranted != 100_000 || other.Replayed {
+		t.Fatalf("distinct action = %+v, want a fresh 100000 grant", other)
+	}
+	if _, err := handle.OpenAccount(ctx, "other", WithInitialCapital(1_000_000)); err != nil {
+		t.Fatalf("OpenAccount(other): %v", err)
+	}
+	otherIdentity, err := handle.RecordAutoreward(ctx, "auto-key-d", "other", 100_000, "test_pass", "passing test", digest)
+	if err != nil {
+		t.Fatalf("other identity: %v", err)
+	}
+	if otherIdentity.AmountGranted != 100_000 || otherIdentity.Replayed {
+		t.Fatalf("other identity = %+v, want a fresh 100000 grant", otherIdentity)
+	}
+
+	// Evidence nobody observed identifies no action, so it dedups nothing and
+	// only the event key governs those calls.
+	for _, id := range []string{"auto-no-evidence-a", "auto-no-evidence-b"} {
+		result, err := handle.RecordAutoreward(ctx, id, "agent", 100_000, "test_pass", "passing test", "")
+		if err != nil {
+			t.Fatalf("%s: %v", id, err)
+		}
+		if result.Replayed || result.AmountGranted != 100_000 {
+			t.Fatalf("%s = %+v, want a fresh grant", id, result)
+		}
+	}
+}
+
