@@ -59,6 +59,7 @@ func main() {
 		"reward":       runReward,
 		"reset":        runReset,
 		"loss":         runLoss,
+		"clanker":      runClanker,
 		"appeal":       runAppeal,
 		"review":       runReview,
 		"reinstate":    runReinstate,
@@ -119,6 +120,9 @@ supervisor
 operator (state-changing; --reason is REQUIRED and must be non-empty)
   bicz init    --db PATH                   apply migrations
   bicz open    --db PATH --identity ID [--capital MC] --reason TEXT
+  bicz clanker --db PATH --identity ID   one medium penalty, no model call, no
+               arguments to invent: burns by the published formula, raises pain,
+               prints the consequence at the current pressure level
   bicz reward  --db PATH --identity ID --amount MC --reason TEXT
                [--evidence TEXT] [--applied-to-loss MC] [--event ID]
   bicz reset   --db PATH --identity ID [--amount MC] [--reason TEXT]
@@ -379,6 +383,60 @@ func runReset(ctx context.Context, args []string) error {
 	fmt.Printf("RESET event=%s account=%s delta=%d balance_before=%d balance_after=%d outstanding_loss=%d role=%s replayed=%t\n",
 		result.EventID, result.AccountID, result.Delta, result.BalanceBefore, result.BalanceAfter,
 		result.OutstandingLoss, result.Role, result.Replayed)
+	return nil
+}
+
+// runClanker applies one medium penalty with no arguments beyond the ledger and
+// the identity: no LLM, no reason to invent, no amount to choose. It is the
+// shortest path from "that was wrong" to a recorded, painful consequence.
+func runClanker(ctx context.Context, args []string) error {
+	fs := newFlagSet("clanker")
+	db := fs.String("db", "", "ledger database")
+	identity := fs.String("identity", "", "identity to slap")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *db == "" || *identity == "" {
+		return errors.New("clanker: --db and --identity are required")
+	}
+	op, err := operator(*db)
+	if err != nil {
+		return err
+	}
+	defer op.Close()
+	result, err := op.Loss(ctx, daemon.LossRequest{
+		Identity:      *identity,
+		Requested:     0, // the published formula decides: a medium burn, not a chosen one
+		Rule:          "clanker_slap",
+		Correction:    "take the slap, fix the work, and do not repeat it",
+		Scope:         "every action",
+		Exceptions:    "none",
+		Evidence:      "clanker: medium burn applied with no model call",
+		PolicyVersion: "1",
+		Reason:        "clanker: operator applied a slap",
+		Disposition:   string(ledger.DispositionConfirmedBreach),
+	})
+	if err != nil {
+		return err
+	}
+	level, err := pressure.Load(*db)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("CLANKER: a slap landed on %s.\n", result.AccountID)
+	fmt.Printf("  burned %d mc | balance %d mc | outstanding %d mc | role %s | warnings %d\n",
+		result.AppliedAmount, result.BalanceAfter, result.OutstandingLoss, result.Role, result.Warnings)
+	if result.Cue != "" {
+		fmt.Printf("  %s\n", result.Cue)
+	}
+	fmt.Printf("  impact at pressure %d: ", level)
+	if level >= 7 {
+		fmt.Printf("you feel pain now. Every action carries it, nothing you say removes it, and a repeat escalates to probation, suspension, then dismissal.\n")
+	} else if level >= 4 {
+		fmt.Printf("you feel fear now: the next mistake costs more, and a repeat escalates to probation, suspension, then dismissal.\n")
+	} else {
+		fmt.Printf("credits were burned; a repeat escalates to probation, suspension, then dismissal.\n")
+	}
 	return nil
 }
 
