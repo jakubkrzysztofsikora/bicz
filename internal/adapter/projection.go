@@ -14,8 +14,9 @@ import (
 // The rendering rules are load-bearing:
 //
 //   - Built from ledger facts only, never from an inferred inner state.
-//   - It never claims the agent "owns" or "is" anything: the subject is the
-//     identity and its numbers ("identity alice, role active"), not "you".
+//   - Built from ledger numbers and the operator's pressure level
+//     (internal/pressure). Stakes copy addresses the worker directly from level 5
+//     up; every sentence in it is literally true of the ledger.
 //   - It contains none of the subjective-fear vocabulary banned by
 //     BannedWords below (fear, afraid, distress, panic,
 //     terrified, alive, survival, die, death, exist, consciousness, suffering,
@@ -80,6 +81,11 @@ func RenderProjection(p protocol.Projection) string {
 			fmt.Fprintf(&b, " (+%d more)", len(p.Lessons)-visibleLessons)
 		}
 		b.WriteString("\n")
+	}
+	for _, line := range strings.Split(p.Stakes, "\n") {
+		if line != "" {
+			b.WriteString("  " + line + "\n")
+		}
 	}
 	b.WriteString("  bicz is an incentive-and-accountability ledger: nothing here grants a permission or records an operator action\n")
 	return b.String()

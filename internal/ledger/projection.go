@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"github.com/jakubkrzysztofsikora/bicz/internal/pressure"
 )
 
 // Projection is the compact, read-only context block an identity receives on
@@ -56,9 +58,26 @@ type Projection struct {
 	EventSeq      int64  `json:"event_seq"`
 }
 
+// ProjectionOption adjusts how Projection renders.
+type ProjectionOption func(*projectionConfig)
+
+type projectionConfig struct {
+	pressure pressure.Level
+}
+
+// WithPressure sets the pressure level the penalty cues are worded at; the
+// default is pressure.Default.
+func WithPressure(level pressure.Level) ProjectionOption {
+	return func(cfg *projectionConfig) { cfg.pressure = level }
+}
+
 // Projection reads the context block for accountID. It is read-only and appends
 // no event.
-func (l *Ledger) Projection(ctx context.Context, accountID string) (Projection, error) {
+func (l *Ledger) Projection(ctx context.Context, accountID string, opts ...ProjectionOption) (Projection, error) {
+	cfg := projectionConfig{pressure: pressure.Default}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 	account, found, err := loadAccount(ctx, l.db, accountID)
 	if err != nil {
 		return Projection{}, err
@@ -78,7 +97,7 @@ func (l *Ledger) Projection(ctx context.Context, accountID string) (Projection, 
 	if err != nil {
 		return Projection{}, err
 	}
-	penalties, err := loadPenalties(ctx, l.db, accountID, state)
+	penalties, err := loadPenalties(ctx, l.db, accountID, state, cfg.pressure)
 	if err != nil {
 		return Projection{}, err
 	}

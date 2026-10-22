@@ -2,6 +2,16 @@
 
 Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow SemVer.
 
+## [Unreleased]
+
+### Added
+
+- **Pressure level** (`bicz pressure --db PATH [1-10]`, default 5): operator setting
+  for how heavily the injected context frames the identity as a worker whose standing is
+  its credits. Adds the `stakes` field to the projection, rewords accountability cues per
+  level, and renders `stakes` in the Go hooks and the OMP and OpenCode adapters. Stored in
+  `<ledger>.settings.json`; wording only, no change to charges, fines or roles.
+
 ## [v0.3.0] - 2026-10-12
 
 ### Added

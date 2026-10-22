@@ -34,6 +34,7 @@ import (
 	"github.com/jakubkrzysztofsikora/bicz/internal/hooks"
 	"github.com/jakubkrzysztofsikora/bicz/internal/install"
 	"github.com/jakubkrzysztofsikora/bicz/internal/ledger"
+	"github.com/jakubkrzysztofsikora/bicz/internal/pressure"
 	"github.com/jakubkrzysztofsikora/bicz/internal/rehearsal"
 	"github.com/jakubkrzysztofsikora/bicz/internal/selfupdate"
 	"github.com/jakubkrzysztofsikora/bicz/internal/slash"
@@ -62,6 +63,7 @@ func main() {
 		"review":       runReview,
 		"reinstate":    runReinstate,
 		"price":        runPrice,
+		"pressure":     runPressure,
 		"status":       runStatus,
 		"verify":       runVerify,
 		"anchor":       runAnchor,
@@ -130,6 +132,8 @@ operator (state-changing; --reason is REQUIRED and must be non-empty)
                [--task ID] [--role STATE] [--reinstate] [--evidence TEXT] [--event ID]
   bicz reinstate --db PATH --identity ID --reason TEXT [--key KEY]
   bicz price   --db PATH --version V --policy FILE.json --reason TEXT
+  bicz pressure --db PATH [LEVEL]            show or set the pressure level 1-10 (default 5); applies
+                                             to the next projection with no restart
 
 read-only
   bicz status  --db PATH [--identity ID]   identity projection, or supervisor state
@@ -579,6 +583,39 @@ func runPrice(ctx context.Context, args []string) error {
 		return err
 	}
 	fmt.Printf("PRICE published version=%s\n", *version)
+	return nil
+}
+
+// runPressure shows or sets the operator pressure level. It writes a settings
+// file beside the ledger, not a ledger event: it changes wording only.
+func runPressure(_ context.Context, args []string) error {
+	fs := newFlagSet("pressure")
+	db := fs.String("db", "", "ledger database")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *db == "" {
+		return errors.New("pressure: --db is required")
+	}
+	switch fs.NArg() {
+	case 0:
+		level, err := pressure.Load(*db)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("PRESSURE %d settings=%s\n", level, pressure.SettingsPath(*db))
+	case 1:
+		level, err := pressure.Parse(fs.Arg(0))
+		if err != nil {
+			return err
+		}
+		if err := pressure.Save(*db, level); err != nil {
+			return err
+		}
+		fmt.Printf("PRESSURE %d settings=%s\n", level, pressure.SettingsPath(*db))
+	default:
+		return errors.New("pressure: at most one LEVEL")
+	}
 	return nil
 }
 

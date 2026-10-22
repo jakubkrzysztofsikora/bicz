@@ -340,6 +340,10 @@ type Projection struct {
 	Penalties    []Penalty `json:"penalties"`
 	PenaltyTotal int64     `json:"penalty_total"`
 	PenaltySeq   int64     `json:"penalty_seq"`
+	// Stakes is the standing statement of what the identity's credits mean at
+	// the operator's pressure level (internal/pressure); empty at the lowest
+	// level. An adapter emits it verbatim in the context block.
+	Stakes string `json:"stakes,omitempty"`
 	// EventSeq is the ledger position the projection was read at.
 	EventSeq int64 `json:"event_seq"`
 }

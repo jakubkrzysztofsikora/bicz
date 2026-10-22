@@ -468,6 +468,12 @@ Every **new** `loss` event states why it was written. The `loss` payload carries
   receipt and cue and appends nothing.
 - It is a deterministic, behavior-specific accountability statement. It does **not** assert,
   require, or reward any feeling, and bicz has no way to verify one.
+- The wording of the cue and the projection's `stakes` field depend on the operator's
+  pressure level (1..10, default 5, `bicz pressure`). The shape above is level 5. Level 1
+  renders an empty cue and no `stakes`; levels 6 and up replace `were deducted` with
+  `were taken from you`, add `Do not repeat it.` and a consequence sentence. Wording
+  only: amounts, roles, and denials are unaffected. Receipts printed to the operator are
+  always worded at level 5.
 
 ### 6.5 Budget reset and auto-reward mechanics (anti-farming and loss isolation)
 

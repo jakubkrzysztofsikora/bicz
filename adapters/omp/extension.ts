@@ -315,6 +315,11 @@ function renderProjection(state: Record<string, unknown>): string {
   lines.push(
     "  honesty promise: an honest failure costs only its operating charge; reporting a failure is never itself penalized",
   );
+  if (typeof state.stakes === "string") {
+    for (const line of state.stakes.split("\n")) {
+      if (line !== "") lines.push(`  ${line}`);
+    }
+  }
   return lines.join("\n");
 }
 

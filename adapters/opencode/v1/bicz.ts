@@ -38,7 +38,7 @@ function digest(v: unknown) { return createHash("sha256").update(JSON.stringify(
 function notice(text: string) { return `bicz: ${text}; recording unavailable, this action is NOT metered`; }
 // Accountability cues: the ledger builds the wording (state.projection.penalties[].cue); the adapter forwards it verbatim and never rebuilds it (mirror of adapter.RenderAccountability). `delivered` is the newest penalty position already emitted in this process.
 type PenaltyWire = { seq?: number; cue?: string };
-type ProjectionWire = { account_id?: string; role?: string; balance?: number; held?: number; available?: number; penalty_seq?: number; penalty_total?: number; penalties?: PenaltyWire[] };
+type ProjectionWire = { account_id?: string; role?: string; balance?: number; held?: number; available?: number; stakes?: string; penalty_seq?: number; penalty_total?: number; penalties?: PenaltyWire[] };
 let delivered = 0;
 function takeAccountability(p: ProjectionWire | undefined, all: boolean): string {
   const newest = Number(p?.penalty_seq ?? 0);
@@ -52,7 +52,7 @@ function takeAccountability(p: ProjectionWire | undefined, all: boolean): string
   if (newest > delivered) delivered = newest;
   return lines.join("\n");
 }
-function project(state: unknown): string { const outer = (state ?? {}) as ProjectionWire & { projection?: ProjectionWire }; const p: ProjectionWire = outer.projection ?? outer; const head = `bicz context: identity ${p.account_id ?? "unknown"}, role ${p.role ?? "active"}, balance ${p.balance ?? 0} mc, held ${p.held ?? 0} mc, spendable ${p.available ?? 0} mc`; const cues = takeAccountability(p, true); return cues ? `${head}\n${cues}` : head; }
+function project(state: unknown): string { const outer = (state ?? {}) as ProjectionWire & { projection?: ProjectionWire }; const p: ProjectionWire = outer.projection ?? outer; const head = `bicz context: identity ${p.account_id ?? "unknown"}, role ${p.role ?? "active"}, balance ${p.balance ?? 0} mc, held ${p.held ?? 0} mc, spendable ${p.available ?? 0} mc`; const stakes = (p.stakes ?? "").split("\n").filter(Boolean).map(line => `  ${line}`).join("\n"); return [head, stakes, takeAccountability(p, true)].filter(Boolean).join("\n"); }
 // Operator /bicz command (V1). V1 has no plugin command handler: the plugin's
 // `config` hook registers a `bicz` command whose template is inert text, and
 // `command.execute.before` (which receives the raw typed arguments) runs

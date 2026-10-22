@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+
+	"github.com/jakubkrzysztofsikora/bicz/internal/pressure"
 )
 
 // LossResult is the receipt of a finalized burn.
@@ -308,7 +310,7 @@ func (l *Ledger) RecordLoss(
 			Disposition:         cfg.disposition,
 		}
 		if payload.accountable() {
-			result.Cue = penaltyCue(rule, correction, evidence, applied, applied, eventID, cfg.selfDisclosed)
+			result.Cue = penaltyCue(pressure.Default, rule, correction, evidence, applied, applied, eventID, cfg.selfDisclosed)
 		}
 		return nil
 	})
@@ -378,7 +380,7 @@ func replayLoss(ctx context.Context, tx *sql.Tx, stored Event, replay lossReplay
 		Disposition:         payload.effectiveDisposition(),
 	}
 	if payload.accountable() {
-		out.Cue = penaltyCue(payload.Rule, payload.Correction, stored.Reason, payload.AppliedAmount,
+		out.Cue = penaltyCue(pressure.Default, payload.Rule, payload.Correction, stored.Reason, payload.AppliedAmount,
 			state.Remaining[stored.ID], stored.ID, payload.SelfDisclosed)
 	}
 	return nil

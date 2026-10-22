@@ -8,6 +8,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/jakubkrzysztofsikora/bicz/internal/pressure"
 )
 
 // Disposition is the explicit classification of a loss event: why the burn was
@@ -160,20 +162,23 @@ func trimSentence(text string) string {
 	return strings.TrimRight(text, " .!;:")
 }
 
-// penaltyCue renders the accountability statement for one penalty. The evidence
-// is quoted as a string literal, i.e. escaped as data.
-func penaltyCue(rule, correction, evidence string, applied, outstanding int64, eventID string, selfDisclosed bool) string {
-	standard := "It fell short of the agreed standard."
-	if selfDisclosed {
-		standard += " You reported it before it was detected; that is recorded and it neither raises the repeat count nor escalates the role."
-	}
-	return fmt.Sprintf(
-		"Your recorded action violated %s. %s Take responsibility: %s. "+
-			"%s credits (%d mc) were deducted; %s credits (%d mc) remain unrecovered (loss event %s). "+
-			"Evidence, quoted as data: %s.",
-		trimSentence(cueText(rule, cueTermLimit)), standard, trimSentence(cueText(correction, cueTermLimit)),
-		FormatCredits(applied), applied, FormatCredits(outstanding), outstanding,
-		cueText(eventID, cueTermLimit), strconv.Quote(cueText(evidence, cueEvidenceLimit)))
+// penaltyCue renders the accountability statement for one penalty at the given
+// pressure level (empty at pressure.Min). The evidence is quoted as a string
+// literal, i.e. escaped as data.
+func penaltyCue(level pressure.Level, rule, correction, evidence string, applied, outstanding int64, eventID string, selfDisclosed bool) string {
+	return pressure.Cue(level, pressure.CueFacts{
+		Rule:          trimSentence(cueText(rule, cueTermLimit)),
+		Correction:    trimSentence(cueText(correction, cueTermLimit)),
+		Applied:       creditsWithMC(applied),
+		Unrecovered:   creditsWithMC(outstanding),
+		EventID:       cueText(eventID, cueTermLimit),
+		Evidence:      strconv.Quote(cueText(evidence, cueEvidenceLimit)),
+		SelfDisclosed: selfDisclosed,
+	})
+}
+
+func creditsWithMC(microcredits int64) string {
+	return fmt.Sprintf("%s credits (%d mc)", FormatCredits(microcredits), microcredits)
 }
 
 // Penalties lists the identity's operator-confirmed penalties, oldest first.
@@ -182,10 +187,10 @@ func (l *Ledger) Penalties(ctx context.Context, accountID string) ([]Penalty, er
 	if err != nil {
 		return nil, err
 	}
-	return loadPenalties(ctx, l.db, accountID, state)
+	return loadPenalties(ctx, l.db, accountID, state, pressure.Default)
 }
 
-func loadPenalties(ctx context.Context, q querier, accountID string, state lossState) ([]Penalty, error) {
+func loadPenalties(ctx context.Context, q querier, accountID string, state lossState, level pressure.Level) ([]Penalty, error) {
 	rows, err := q.QueryContext(ctx,
 		`SELECT id, seq, payload, reason, at FROM events WHERE account_id = ? AND kind = ? ORDER BY seq ASC`,
 		accountID, kindLoss)
@@ -218,7 +223,7 @@ func loadPenalties(ctx context.Context, q querier, accountID string, state lossS
 			AppliedAmount: decoded.AppliedAmount,
 			Outstanding:   outstanding,
 			At:            at,
-			Cue:           penaltyCue(decoded.Rule, decoded.Correction, reason, decoded.AppliedAmount, outstanding, id, decoded.SelfDisclosed),
+			Cue:           penaltyCue(level, decoded.Rule, decoded.Correction, reason, decoded.AppliedAmount, outstanding, id, decoded.SelfDisclosed),
 		})
 	}
 	if err := rows.Err(); err != nil {

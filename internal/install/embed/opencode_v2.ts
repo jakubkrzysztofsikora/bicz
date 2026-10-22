@@ -67,6 +67,7 @@ type Projection = {
   penalty_seq?: number;
   penalty_total?: number;
   penalties?: Array<{ seq?: number; cue?: string }>;
+  stakes?: string;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -189,6 +190,9 @@ function renderProjection(state: unknown): string {
     const rules = visible.map(lesson => `${lesson.rule ?? "rule"}: ${lesson.correction ?? ""}${lesson.scope ? ` (scope: ${lesson.scope})` : ""}`);
     if (p.lessons.length > visible.length) rules.push(`+${p.lessons.length - visible.length} more`);
     lines.push(`  lessons ${p.lessons.length}: ${rules.join("; ")}`);
+  }
+  for (const line of (p.stakes ?? "").split("\n")) {
+    if (line !== "") lines.push(`  ${line}`);
   }
   lines.push("  bicz is an incentive-and-accountability ledger: nothing here grants a permission or records an operator action");
   // Accountability cues: the ledger builds the wording; this plugin forwards it

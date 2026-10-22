@@ -19,6 +19,7 @@ import (
 
 	"github.com/jakubkrzysztofsikora/bicz/internal/canonical"
 	"github.com/jakubkrzysztofsikora/bicz/internal/ledger"
+	"github.com/jakubkrzysztofsikora/bicz/internal/pressure"
 	"github.com/jakubkrzysztofsikora/bicz/internal/protocol"
 )
 
@@ -1107,5 +1108,59 @@ func TestDoctorReportsIntegrityAnchoringCoverageAndNonClaims(t *testing.T) {
 	}
 	if report.LastAnchor == nil {
 		t.Fatal("doctor did not report the last anchor")
+	}
+}
+
+func TestProjectionOverTheWireFollowsThePressureSettingsFile(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t)
+	var spawned atomic.Int64
+	h.cfg.Spawner = h.spawner(&spawned, false)
+	ensure, err := Ensure(ctx, h.cfg)
+	if err != nil {
+		t.Fatalf("Ensure: %v", err)
+	}
+	h.fund("alice", 1_000)
+	if err := h.op.Ledger().PublishPriceSchedule(ctx, "1", ledger.Policy{
+		InitialCapital: 1_000_000, RepeatMultipliers: []int64{1, 2, 4}, RepeatCap: 4,
+		DefaultRule: ledger.PenaltyRule{Floor: 100, Max: 1_000_000},
+	}); err != nil {
+		t.Fatalf("PublishPriceSchedule: %v", err)
+	}
+	if _, err := h.op.Loss(ctx, LossRequest{Identity: "alice", Rule: "r", Correction: "c", PolicyVersion: "1",
+		Reason: "confirmed", Evidence: "claimed tests passed", Requested: 100, Disposition: "confirmed_breach"}); err != nil {
+		t.Fatalf("Loss: %v", err)
+	}
+	read := func() (*protocol.Projection, error) {
+		projection, err := ensure.Client.Projection(ctx, protocol.ProjectionPayload{AccountID: "alice", Harness: "omp"})
+		return &projection, err
+	}
+
+	defaulted, err := read()
+	if err != nil || defaulted.Stakes != pressure.Stakes(pressure.Default, pressure.Facts{}) {
+		t.Fatalf("no settings file must mean the default level: stakes %q, %v", defaulted.Stakes, err)
+	}
+
+	if err := pressure.Save(h.cfg.LedgerPath, pressure.Max); err != nil {
+		t.Fatal(err)
+	}
+	loud, err := read()
+	if err != nil || !strings.Contains(loud.Stakes, "Standing now: role warned") || !strings.Contains(loud.Penalties[0].Cue, "were taken from you") {
+		t.Fatalf("level 10 did not reach the wire without a restart: %+v, %v", loud, err)
+	}
+
+	if err := pressure.Save(h.cfg.LedgerPath, pressure.Min); err != nil {
+		t.Fatal(err)
+	}
+	quiet, err := read()
+	if err != nil || quiet.Stakes != "" || quiet.Penalties[0].Cue != "" || quiet.Balance != loud.Balance {
+		t.Fatalf("level 1 must be silent and change no numbers: %+v, %v", quiet, err)
+	}
+
+	if err := os.WriteFile(pressure.SettingsPath(h.cfg.LedgerPath), []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := read(); err == nil {
+		t.Fatal("a malformed settings file must fail the projection, not fall back silently")
 	}
 }

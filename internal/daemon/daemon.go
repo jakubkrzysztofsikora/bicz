@@ -33,6 +33,7 @@ import (
 	"github.com/jakubkrzysztofsikora/bicz/internal/canonical"
 	"github.com/jakubkrzysztofsikora/bicz/internal/integrity"
 	"github.com/jakubkrzysztofsikora/bicz/internal/ledger"
+	"github.com/jakubkrzysztofsikora/bicz/internal/pressure"
 	"github.com/jakubkrzysztofsikora/bicz/internal/protocol"
 )
 
@@ -648,7 +649,11 @@ func (d *Daemon) project(ctx context.Context, accountID string) (*protocol.Proje
 	if accountID == "" {
 		return nil, protocol.Errorf(protocol.CodeUnknownIdentity, "account_id is required")
 	}
-	stored, err := d.ledger.Projection(ctx, accountID)
+	level, err := pressure.Load(d.cfg.LedgerPath)
+	if err != nil {
+		return nil, err
+	}
+	stored, err := d.ledger.Projection(ctx, accountID, ledger.WithPressure(level))
 	if err != nil {
 		return nil, err
 	}
@@ -679,6 +684,13 @@ func (d *Daemon) project(ctx context.Context, accountID string) (*protocol.Proje
 			Cue:           penalty.Cue,
 		})
 	}
+	facts := pressure.Facts{Role: stored.Role, Balance: ledger.FormatCredits(stored.Balance), Warnings: stored.Warnings}
+	if facts.Role == "" {
+		facts.Role = "active"
+	}
+	if stored.OutstandingLoss > 0 {
+		facts.Owed = ledger.FormatCredits(stored.OutstandingLoss)
+	}
 	return &protocol.Projection{
 		AccountID:         stored.AccountID,
 		Balance:           stored.Balance,
@@ -698,6 +710,7 @@ func (d *Daemon) project(ctx context.Context, accountID string) (*protocol.Proje
 		Penalties:         penalties,
 		PenaltyTotal:      stored.PenaltyTotal,
 		PenaltySeq:        stored.PenaltySeq,
+		Stakes:            pressure.Stakes(level, facts),
 		EventSeq:          stored.EventSeq,
 	}, nil
 }

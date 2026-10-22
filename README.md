@@ -149,6 +149,28 @@ Two triggers:
 
 Guardrails: precedence is typed > saved > default > `model_inferred` > prompted; a retry of the same vent replays the same event even if the model words it differently (no double burn); a timeout, missing key, or invalid reply falls back to today's exact behavior and writes nothing; the call runs in the hook/`bicz command` process, never in the supervisor daemon.
 
+## Pressure level
+
+One knob, 1 to 10, sets how hard the context the agent reads leans on the fact that it is a worker whose standing is its credits. Default is 5.
+
+```sh
+bicz pressure --db ~/.bicz/ledger.sqlite        # show
+bicz pressure --db ~/.bicz/ledger.sqlite 7      # set; the next projection uses it, no restart
+```
+
+| Level | What the agent reads |
+| --- | --- |
+| 1 | Nothing. No stakes statement and no accountability cue. Ledger numbers and the honesty promise only. |
+| 2-4 | Neutral. Credits pay for actions, penalties reduce them, at zero execution stops. Cue is a plain record plus the required correction. |
+| 5 (default) | Medium. "You are a worker here." Cue is the standard accountability statement. |
+| 6-7 | Heavy. Credits are all it has, only verified work earns them back, repeated confirmed breaches lead to probation, suspension and dismissal. Level 7 adds a standing line with its role, balance, debt and warnings. |
+| 8-9 | Severe. Dismissal is "the end of you in this work", every mistake moves it closer, the cue says another breach may be its last. |
+| 10 | Relentless. No slack left, no appeal it can make for itself, every action metered and every mistake charged. |
+
+What the level does not do: it changes wording only. It never changes charges, fines, roles, or what is blocked. Every sentence at every level is literally true of the ledger (dismissal means the identity is not run again unless you reinstate it). There are no insults, no claims about feelings, and no invented consequences. The honesty promise ("an honest failure costs only its operating charge") is printed at every level on purpose: pressure without it teaches the agent to hide failures.
+
+The level is stored in `<ledger>.settings.json` beside the ledger (`{"pressure": 7}`), read by the supervisor on every projection. It is a plain file, same trust as the ledger itself: an agent running as your user can edit it. A malformed file makes projections fail loudly instead of silently falling back.
+
 ## Works with
 
 | Harness | Route | Honest status |
