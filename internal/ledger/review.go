@@ -211,49 +211,18 @@ func (l *Ledger) RecordReview(
 		}
 
 		var autorewardGranted int64
-		if strings.EqualFold(strings.TrimSpace(verdict), "SHIP") && role != RoleSuspended && role != RoleDismissed {
-			// SHIP verdict of adversarial review: autoreward up to baseline ceiling (1 credit = 1,000,000 mc).
+		// The grant is the same microreward the meter path grants, so it obeys the
+		// same anti-farming and dedup rules (docs/CONTRACTS.md §6.5): one
+		// adjudication of this evidence earns one credit.
+		if trigger := "review_ship"; strings.EqualFold(strings.TrimSpace(verdict), "SHIP") && role != RoleSuspended && role != RoleDismissed {
 			shipReward := int64(1_000_000)
-			account, found, err := loadAccount(ctx, tx, accountID)
-			if err == nil && found {
-				ceiling := DefaultBaselineCeilingMC
-				headroom := ceiling - account.Balance
-				if headroom > 0 {
-					if shipReward < headroom {
-						autorewardGranted = shipReward
-					} else {
-						autorewardGranted = headroom
-					}
-					if autorewardGranted > 0 {
-						if _, err := tx.ExecContext(ctx,
-							`UPDATE accounts SET balance = balance + ? WHERE id = ?`,
-							autorewardGranted, accountID); err != nil {
-							return fmt.Errorf("ledger: update balance for ship review %s: %w", accountID, err)
-						}
-						if _, _, err := appendEvent(ctx, tx, l.clock, eventSpec{
-							id:        "autoreward:review:" + eventID,
-							accountID: &accountID,
-							kind:      kindAutoreward,
-							amount:    autorewardGranted,
-							payload: autorewardPayload{
-								AccountID:       accountID,
-								Trigger:         "review_ship",
-								RequestedAmount: shipReward,
-								GrantedAmount:   autorewardGranted,
-								BaselineCeiling: ceiling,
-								BalanceBefore:   account.Balance,
-								BalanceAfter:    account.Balance + autorewardGranted,
-								Reason:          "SHIP verdict of adversarial review",
-								Evidence:        evidence,
-							},
-							actor:  ActorSystem,
-							reason: "SHIP verdict of adversarial review: " + reason + ": " + evidence,
-						}); err != nil {
-							return err
-						}
-					}
-				}
+			granted, err := l.recordAutoreward(ctx, tx, "autoreward:review:"+eventID, accountID,
+				trigger, shipReward, "SHIP verdict of adversarial review", evidence,
+				"SHIP verdict of adversarial review: "+reason+": "+evidence)
+			if err != nil {
+				return err
 			}
+			autorewardGranted = granted.AmountGranted
 		}
 
 		result = ReviewResult{

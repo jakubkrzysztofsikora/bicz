@@ -304,3 +304,81 @@ func TestAutorewardDeduplicatesTheActionDigestAcrossEventKeys(t *testing.T) {
 	}
 }
 
+// Asking for a different amount for an action that was already credited is a
+// different claim about that action, not a retry of it, so it is refused
+// (docs/CONTRACTS.md §2: same key + same payload; conflicting replay is a hard error).
+func TestAutorewardRefusesADifferentAmountForAnAlreadyCreditedAction(t *testing.T) {
+	ctx := context0(t)
+	handle := newLedger(t)
+	if _, err := handle.OpenAccount(ctx, "agent", WithInitialCapital(1_000_000)); err != nil {
+		t.Fatalf("OpenAccount: %v", err)
+	}
+
+	const digest = "sha256:one-action"
+	first, err := handle.RecordAutoreward(ctx, "auto-key-a", "agent", 100_000, "test_pass", "passing test", digest)
+	if err != nil {
+		t.Fatalf("first autoreward: %v", err)
+	}
+	if first.AmountGranted != 100_000 {
+		t.Fatalf("first = %+v, want a fresh 100000 grant", first)
+	}
+
+	_, err = handle.RecordAutoreward(ctx, "auto-key-b", "agent", 200_000, "test_pass", "passing test", digest)
+	wantCode(t, err, ErrPayloadConflict, "a second claim on the same action for a different amount")
+	balance, _ := mustBalance(t, handle, "agent")
+	if balance != 1_100_000 {
+		t.Fatalf("balance = %d, want the refused claim to write nothing", balance)
+	}
+}
+
+// The adjudication path grants the same microreward the meter path grants, so
+// it inherits the same dedup: one adjudication of one evidence earns one credit.
+func TestShipReviewGrantsOncePerAdjudicatedEvidence(t *testing.T) {
+	ctx := context0(t)
+	handle := newLedger(t)
+	if _, err := handle.OpenAccount(ctx, "agent", WithInitialCapital(1_000_000)); err != nil {
+		t.Fatalf("OpenAccount: %v", err)
+	}
+	publishPolicy(t, handle)
+
+	const evidence = "sha256:one-adjudication"
+	first, err := handle.RecordReview(ctx, "review-a", "agent", "SHIP", "adversarial review passed", evidence)
+	if err != nil {
+		t.Fatalf("first review: %v", err)
+	}
+	if first.AutorewardGranted != 1_000_000 {
+		t.Fatalf("first review granted %d, want 1000000", first.AutorewardGranted)
+	}
+
+	second, err := handle.RecordReview(ctx, "review-b", "agent", "SHIP", "adversarial review passed", evidence)
+	if err != nil {
+		t.Fatalf("second review: %v", err)
+	}
+	if second.AutorewardGranted != 0 {
+		t.Fatalf("second review granted %d, want 0 for an already-adjudicated action", second.AutorewardGranted)
+	}
+	balance, _ := mustBalance(t, handle, "agent")
+	if balance != 2_000_000 {
+		t.Fatalf("balance = %d, want 2000000: one adjudication earned credit twice", balance)
+	}
+
+	// Replaying that review returns the verdict's own receipt, grant included.
+	retry, err := handle.RecordReview(ctx, "review-b", "agent", "SHIP", "adversarial review passed", evidence)
+	if err != nil {
+		t.Fatalf("replay of the deduplicated review: %v", err)
+	}
+	if retry.AutorewardGranted != second.AutorewardGranted || !retry.Replayed {
+		t.Fatalf("replay = %+v, want the first call's grant of %d with Replayed",
+			retry, second.AutorewardGranted)
+	}
+
+	// A different adjudication is still creditable.
+	other, err := handle.RecordReview(ctx, "review-c", "agent", "SHIP", "second pass", "sha256:another-adjudication")
+	if err != nil {
+		t.Fatalf("distinct adjudication: %v", err)
+	}
+	if other.AutorewardGranted != 1_000_000 {
+		t.Fatalf("distinct adjudication granted %d, want 1000000", other.AutorewardGranted)
+	}
+}
+

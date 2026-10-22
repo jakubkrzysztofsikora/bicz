@@ -30,12 +30,12 @@ type AutorewardResult struct {
 	Replayed        bool
 }
 
-// autorewardByActionDigest finds the prior autoreward this account holds for
-// the same observed action. The action digest is the evidence the caller
-// observed, so two calls quoting it describe one action, not two (docs/
-// CONTRACTS.md §6.5, "Deduplicated by action digest and event key; identical
-// runs cannot be credited twice"). An empty digest identifies nothing, so it
-// dedups nothing and the event key alone governs.
+// autorewardByActionDigest finds the prior credit this account holds for the
+// same observed action. The action digest is the evidence the caller observed,
+// so two calls quoting it describe one action, not two (docs/CONTRACTS.md §6.5,
+// "Deduplicated by action digest and event key; identical runs cannot be
+// credited twice"). An empty digest identifies nothing, so it dedups nothing and
+// the event key alone governs.
 func autorewardByActionDigest(ctx context.Context, q querier, accountID, trigger, evidence string) (Event, autorewardPayload, bool, error) {
 	if evidence == "" {
 		return Event{}, autorewardPayload{}, false, nil
@@ -69,11 +69,235 @@ func autorewardByActionDigest(ctx context.Context, q querier, accountID, trigger
 	return Event{}, autorewardPayload{}, false, nil
 }
 
+// recordAutoreward is the one implementation of the autoreward rules, shared by
+// the meter path (RecordAutoreward) and the adjudication path (a SHIP review)
+// so neither can drift from the other's guarantees. It runs inside the caller's
+// transaction and must not be called outside one.
+func (l *Ledger) recordAutoreward(
+	ctx context.Context,
+	tx *sql.Tx,
+	eventID, accountID, trigger string,
+	requested int64,
+	reason, evidence, eventReason string,
+) (AutorewardResult, error) {
+	if requested > MaxAutorewardMC {
+		requested = MaxAutorewardMC
+	}
+	if reason == "" {
+		reason = "autoreward for " + trigger
+	}
+	if eventReason == "" {
+		eventReason = reason
+		if evidence != "" {
+			eventReason += ": " + evidence
+		}
+	}
+
+	// The same key twice returns the prior result (docs/CONTRACTS.md §2).
+	if stored, found, err := loadEvent(ctx, tx, eventID); err != nil {
+		return AutorewardResult{}, err
+	} else if found {
+		if stored.Kind != kindAutoreward {
+			return AutorewardResult{}, errf(ErrPayloadConflict,
+				"event %q is recorded as kind %q, not %q", eventID, stored.Kind, kindAutoreward)
+		}
+		var payload autorewardPayload
+		if err := decodePayload(stored, &payload); err != nil {
+			return AutorewardResult{}, err
+		}
+		if payload.AccountID != accountID || payload.Trigger != trigger ||
+			payload.RequestedAmount != requested || payload.Evidence != evidence {
+			return AutorewardResult{}, errf(ErrPayloadConflict,
+				"autoreward %q replayed with a different payload", eventID)
+		}
+		// A row that credited nothing points at the credit it duplicated. The
+		// receipt keeps this row's own outcome: it names the credit as the action
+		// already settled, but reports the zero this key granted, so a fresh call
+		// and its replay cannot disagree (docs/CONTRACTS.md §2).
+		duplicateOf := payload.DuplicateOf
+		grantedHere := payload.GrantedAmount
+		balanceBeforeHere := payload.BalanceBefore
+		balanceAfterHere := payload.BalanceAfter
+		if duplicateOf != "" {
+			credited, found, err := loadEvent(ctx, tx, duplicateOf)
+			if err != nil {
+				return AutorewardResult{}, err
+			}
+			if !found {
+				return AutorewardResult{}, errf(ErrPayloadConflict,
+					"autoreward %q points at missing event %q", eventID, duplicateOf)
+			}
+			var creditedPayload autorewardPayload
+			if err := decodePayload(credited, &creditedPayload); err != nil {
+				return AutorewardResult{}, err
+			}
+			payload.BaselineCeiling = creditedPayload.BaselineCeiling
+		}
+		employment, err := loadEmployment(ctx, tx, accountID)
+		if err != nil {
+			return AutorewardResult{}, err
+		}
+		state, err := unrecovered(ctx, tx, accountID)
+		if err != nil {
+			return AutorewardResult{}, err
+		}
+		if duplicateOf == "" {
+			duplicateOf = eventID
+		}
+		return AutorewardResult{
+			EventID:         duplicateOf,
+			AccountID:       accountID,
+			Trigger:         payload.Trigger,
+			AmountRequested: payload.RequestedAmount,
+			AmountGranted:   grantedHere,
+			BaselineCeiling: payload.BaselineCeiling,
+			BalanceBefore:   balanceBeforeHere,
+			BalanceAfter:    balanceAfterHere,
+			OutstandingLoss: state.Outstanding,
+			Role:            employment.State,
+			Replayed:        true,
+		}, nil
+	}
+
+	account, found, err := loadAccount(ctx, tx, accountID)
+	if err != nil {
+		return AutorewardResult{}, err
+	}
+	if !found {
+		return AutorewardResult{}, errf(ErrUnknownIdentity, "%q", accountID)
+	}
+	employment, err := loadEmployment(ctx, tx, accountID)
+	if err != nil {
+		return AutorewardResult{}, err
+	}
+	if err := gateRole(accountID, employment); err != nil {
+		return AutorewardResult{}, err
+	}
+
+	prior, priorPayload, duplicate, err := autorewardByActionDigest(ctx, tx, accountID, trigger, evidence)
+	if err != nil {
+		return AutorewardResult{}, err
+	}
+	if duplicate {
+		// One observed action was credited once under a different key. Asking for
+		// a different amount for that same action is a different claim about it,
+		// not a retry, so it is refused rather than silently reconciled.
+		if requested != priorPayload.RequestedAmount {
+			return AutorewardResult{}, errf(ErrPayloadConflict,
+				"autoreward %q claims %d microcredits for the action already credited as %q at %d",
+				eventID, requested, prior.ID, priorPayload.RequestedAmount)
+		}
+		state, err := unrecovered(ctx, tx, accountID)
+		if err != nil {
+			return AutorewardResult{}, err
+		}
+		// The refused key is recorded under its own payload so the replay rule
+		// binds it to this observed action: reusing it with any other payload is
+		// a conflict, and the row is durable evidence of the decision.
+		if _, _, err := appendEvent(ctx, tx, l.clock, eventSpec{
+			id:        eventID,
+			accountID: &accountID,
+			kind:      kindAutoreward,
+			amount:    0, // no second credit; this row records the refusal
+			payload: autorewardPayload{
+				AccountID:       accountID,
+				Trigger:         trigger,
+				RequestedAmount: requested,
+				GrantedAmount:   0,
+				BaselineCeiling: priorPayload.BaselineCeiling,
+				BalanceBefore:   account.Balance,
+				BalanceAfter:    account.Balance,
+				Reason:          reason,
+				Evidence:        evidence,
+				DuplicateOf:     prior.ID,
+			},
+			actor:  ActorSystem,
+			reason: "autoreward: action already credited as " + prior.ID,
+		}); err != nil {
+			return AutorewardResult{}, err
+		}
+		return AutorewardResult{
+			EventID:         prior.ID,
+			AccountID:       accountID,
+			Trigger:         trigger,
+			AmountRequested: requested,
+			AmountGranted:   0, // this key credits nothing; the prior credit stands
+			BaselineCeiling: priorPayload.BaselineCeiling,
+			BalanceBefore:   account.Balance,
+			BalanceAfter:    account.Balance,
+			OutstandingLoss: state.Outstanding,
+			Role:            employment.State,
+			Replayed:        true,
+		}, nil
+	}
+
+	// Replenish only: the grant is clamped to the headroom under the baseline
+	// ceiling, so no identity can accumulate net surplus capital.
+	const ceiling = DefaultBaselineCeilingMC
+	balanceBefore := account.Balance
+	var granted int64
+	if headroom := ceiling - balanceBefore; headroom > 0 {
+		if requested < headroom {
+			granted = requested
+		} else {
+			granted = headroom
+		}
+	}
+	balanceAfter := balanceBefore
+	if granted > 0 {
+		balanceAfter = balanceBefore + granted
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE accounts SET balance = balance + ? WHERE id = ?`,
+			granted, accountID); err != nil {
+			return AutorewardResult{}, fmt.Errorf("ledger: update balance for autoreward %s: %w", accountID, err)
+		}
+	}
+	if _, _, err := appendEvent(ctx, tx, l.clock, eventSpec{
+		id:        eventID,
+		accountID: &accountID,
+		kind:      kindAutoreward,
+		amount:    granted,
+		payload: autorewardPayload{
+			AccountID:       accountID,
+			Trigger:         trigger,
+			RequestedAmount: requested,
+			GrantedAmount:   granted,
+			BaselineCeiling: ceiling,
+			BalanceBefore:   balanceBefore,
+			BalanceAfter:    balanceAfter,
+			Reason:          reason,
+			Evidence:        evidence,
+		},
+		actor:  ActorSystem,
+		reason: eventReason,
+	}); err != nil {
+		return AutorewardResult{}, err
+	}
+	state, err := unrecovered(ctx, tx, accountID)
+	if err != nil {
+		return AutorewardResult{}, err
+	}
+	return AutorewardResult{
+		EventID:         eventID,
+		AccountID:       accountID,
+		Trigger:         trigger,
+		AmountRequested: requested,
+		AmountGranted:   granted,
+		BaselineCeiling: ceiling,
+		BalanceBefore:   balanceBefore,
+		BalanceAfter:    balanceAfter,
+		OutstandingLoss: state.Outstanding,
+		Role:            employment.State,
+		Replayed:        false,
+	}, nil
+}
+
 // RecordAutoreward grants a bounded microreward to replenish spent credits when
 // the agent demonstrates verified progress (e.g. passing test, "SHIP" review verdict,
 // completing a plan milestone/todo item).
 //
-// Bulletproof safety invariants:
+// The guarantees are those of recordAutoreward, which the adjudication path
+// shares:
 //
 //  1. Hard Capital Ceiling (Replenish Only):
 //     Autoreward can only replenish spent credits up to the baseline ceiling.
@@ -91,9 +315,10 @@ func autorewardByActionDigest(ctx context.Context, q querier, accountID, trigger
 //  4. Bounded Micro-amount:
 //     amount is capped by MaxAutorewardMC.
 //
-//  5. Idempotent Deduplication:
+//  5. Idempotency & Deduplication:
 //     Replaying the same eventID (e.g. derived from tool_use_id or action digest)
-//     returns the prior receipt with Replayed=true and grants 0 additional credit.
+//     returns the prior receipt with Replayed=true and grants 0 additional credit,
+//     and an action digest already credited under another key is not credited again.
 func (l *Ledger) RecordAutoreward(
 	ctx context.Context,
 	eventID, accountID string,
@@ -112,218 +337,14 @@ func (l *Ledger) RecordAutoreward(
 	if amount <= 0 {
 		return AutorewardResult{}, errf(ErrInvalidAmount, "autoreward amount %d must be positive", amount)
 	}
-	if amount > MaxAutorewardMC {
-		amount = MaxAutorewardMC
-	}
-	if reason == "" {
-		reason = "autoreward for " + trigger
-	}
 
 	var result AutorewardResult
 	err := l.mutate(ctx, func(tx *sql.Tx) error {
-		stored, found, err := loadEvent(ctx, tx, eventID)
+		granted, err := l.recordAutoreward(ctx, tx, eventID, accountID, trigger, amount, reason, evidence, "")
 		if err != nil {
 			return err
 		}
-		if found {
-			if stored.Kind != kindAutoreward {
-				return errf(ErrPayloadConflict, "event %q is recorded as kind %q, not %q", eventID, stored.Kind, kindAutoreward)
-			}
-			var payload autorewardPayload
-			if err := decodePayload(stored, &payload); err != nil {
-				return err
-			}
-			if payload.AccountID != accountID || payload.Trigger != trigger || payload.RequestedAmount != amount || payload.Evidence != evidence {
-				return errf(ErrPayloadConflict, "autoreward %q replayed with a different payload", eventID)
-			}
-			// A row that credited nothing points at the credit it duplicated, and
-			// the receipt it returns is that credit's: one key, one prior result
-			// (docs/CONTRACTS.md §2).
-			duplicateOf := payload.DuplicateOf
-			if duplicateOf != "" {
-				credited, found, err := loadEvent(ctx, tx, duplicateOf)
-				if err != nil {
-					return err
-				}
-				if !found {
-					return errf(ErrPayloadConflict,
-						"autoreward %q points at missing event %q", eventID, duplicateOf)
-				}
-				var creditedPayload autorewardPayload
-				if err := decodePayload(credited, &creditedPayload); err != nil {
-					return err
-				}
-				payload = creditedPayload
-			}
-			if _, found, err := loadAccount(ctx, tx, accountID); err != nil {
-				return err
-			} else if !found {
-				return errf(ErrUnknownIdentity, "%q", accountID)
-			}
-			employment, err := loadEmployment(ctx, tx, accountID)
-			if err != nil {
-				return err
-			}
-			state, err := unrecovered(ctx, tx, accountID)
-			if err != nil {
-				return err
-			}
-			result = AutorewardResult{
-				EventID:         duplicateOf,
-				AccountID:       accountID,
-				Trigger:         payload.Trigger,
-				AmountRequested: payload.RequestedAmount,
-				AmountGranted:   payload.GrantedAmount,
-				BaselineCeiling: payload.BaselineCeiling,
-				BalanceBefore:   payload.BalanceBefore,
-				BalanceAfter:    payload.BalanceAfter,
-				OutstandingLoss: state.Outstanding,
-				Role:            employment.State,
-				Replayed:        true,
-			}
-			if result.EventID == "" {
-				result.EventID = eventID
-			}
-			return nil
-		}
-
-		account, found, err := loadAccount(ctx, tx, accountID)
-		if err != nil {
-			return err
-		}
-		if !found {
-			return errf(ErrUnknownIdentity, "%q", accountID)
-		}
-		employment, err := loadEmployment(ctx, tx, accountID)
-		if err != nil {
-			return err
-		}
-		if err := gateRole(accountID, employment); err != nil {
-			return err
-		}
-
-		prior, priorPayload, duplicate, err := autorewardByActionDigest(ctx, tx, accountID, trigger, evidence)
-		if err != nil {
-			return err
-		}
-		if duplicate {
-			state, err := unrecovered(ctx, tx, accountID)
-			if err != nil {
-				return err
-			}
-			// The refused key is recorded under its own payload so the replay rule
-			// binds it to this observed action: reusing it with any other payload
-			// is a conflict, and the dedup decision is durable evidence of which
-			// action was already credited.
-			if _, _, err := appendEvent(ctx, tx, l.clock, eventSpec{
-				id:        eventID,
-				accountID: &accountID,
-				kind:      kindAutoreward,
-				amount:    0, // no second credit; this row records the refusal
-				payload: autorewardPayload{
-					AccountID:       accountID,
-					Trigger:         trigger,
-					RequestedAmount: amount,
-					GrantedAmount:   0,
-					BaselineCeiling: priorPayload.BaselineCeiling,
-					BalanceBefore:   account.Balance,
-					BalanceAfter:    account.Balance,
-					Reason:          reason,
-					Evidence:        evidence,
-					DuplicateOf:     prior.ID,
-				},
-				actor:  ActorSystem,
-				reason: "autoreward: action already credited as " + prior.ID,
-			}); err != nil {
-				return err
-			}
-			result = AutorewardResult{
-				EventID:         prior.ID,
-				AccountID:       accountID,
-				Trigger:         priorPayload.Trigger,
-				AmountRequested: amount,
-				AmountGranted:   priorPayload.GrantedAmount,
-				BaselineCeiling: priorPayload.BaselineCeiling,
-				BalanceBefore:   priorPayload.BalanceBefore,
-				BalanceAfter:    priorPayload.BalanceAfter,
-				OutstandingLoss: state.Outstanding,
-				Role:            employment.State,
-				Replayed:        true,
-			}
-			return nil
-		}
-
-		// Determine baseline ceiling: use schedule InitialCapital or fallback to DefaultBaselineCeilingMC.
-		ceiling := DefaultBaselineCeilingMC
-
-		balanceBefore := account.Balance
-		var granted int64
-		headroom := ceiling - balanceBefore
-		if headroom > 0 {
-			if amount < headroom {
-				granted = amount
-			} else {
-				granted = headroom
-			}
-		}
-
-		balanceAfter := balanceBefore
-		if granted > 0 {
-			balanceAfter = balanceBefore + granted
-			if _, err := tx.ExecContext(ctx,
-				`UPDATE accounts SET balance = balance + ? WHERE id = ?`,
-				granted, accountID); err != nil {
-				return fmt.Errorf("ledger: update balance for autoreward %s: %w", accountID, err)
-			}
-		}
-
-		payload := autorewardPayload{
-			AccountID:       accountID,
-			Trigger:         trigger,
-			RequestedAmount: amount,
-			GrantedAmount:   granted,
-			BaselineCeiling: ceiling,
-			BalanceBefore:   balanceBefore,
-			BalanceAfter:    balanceAfter,
-			Reason:          reason,
-			Evidence:        evidence,
-		}
-
-		evReason := reason
-		if evidence != "" {
-			evReason += ": " + evidence
-		}
-
-		if _, _, err := appendEvent(ctx, tx, l.clock, eventSpec{
-			id:        eventID,
-			accountID: &accountID,
-			kind:      kindAutoreward,
-			amount:    granted,
-			payload:   payload,
-			actor:     ActorSystem,
-			reason:    evReason,
-		}); err != nil {
-			return err
-		}
-
-		state, err := unrecovered(ctx, tx, accountID)
-		if err != nil {
-			return err
-		}
-
-		result = AutorewardResult{
-			EventID:         eventID,
-			AccountID:       accountID,
-			Trigger:         trigger,
-			AmountRequested: amount,
-			AmountGranted:   granted,
-			BaselineCeiling: ceiling,
-			BalanceBefore:   balanceBefore,
-			BalanceAfter:    balanceAfter,
-			OutstandingLoss: state.Outstanding,
-			Role:            employment.State,
-			Replayed:        false,
-		}
+		result = granted
 		return nil
 	})
 	if err != nil {
