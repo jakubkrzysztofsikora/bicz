@@ -53,7 +53,15 @@ cfgdir="$HOME/.config/bicz"
 # --- ledger, identity, published schedule ------------------------------------
 "$bin" init --db "$ledger" >/dev/null
 "$bin" open --db "$ledger" --identity alice --capital 120000 --reason "smoke identity" >/dev/null
-"$bin" price --db "$ledger" --version 1 --policy "$root/docs/schedule.example.json" --reason "smoke: publish example schedule" >/dev/null
+# The example schedule prices identities provisioned at its own initial capital,
+# and the guard band is measured against that capital (docs/CONTRACTS.md §6.3).
+# This harness deliberately drains a tiny identity to prove fail-closed denies,
+# which would put it inside the band and cap ordinary attempts — a behaviour
+# with its own unit tests and its own Phase A scenario. Publish the shipped
+# example with the band disabled so this harness keeps proving hook plumbing.
+schedule="$tmp/schedule.json"
+jq '.guard_band_bp = 0' "$root/docs/schedule.example.json" >"$schedule"
+"$bin" price --db "$ledger" --version 1 --policy "$schedule" --reason "smoke: publish example schedule" >/dev/null
 check "schedule published (bicz price)" test "$("$bin" status --db "$ledger" --identity alice | jq -r .balance)" = 120000
 
 # --- installers write only under the temp HOME ---------------------------------

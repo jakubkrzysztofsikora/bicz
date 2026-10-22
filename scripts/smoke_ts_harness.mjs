@@ -38,7 +38,12 @@ const ok = (name) => { passed++; console.log(`  ok   ${name}`); };
   const handlers = new Map();
   const commands = new Map();
   mod.default({ on: (event, fn) => handlers.set(event, fn), registerCommand: (name, spec) => commands.set(name, spec) });
-  assert.match(commands.get("bicz")?.description ?? "", /status \| rules \| loss/, "the /bicz command is registered and advertises rules");
+  // Order-independent: the command list may be reworded, but every operator
+  // verb the harness depends on must still be advertised.
+  const described = commands.get("bicz")?.description ?? "";
+  for (const verb of ["loss", "status", "rules"]) {
+    assert.ok(described.includes(verb), `the /bicz command advertises ${verb}`);
+  }
   assert.equal(typeof commands.get("bicz")?.handler, "function");
   ok("OMP registers /bicz with a handler that advertises rules");
   const ctx = { cwd: "/tmp/mock", ui: { setStatus() {} } };
