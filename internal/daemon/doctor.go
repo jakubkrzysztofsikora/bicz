@@ -56,8 +56,13 @@ type DoctorReport struct {
 	AnchorAge time.Duration
 	// AnchorStatus is one of anchored, stale-anchor, unmanaged.
 	AnchorStatus string
-	// AnchorThresholdHit is true when more than 1,000 events are unanchored.
+	// AnchorThresholdHit is true when the last anchor no longer covers the
+	// current tip by more than the event threshold, i.e. §3.6's "once per 1,000
+	// appended events" half of the cadence has come due.
 	AnchorThresholdHit bool
+	// AnchorEventsSince is how many events were appended after the block the
+	// last anchor committed to.
+	AnchorEventsSince int64
 	// Daemon is the supervisor's recording state, or unmanaged.
 	Daemon protocol.StatusState
 	// Coverage is the disclosed observed/unobserved table.
@@ -124,17 +129,26 @@ func (o *Operator) Doctor(ctx context.Context, cfg Config) (DoctorReport, error)
 		sealed = blocks[len(blocks)-1].SeqHigh
 	}
 	report.UnsealedTail = stats.Seq - sealed
-	report.AnchorThresholdHit = report.UnsealedTail > anchorEventThreshold
 
 	report.AnchorStatus = AnchorStatusUnmanaged
 	if len(anchors) > 0 {
 		last := anchors[len(anchors)-1]
 		report.LastAnchor = &last
 		report.AnchorStatus = AnchorStatusAnchored
+		// §3.6 requires an anchor at least once per 24 hours AND at least once
+		// per 1,000 appended events, whichever comes first, so the event count is
+		// measured from the block the anchor committed to, not from the last seal.
+		for _, block := range blocks {
+			if block.Height == last.Height {
+				report.AnchorEventsSince = stats.Seq - block.SeqHigh
+				break
+			}
+		}
+		report.AnchorThresholdHit = report.AnchorEventsSince >= anchorEventThreshold
 		age, ageErr := anchorAge(last.At, o.ledger.Clock().Now())
 		if ageErr == nil {
 			report.AnchorAge = age
-			if age > AnchorCadence*AnchorStaleMultiple {
+			if age > AnchorCadence*AnchorStaleMultiple || report.AnchorThresholdHit {
 				report.AnchorStatus = AnchorStatusStale
 			}
 		} else {
@@ -168,13 +182,15 @@ func (r DoctorReport) Render(w io.Writer) {
 	fmt.Fprintf(w, "BLOCKS sealed=%d unsealed_tail=%d\n", r.Stats.Height, r.UnsealedTail)
 	switch {
 	case r.LastAnchor != nil:
-		fmt.Fprintf(w, "ANCHOR status=%s height=%d age=%s destination=%s\n",
-			r.AnchorStatus, r.LastAnchor.Height, r.AnchorAge.Round(time.Second), r.LastAnchor.Destination)
+		fmt.Fprintf(w, "ANCHOR status=%s height=%d age=%s events_since=%d destination=%s\n",
+			r.AnchorStatus, r.LastAnchor.Height, r.AnchorAge.Round(time.Second),
+			r.AnchorEventsSince, r.LastAnchor.Destination)
 	default:
 		fmt.Fprintf(w, "ANCHOR status=%s note=no external anchor exists; tampering is not externally detectable until one is written\n", r.AnchorStatus)
 	}
 	if r.AnchorThresholdHit {
-		fmt.Fprintf(w, "ANCHOR WARNING over %d events are unanchored\n", anchorEventThreshold)
+		fmt.Fprintf(w, "ANCHOR WARNING %d events appended since the last anchor (cadence is one per %d)\n",
+			r.AnchorEventsSince, anchorEventThreshold)
 	}
 	fmt.Fprintf(w, "DAEMON status=%s socket=%s\n", r.Daemon.Daemon, r.Daemon.Socket)
 	if r.Daemon.Note != "" {

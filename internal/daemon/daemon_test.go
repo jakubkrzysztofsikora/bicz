@@ -1111,6 +1111,68 @@ func TestDoctorReportsIntegrityAnchoringCoverageAndNonClaims(t *testing.T) {
 	}
 }
 
+func TestDoctorFlagsAnAnchorStaleAfterTheEventCadence(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t)
+	h.fund("alice", 1_000)
+	destination := filepath.Join(t.TempDir(), "anchors.log")
+	if _, err := h.op.Anchor(ctx, destination, "initial anchor"); err != nil {
+		t.Fatalf("Anchor: %v", err)
+	}
+
+	report, err := h.op.Doctor(ctx, h.cfg)
+	if err != nil {
+		t.Fatalf("Doctor: %v", err)
+	}
+	// Sealing records itself as one `anchor`-kind event after the block's range,
+	// so a fresh anchor covers everything except that record.
+	if report.AnchorThresholdHit || report.AnchorEventsSince > 1 {
+		t.Fatalf("fresh anchor: threshold=%v since=%d, want false/<=1",
+			report.AnchorThresholdHit, report.AnchorEventsSince)
+	}
+
+	// §3.6 requires an anchor at least once per 1,000 appended events, whichever
+	// comes first, so the event count alone must make the anchor stale.
+	for i := 0; i < anchorEventThreshold; i++ {
+		if _, err := h.op.Reward(ctx, RewardRequest{
+			EventID: fmt.Sprintf("cadence-reward-%d", i), Identity: "alice", Amount: 1,
+			Reason: "cadence fixture",
+		}); err != nil {
+			t.Fatalf("reward %d: %v", i, err)
+		}
+	}
+	report, err = h.op.Doctor(ctx, h.cfg)
+	if err != nil {
+		t.Fatalf("Doctor: %v", err)
+	}
+	if !report.AnchorThresholdHit {
+		t.Fatalf("after %d events the threshold did not fire (since=%d)",
+			anchorEventThreshold, report.AnchorEventsSince)
+	}
+	if report.AnchorStatus != AnchorStatusStale {
+		t.Fatalf("anchor status = %s, want stale-anchor once the event cadence is exceeded", report.AnchorStatus)
+	}
+
+	var rendered bytes.Buffer
+	report.Render(&rendered)
+	if !strings.Contains(rendered.String(), "ANCHOR WARNING") {
+		t.Fatalf("doctor did not warn about the anchor cadence:\n%s", rendered.String())
+	}
+
+	// Anchoring again restores the cadence; nothing else is remembered.
+	if _, err := h.op.Anchor(ctx, destination, "re-anchor after the cadence"); err != nil {
+		t.Fatalf("re-Anchor: %v", err)
+	}
+	report, err = h.op.Doctor(ctx, h.cfg)
+	if err != nil {
+		t.Fatalf("Doctor: %v", err)
+	}
+	if report.AnchorThresholdHit || report.AnchorStatus != AnchorStatusAnchored {
+		t.Fatalf("after re-anchoring: threshold=%v status=%s, want false/anchored",
+			report.AnchorThresholdHit, report.AnchorStatus)
+	}
+}
+
 func TestProjectionOverTheWireFollowsThePressureSettingsFile(t *testing.T) {
 	ctx := context.Background()
 	h := newHarness(t)
