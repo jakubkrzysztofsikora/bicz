@@ -30,12 +30,16 @@ type PenaltyRule struct {
 // docs/CONTRACTS.md §6). Its shape is fixed here; its values are not (see
 // docs/CONTRACTS.md §9.3 and §9.5) and are supplied per version by the operator.
 type Policy struct {
-	InitialCapital    int64                  `json:"initial_capital_mc"`
-	GuardBandBP       int64                  `json:"guard_band_bp"`
-	RepeatMultipliers []int64                `json:"repeat_multipliers"`
-	RepeatCap         int64                  `json:"repeat_multiplier_cap"`
-	DefaultRule       PenaltyRule            `json:"default_penalty"`
-	Rules             map[string]PenaltyRule `json:"penalties"`
+	InitialCapital    int64   `json:"initial_capital_mc"`
+	GuardBandBP       int64   `json:"guard_band_bp"`
+	RepeatMultipliers []int64 `json:"repeat_multipliers"`
+	RepeatCap         int64   `json:"repeat_multiplier_cap"`
+	// GuardBandMaxExposureBP caps one attempt inside the guard band, in basis
+	// points of spendable credit (docs/CONTRACTS.md §6.3). Zero takes
+	// DefaultGuardBandMaxExposureBP.
+	GuardBandMaxExposureBP int64                  `json:"guard_band_max_exposure_bp"`
+	DefaultRule            PenaltyRule            `json:"default_penalty"`
+	Rules                  map[string]PenaltyRule `json:"penalties"`
 }
 
 // ruleFor returns the parameters for a rule id, falling back to the schedule's
@@ -79,6 +83,37 @@ func (p Policy) guardBand(balance int64) bool {
 		return false
 	}
 	return balance*10_000 < p.InitialCapital*p.GuardBandBP
+}
+
+// DefaultGuardBandMaxExposureBP is the per-attempt exposure cap inside the guard
+// band, in basis points of spendable credit, applied when a schedule does not
+// state one (docs/CONTRACTS.md §6.3).
+const DefaultGuardBandMaxExposureBP int64 = 2_500
+
+// guardBandExposureCap is the largest single attempt an identity inside the band
+// may reserve: the configured share of what it can actually spend. It is at
+// least one microcredit so a positive balance never becomes unusable by
+// rounding, and it is never the whole balance, because the band exists to shrink
+// a single mistake rather than to end work.
+func (p Policy) guardBandExposureCap(spendable int64) int64 {
+	if spendable <= 0 {
+		return 0
+	}
+	bp := p.GuardBandMaxExposureBP
+	if bp <= 0 {
+		bp = DefaultGuardBandMaxExposureBP
+	}
+	if bp > 10_000 {
+		bp = 10_000
+	}
+	cap := spendable * bp / 10_000
+	if cap < 1 {
+		cap = 1
+	}
+	if cap > spendable {
+		cap = spendable
+	}
+	return cap
 }
 
 // formula evaluates the frozen penalty formula, uncapped by the balance. The

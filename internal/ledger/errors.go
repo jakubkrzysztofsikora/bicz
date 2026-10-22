@@ -60,11 +60,12 @@ func errw(template *Error, err error) *Error {
 // have no adapter-visible code yet.
 var (
 	ErrInvalidArgument         = &Error{Code: "invalid_argument", Msg: "invalid argument"}
-	ErrUnknownIdentity         = &Error{Code: "unknown_identity", Msg: "unknown identity"}        // contract
-	ErrInsufficientCredit      = &Error{Code: "insufficient_credit", Msg: "insufficient credit"}  // contract
-	ErrInsolvent               = &Error{Code: "insolvent", Msg: "insolvent: no spendable credit"} // contract
-	ErrSuspended               = &Error{Code: "suspended", Msg: "identity is suspended"}          // contract
-	ErrDismissed               = &Error{Code: "dismissed", Msg: "identity is dismissed"}          // contract
+	ErrUnknownIdentity         = &Error{Code: "unknown_identity", Msg: "unknown identity"}                     // contract
+	ErrInsufficientCredit      = &Error{Code: "insufficient_credit", Msg: "insufficient credit"}               // contract
+	ErrInsolvent               = &Error{Code: "insolvent", Msg: "insolvent: no spendable credit"}              // contract
+	ErrSuspended               = &Error{Code: "suspended", Msg: "identity is suspended"}                       // contract
+	ErrDismissed               = &Error{Code: "dismissed", Msg: "identity is dismissed"}                       // contract
+	ErrGuardBandNarrowed       = &Error{Code: "guard_band_narrowed", Msg: "identity is inside the guard band"} // contract
 	ErrUnknownTask             = &Error{Code: "unknown_task", Msg: "unknown task"}
 	ErrTaskRevoked             = &Error{Code: "task_revoked", Msg: "task lease is not open"}         // contract
 	ErrUnknownReservation      = &Error{Code: "unknown_reservation", Msg: "unknown reservation"}     // contract

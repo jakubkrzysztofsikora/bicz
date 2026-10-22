@@ -147,6 +147,30 @@ func (l *Ledger) Reserve(ctx context.Context, accountID, reservationID, taskID s
 			return errf(ErrInsufficientCredit,
 				"%q cannot reserve %d microcredits (spendable=%d)", accountID, amount, spendable)
 		}
+		// Inside the guard band a single attempt is capped and must be
+		// identifiable, so one near-bankruptcy mistake cannot consume the whole
+		// remaining balance and an unattributed action cannot slip through
+		// (docs/CONTRACTS.md §6.3). The band is read from the schedule version
+		// that quoted this action, and an unpublished version narrows nothing.
+		if banded, err := guardBandFor(ctx, tx, cfg.context, account.Balance); err != nil {
+			return err
+		} else if banded != nil {
+			if cfg.context == nil || cfg.context.ArgsDigest == "" {
+				return errf(ErrGuardBandNarrowed,
+					"%q is inside the guard band: an attempt must carry its argument digest to be authorized",
+					accountID)
+			}
+			if cap := banded.guardBandExposureCap(spendable); amount > cap {
+				return errf(ErrGuardBandNarrowed,
+					"%q is inside the guard band: %d microcredits exceeds the single-attempt cap of %d (spendable=%d)",
+					accountID, amount, cap, spendable)
+			}
+			if taskID != "" {
+				return errf(ErrGuardBandNarrowed,
+					"%q is inside the guard band: task-sponsored attempts are not authorized, work from available credit",
+					accountID)
+			}
+		}
 
 		var taskRef *string
 		if taskID != "" {
@@ -211,6 +235,27 @@ func (l *Ledger) Reserve(ctx context.Context, accountID, reservationID, taskID s
 		return ReserveResult{}, err
 	}
 	return result, nil
+}
+
+// guardBandFor returns the published policy whose guard band covers balance, or
+// nil when no band applies: no quoted version, an unpublished one, no band
+// configured, or capital above the band. Reading the version the action was
+// quoted under keeps the band a property of the schedule, not of the caller.
+func guardBandFor(ctx context.Context, q querier, rc *ReserveContext, balance int64) (*Policy, error) {
+	if rc == nil || rc.PolicyVersion == "" {
+		return nil, nil
+	}
+	policy, err := loadPolicy(ctx, q, rc.PolicyVersion)
+	if errors.Is(err, ErrUnknownPolicyVersion) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !policy.guardBand(balance) {
+		return nil, nil
+	}
+	return &policy, nil
 }
 
 // Reservation reads one reservation by id.

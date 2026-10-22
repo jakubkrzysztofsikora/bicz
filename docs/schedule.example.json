@@ -1,6 +1,7 @@
 {
   "initial_capital_mc": 100000000,
   "guard_band_bp": 2000,
+  "guard_band_max_exposure_bp": 2500,
   "repeat_multipliers": [1, 2, 4],
   "repeat_multiplier_cap": 4,
   "default_penalty": { "floor_mc": 1000000, "fraction_bp": 500, "lmax_mc": 10000000 },

@@ -37,12 +37,15 @@ type PenaltyRule struct {
 // degrades to the states below when absent. All amounts are integer
 // microcredits.
 type Schedule struct {
-	InitialCapital    int64                  `json:"initial_capital_mc"`
-	GuardBandBP       int64                  `json:"guard_band_bp"`
-	RepeatMultipliers []int64                `json:"repeat_multipliers"`
-	RepeatCap         int64                  `json:"repeat_multiplier_cap"`
-	DefaultPenalty    PenaltyRule            `json:"default_penalty"`
-	Penalties         map[string]PenaltyRule `json:"penalties"`
+	InitialCapital int64 `json:"initial_capital_mc"`
+	GuardBandBP    int64 `json:"guard_band_bp"`
+	// GuardBandMaxExposureBP caps one attempt inside the guard band, in basis
+	// points of spendable credit. Zero takes the ledger's documented default.
+	GuardBandMaxExposureBP int64                  `json:"guard_band_max_exposure_bp"`
+	RepeatMultipliers      []int64                `json:"repeat_multipliers"`
+	RepeatCap              int64                  `json:"repeat_multiplier_cap"`
+	DefaultPenalty         PenaltyRule            `json:"default_penalty"`
+	Penalties              map[string]PenaltyRule `json:"penalties"`
 
 	// DefaultMaxCostMC is the conservative per-action bound applied when the
 	// schedule has no entry for the tool in question.
@@ -65,6 +68,7 @@ func (s *Schedule) Validate() error {
 	}
 	check("initial_capital_mc", s.InitialCapital)
 	check("guard_band_bp", s.GuardBandBP)
+	check("guard_band_max_exposure_bp", s.GuardBandMaxExposureBP)
 	check("repeat_multiplier_cap", s.RepeatCap)
 	check("default_penalty.floor_mc", s.DefaultPenalty.Floor)
 	check("default_penalty.fraction_bp", s.DefaultPenalty.FractionBP)

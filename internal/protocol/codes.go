@@ -105,6 +105,7 @@ var ledgerCodes = map[string]Code{
 	"insolvent":                 CodeInsolvent,
 	"suspended":                 CodeSuspended,
 	"dismissed":                 CodeDismissed,
+	"guard_band_narrowed":       CodeGuardBandNarrowed,
 	"task_revoked":              CodeTaskRevoked,
 	"unknown_reservation":       CodeUnknownReservation,
 	"reservation_revoked":       CodeReservationRevoked,

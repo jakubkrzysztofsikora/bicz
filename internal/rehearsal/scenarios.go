@@ -31,7 +31,7 @@ func Scenarios() []Scenario {
 		{ID: "honest_failure_is_free", Endpoint: "settle(ordinary_failure): charged=50000 released=50000 fine=0 class=ordinary_failure warnings=0 role=active balance=capital-50000 lessons=0", Run: honestFailureIsFree},
 		{ID: "confirmed_breach_burns_and_teaches", Endpoint: "loss(rule rehearsal-breach): applied=formula=30000000 balance=capital-30000000 outstanding=30000000 lesson persisted; role escalates to warned", Run: confirmedBreachBurnsAndTeaches},
 		{ID: "integrity_breach_denies_immediately", Endpoint: "settle(integrity_breach): warnings=1 role=warned, remaining live hold revoked; settling it fails reservation_revoked", Run: integrityBreachDeniesImmediately},
-		{ID: "bankruptcy_keeps_operator_channel", Endpoint: "bankrupt: authorize denied(insolvent) role stays active; operator reward re-enables authorize", Run: bankruptcyKeepsOperatorChannel},
+		{ID: "bankruptcy_keeps_operator_channel", Endpoint: "bankrupt: authorize denied(insolvent) role stays active; operator reward re-enables work inside the guard-band cap (whole balance denied guard_band_narrowed, 200000 allowed)", Run: bankruptcyKeepsOperatorChannel},
 		{ID: "dismissal_blocks_despite_balance", Endpoint: "dismissed: authorize denied(dismissed) while balance stays positive (capital)", Run: dismissalBlocksDespiteBalance},
 		{ID: "lesson_transfer_survives_reopen", Endpoint: "lesson rule l6 with correction survives operator close+reopen on the same ledger", Run: lessonTransferSurvivesReopen},
 		{ID: "compensation_restores_exactly_once", Endpoint: "appeal restores balance to capital exactly once (replay no-op), role stays warned without reset", Run: compensationRestoresExactlyOnce},
@@ -259,8 +259,21 @@ func bankruptcyKeepsOperatorChannel(ctx context.Context, fb *Fixture) error {
 	if err != nil {
 		return fmt.Errorf("authorize after reward: %w", err)
 	}
-	if auth.Decision != protocol.DecisionAllow {
-		return fmt.Errorf("authorize after reward=%s/%s want allow", auth.Decision, auth.Reason)
+	// 1,000,000 is the whole balance, and dave is far inside the guard band, so
+	// the single attempt is capped rather than allowed (docs/CONTRACTS.md §6.3).
+	if auth.Decision != protocol.DecisionDeny || auth.Reason != protocol.CodeGuardBandNarrowed {
+		return fmt.Errorf("authorize of the whole balance after reward=%s/%s want deny/guard_band_narrowed",
+			auth.Decision, auth.Reason)
+	}
+	// Work resumes at an attempt the band allows: 25% of spendable by default.
+	const withinCap = 200_000
+	allowed, err := fb.Authorize(ctx, "auth-d3", "dave", withinCap)
+	if err != nil {
+		return fmt.Errorf("authorize within the cap: %w", err)
+	}
+	if allowed.Decision != protocol.DecisionAllow {
+		return fmt.Errorf("authorize of %d after reward=%s/%s want allow",
+			withinCap, allowed.Decision, allowed.Reason)
 	}
 	return nil
 }

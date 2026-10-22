@@ -414,7 +414,20 @@ real receipt, real persistence.
 
 - **Guard band** (`K < 20%` of initial capital): fines do not rise; permissions
   narrow, verification requirements widen, single-attempt exposure is capped,
-  borderline actions pause.
+  borderline actions pause. Mechanically, for an action quoted under a published
+  schedule whose band covers the identity's balance:
+  - `penalty.formula` holds the repeat multiplier at 1, so a fine cannot rise
+    near zero.
+  - `Reserve` refuses an attempt with `guard_band_narrowed` when its amount
+    exceeds `guard_band_max_exposure_bp` of spendable credit (default 2,500 bp =
+    25%), when the attempt carries no argument digest, or when it draws on a task
+    lease. Unscoped work from the identity's own credit stays available.
+  - The band is read from the schedule version the action was quoted under
+    (`ReserveContext.PolicyVersion`); a call that quotes no published version is
+    not narrowed, because the band is a property of the schedule and not an
+    assumption about the caller.
+  - Above the band, ordinary reserve rules return: nothing is remembered and no
+    role changes. The band is a floor on exposure, never a status.
 - **active → warned:** signed warning records mistake + correction + financial
   consequence + future-role consequence; autonomy unchanged.
 - **probation:** role-based (a wealthy account can be on probation); narrower
