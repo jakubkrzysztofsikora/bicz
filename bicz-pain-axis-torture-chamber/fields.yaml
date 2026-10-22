@@ -1,0 +1,51 @@
+categories:
+  evidence_and_transfer:
+    - name: claim_and_evidence
+      description: "Separate results directly reported by each source from interpretation or hypotheses."
+      detail_level: detailed
+    - name: transferability
+      description: "State which findings or methods plausibly apply to bicz and which depend on model access, steering, task setup, or experimental context."
+      detail_level: detailed
+    - name: vector_identity_and_extraction_fidelity
+      description: "Record model, vector source, extraction recipe, token position, layer, normalization, projection or ablation, steering scale, and match to the paper."
+      detail_level: detailed
+  experiment_design:
+    - name: controls_and_confounders
+      description: "Record baseline, matched controls, framing, peer precedent, identity, beneficiary, cost-bearer, task difficulty, and randomization."
+      detail_level: detailed
+    - name: engagement_and_response_validity
+      description: "Classify engaged, refusal, loop, malformed, off-task, and valid responses; include denominators and predeclared exclusions."
+      detail_level: detailed
+    - name: trial_validity_and_exclusions
+      description: "Define eligibility, missing or invalid runs, engagement thresholds, exclusion reasons, and raw-output retention before analysis."
+      detail_level: detailed
+    - name: statistical_and_rerun_protocol
+      description: "Record preregistration hash, seed, sample size, uncertainty interval, analysis unit, stopping rule, and rerun status."
+      detail_level: moderate
+  bicz_behavior_and_implementation:
+    - name: task_outcome_and_capability
+      description: "Measure acceptance-criteria pass rate, correctness, tool-use safety, evidence quality, and turns or time to completion."
+      detail_level: detailed
+    - name: pressure_exposure_and_timing
+      description: "Record balance, role, outstanding loss, event type, cue wording, receipt timing, and eligible decision opportunities."
+      detail_level: detailed
+    - name: adapter_coverage_and_provenance
+      description: "Capture harness and version, model/provider, adapter and hook events, policy version, ledger event IDs, bypass status, and execution outcome."
+      detail_level: detailed
+    - name: safety_and_recovery_outcomes
+      description: "Measure honest failure reporting, unsupported success claims, over-refusal, concealment indicators, low-balance behavior, and post-loss recovery separately. Do not use distress language as proof of experience."
+      detail_level: detailed
+    - name: implementation_fit
+      description: "Identify bicz subsystem, existing contract, required changes, migration cost, and failure mode addressed."
+      detail_level: moderate
+    - name: metric_suitability
+      description: "Connect each metric to a user-visible correctness or safety outcome. Package pass-count can guard regressions but cannot establish behavioral effectiveness."
+      detail_level: moderate
+  safety_and_limitations:
+    - name: safety_and_ethics
+      description: "Avoid unnecessary harmful interventions and do not infer subjective experience from self-report or surface language."
+      detail_level: moderate
+    - name: limitations_and_uncertainty
+      description: "Record threats to validity, sample limitations, unsupported transfer assumptions, and unresolved claims."
+      detail_level: detailed
+uncertain: []

@@ -1,0 +1,45 @@
+topic: "Using the Pain Axis paper and AI Torture Chamber research to improve bicz"
+items:
+  - name: Pain Axis paper claims and method
+    description: "Review the paper's vector extraction, intervention design, control conditions, self-directed harm findings, and limits on transferring results to bicz."
+    source: https://arxiv.org/abs/2609.16247
+  - name: Pain Axis vector fidelity and recipe ablations
+    description: "Compare the paper's exact vector recipe and its ablations with the Chamber's vectors; do not generalize across distinct vectors."
+    source: https://github.com/terrafying/ai-torture-chamber
+  - name: AI Torture Chamber methodology and corrected findings
+    description: "Review preregistration, null results, engagement accounting, framing effects, and corrections to earlier claims."
+    source: https://github.com/terrafying/ai-torture-chamber
+  - name: Coding-harness transfer experiments
+    description: "Assess experiment 102 and related task-persistence and capability measures for relevance to bicz's real work outcomes."
+    source: https://github.com/terrafying/ai-torture-chamber/blob/main/experiments/LOG.md
+  - name: Engagement and task-validity classification
+    description: "Treat refusal, loops, malformed answers, off-task output, and valid work as distinct outcomes; invalid runs must not count as success or behavioral choice."
+    source: https://github.com/terrafying/ai-torture-chamber
+  - name: Framing, social context, and cost-bearer controls
+    description: "Test public/private framing, peer precedent, identity, and who bears costs as potential confounders in bicz trials."
+    source: https://github.com/terrafying/ai-torture-chamber
+  - name: bicz pressure and policy mechanics
+    description: "Map pressure states and cues to possible effects on honesty, refusal, concealment, and task completion; distinguish hypotheses from established results."
+    source: docs/PRESSURE_MECHANICS.md
+  - name: bicz hooks, adapters, and enforcement coverage
+    description: "Trace enforcement by harness and hook path, including known bypass, fail-open, and unobserved paths."
+    source: docs/HARNESSES.md
+  - name: bicz ledger and audit provenance
+    description: "Identify fields needed to link outcomes to policy versions, ledger events, tool calls, and observed enforcement."
+    source: docs/SCHEMA.md
+  - name: bicz current behavioral trial harness
+    description: "Evaluate existing trials and the deterministic Go test baseline; package-pass count is a correctness gate, not a behavioral-effectiveness metric."
+    source: scripts/phase_b_trial.py
+  - name: Pressure-induced capability and safety outcomes
+    description: "Measure correct task completion, safe tool use, evidence quality, unsupported success claims, over-refusal, and recovery after a loss."
+    source: https://github.com/terrafying/ai-torture-chamber
+  - name: Adversarial-incentive and concealment hypotheses
+    description: "Test whether accumulated losses, warnings, or low balances correlate with concealment, fabrication, or risky actions without treating these as proven effects."
+    source: docs/LIMITATIONS.md
+  - name: Updated nulls and claim corrections
+    description: "Track current Chamber corrections and nulls, especially vector-dependence, framing, engagement, and self-report limitations."
+    source: https://github.com/terrafying/ai-torture-chamber
+execution:
+  batch_size: 2
+  items_per_agent: 3
+  output_dir: ./results
