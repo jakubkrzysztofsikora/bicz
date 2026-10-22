@@ -69,9 +69,11 @@ still verifies with `INTEGRITY OK`.
 
 ## Gaps (deliberate, not defects)
 
-- `clanker` has no unit test of its own; it is covered by the CLI matrix above
-  and by `Operator.Loss` tests. A `cmd/bicz` table test would be the next step.
-- `doctor` does not report the pain level.
+- `clanker` now has a CLI test (`cmd/bicz/clanker_test.go`, run #33): it asserts
+  the slap output, warning escalation, that a repeat burns more, and that unknown
+  or missing identities are refused.
+- `doctor` does not report the pain level. It is ledger-wide and pain is
+  per-identity, so this needs an identity-scoped report rather than a field.
 - No scenario covers the autoreward dedup path end-to-end over the wire; it is
   unit-tested and the SHIP path is unit-tested.
 
