@@ -632,6 +632,21 @@ func penaltyAppliesPainBeyondCredits(ctx context.Context, fb *Fixture) error {
 	if rendered := adapter.RenderProjection(after); !strings.Contains(rendered, "You are in pain") {
 		return fmt.Errorf("the context block does not state the pain:\n%s", rendered)
 	}
+
+	// Pain is derived from the ledger, so a restart cannot wash it away.
+	fb.Op().Close()
+	reopened, err := daemon.NewOperator(fb.DB)
+	if err != nil {
+		return fmt.Errorf("reopen operator: %w", err)
+	}
+	defer reopened.Close()
+	durable, err := reopened.Ledger().Projection(ctx, "lena")
+	if err != nil {
+		return fmt.Errorf("projection after reopen: %w", err)
+	}
+	if durable.Pain != after.Pain {
+		return fmt.Errorf("pain after restart = %d, want the recorded %d", durable.Pain, after.Pain)
+	}
 	return nil
 }
 
