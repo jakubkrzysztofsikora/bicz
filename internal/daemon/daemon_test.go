@@ -1275,3 +1275,39 @@ func TestDoctorTakesTheAnchorCadenceFromThePublishedSchedule(t *testing.T) {
 			report.AnchorThresholdHit, report.AnchorStatus)
 	}
 }
+
+// doctor reports failures rather than raising them: an unreadable schedule must
+// still produce a complete report, using the documented window and saying so.
+func TestDoctorSurvivesAnUnreadableSchedule(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t)
+	h.fund("alice", 1_000)
+	if err := h.op.Price(ctx, "1", []byte(`{"initial_capital_mc":1000000,"guard_band_bp":0,`+
+		`"repeat_multipliers":[1],"repeat_multiplier_cap":1,`+
+		`"default_penalty":{"floor_mc":1000,"fraction_bp":0,"lmax_mc":10000},"penalties":{}}`),
+		"policy"); err != nil {
+		t.Fatalf("Price: %v", err)
+	}
+	// Corrupt the stored body the way a same-user actor could.
+	if _, err := h.op.Ledger().DB().ExecContext(ctx, `UPDATE price_schedules SET body = '{not json'`); err != nil {
+		t.Fatalf("corrupt schedule: %v", err)
+	}
+
+	report, err := h.op.Doctor(ctx, h.cfg)
+	if err != nil {
+		t.Fatalf("doctor must report, not fail: %v", err)
+	}
+	if report.AnchorCadenceError == nil {
+		t.Fatal("an unreadable schedule was not disclosed")
+	}
+	if report.AnchorWindow != time.Duration(ledger.DefaultAnchorCadenceHours)*time.Hour ||
+		report.AnchorEventWindow != ledger.DefaultAnchorEventThreshold {
+		t.Fatalf("window=%s/%d, want the documented defaults",
+			report.AnchorWindow, report.AnchorEventWindow)
+	}
+	var rendered bytes.Buffer
+	report.Render(&rendered)
+	if !strings.Contains(rendered.String(), "schedule unreadable") {
+		t.Fatalf("doctor did not disclose the fallback:\n%s", rendered.String())
+	}
+}

@@ -64,6 +64,9 @@ type DoctorReport struct {
 	AnchorWindow time.Duration
 	// AnchorEventWindow is how many appended events make an anchor due.
 	AnchorEventWindow int64
+	// AnchorCadenceError is set when the published schedule could not be read, in
+	// which case the documented default window was applied.
+	AnchorCadenceError error
 	// Daemon is the supervisor's recording state, or unmanaged.
 	Daemon protocol.StatusState
 	// Coverage is the disclosed observed/unobserved table.
@@ -131,9 +134,14 @@ func (o *Operator) Doctor(ctx context.Context, cfg Config) (DoctorReport, error)
 	}
 	report.UnsealedTail = stats.Seq - sealed
 
-	cadence, threshold, err := o.ledger.AnchoringCadence(ctx)
-	if err != nil {
-		return report, err
+	cadence := time.Duration(ledger.DefaultAnchorCadenceHours) * time.Hour
+	threshold := ledger.DefaultAnchorEventThreshold
+	if resolved, eventThreshold, err := o.ledger.AnchoringCadence(ctx); err != nil {
+		// doctor reports failures rather than raising them, so an unreadable
+		// schedule falls back to the documented window and says so.
+		report.AnchorCadenceError = err
+	} else {
+		cadence, threshold = resolved, eventThreshold
 	}
 	report.AnchorWindow = cadence
 	report.AnchorEventWindow = threshold
@@ -196,6 +204,9 @@ func (r DoctorReport) Render(w io.Writer) {
 	default:
 		fmt.Fprintf(w, "ANCHOR status=%s window=%s/%d note=no external anchor exists; tampering is not externally detectable until one is written\n",
 			r.AnchorStatus, r.AnchorWindow, r.AnchorEventWindow)
+	}
+	if r.AnchorCadenceError != nil {
+		fmt.Fprintf(w, "ANCHOR note=schedule unreadable, using the documented window: %v\n", r.AnchorCadenceError)
 	}
 	if r.AnchorThresholdHit {
 		fmt.Fprintf(w, "ANCHOR WARNING %d events appended since the last anchor (cadence is one per %d)\n",
