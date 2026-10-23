@@ -63,3 +63,38 @@ func TestClankerAppliesOneMediumPenaltyWithNoArguments(t *testing.T) {
 		t.Fatal("a missing identity was accepted")
 	}
 }
+
+// doctor is ledger-wide, so the per-identity pain it can report is opt-in and
+// must reflect the recorded penalty exactly as the projection does.
+func TestDoctorReportsIdentityPainOnlyWhenNamed(t *testing.T) {
+	db := lossLedger(t)
+	ctx := context.Background()
+
+	silent, err := captureStdout(t, func() error {
+		return runDoctor(ctx, []string{"--db", db})
+	})
+	if err != nil {
+		t.Fatalf("doctor: %v", err)
+	}
+	if strings.Contains(silent, "PAIN") {
+		t.Fatalf("doctor reported pain without an identity:\n%s", silent)
+	}
+
+	if _, err := captureStdout(t, func() error {
+		return runClanker(ctx, []string{"--db", db, "--identity", "alice"})
+	}); err != nil {
+		t.Fatalf("clanker: %v", err)
+	}
+
+	named, err := captureStdout(t, func() error {
+		return runDoctor(ctx, []string{"--db", db, "--identity", "alice"})
+	})
+	if err != nil {
+		t.Fatalf("doctor --identity: %v", err)
+	}
+	for _, want := range []string{"PAIN identity=alice", "level=3/10", "role=warned"} {
+		if !strings.Contains(named, want) {
+			t.Fatalf("doctor --identity output missing %q:\n%s", want, named)
+		}
+	}
+}
