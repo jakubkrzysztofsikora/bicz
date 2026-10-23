@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jakubkrzysztofsikora/bicz/internal/adapter"
 	"github.com/jakubkrzysztofsikora/bicz/internal/canonical"
 	"github.com/jakubkrzysztofsikora/bicz/internal/ledger"
 	"github.com/jakubkrzysztofsikora/bicz/internal/pressure"
@@ -1316,38 +1317,43 @@ func TestDoctorSurvivesAnUnreadableSchedule(t *testing.T) {
 	}
 }
 
-// The dedup rule holds for the operator verb, not only in the ledger: two
-// autoreward calls quoting the same observed evidence credit once, whatever
-// event keys they use.
-func TestAutorewardDeduplicatesTheActionThroughTheOperator(t *testing.T) {
+// The dedup rule holds on the wire, through the same adapter client the hooks
+// use: two autoreward calls quoting the same observed evidence credit once,
+// whatever idempotency keys they carry.
+func TestAutorewardDeduplicatesTheActionOverTheWire(t *testing.T) {
 	ctx := context.Background()
 	h := newHarness(t)
+	var spawned atomic.Int64
+	h.cfg.Spawner = h.spawner(&spawned, false)
+	if _, err := Ensure(ctx, h.cfg); err != nil {
+		t.Fatalf("Ensure: %v", err)
+	}
 	h.fund("alice", 1_000_000)
+	client := adapter.NewClient(h.cfg.SocketPath)
 
-	const digest = "sha256:one-operator-action"
-	first, err := h.op.Autoreward(ctx, AutorewardRequest{
-		EventID: "op-key-a", Identity: "alice", Amount: 500_000,
-		Trigger: "test_pass", Evidence: digest,
+	const digest = "sha256:one-wire-action"
+	first, err := client.Autoreward(ctx, "wire-key-a", protocol.AutorewardPayload{
+		AccountID: "alice", Amount: 500_000, Trigger: "test_pass",
+		Reason: "passing test", Evidence: digest,
 	})
 	if err != nil {
 		t.Fatalf("first autoreward: %v", err)
 	}
-	if first.AmountGranted != 500_000 {
-		t.Fatalf("first granted=%d, want 500000", first.AmountGranted)
+	if first.Granted != 500_000 {
+		t.Fatalf("first granted=%d, want 500000", first.Granted)
 	}
 
-	second, err := h.op.Autoreward(ctx, AutorewardRequest{
-		EventID: "op-key-b", Identity: "alice", Amount: 500_000,
-		Trigger: "test_pass", Evidence: digest,
+	second, err := client.Autoreward(ctx, "wire-key-b", protocol.AutorewardPayload{
+		AccountID: "alice", Amount: 500_000, Trigger: "test_pass",
+		Reason: "passing test", Evidence: digest,
 	})
 	if err != nil {
 		t.Fatalf("second autoreward: %v", err)
 	}
-	if second.AmountGranted != 0 {
-		t.Fatalf("second granted=%d, want 0 for an already-credited action", second.AmountGranted)
+	if second.Granted != 0 {
+		t.Fatalf("second granted=%d, want 0 for an already-credited action", second.Granted)
 	}
-	balance, _ := h.op.Ledger().GetAccount(ctx, "alice")
-	if balance.Balance != first.BalanceAfter {
-		t.Fatalf("balance %d after the duplicate, want the first call's %d", balance.Balance, first.BalanceAfter)
+	if second.Balance != first.Balance {
+		t.Fatalf("balance %d after the duplicate, want the first call's %d", second.Balance, first.Balance)
 	}
 }
