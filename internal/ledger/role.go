@@ -111,6 +111,12 @@ func (l *Ledger) SetRole(
 		if state == RoleWarned {
 			warnings++
 		}
+		// Reinstate clears the recorded pain: the warnings that raised it are
+		// operator-cleared history, and the penalty record itself stays (the loss
+		// events and any outstanding shortfall are untouched).
+		if cfg.reinstated || state == RoleActive && employment.State != RoleActive {
+			warnings = 0
+		}
 		if err := setEmployment(ctx, tx, accountID, Employment{State: state, Warnings: warnings}); err != nil {
 			return err
 		}

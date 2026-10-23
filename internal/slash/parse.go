@@ -37,12 +37,13 @@ import (
 type Action string
 
 const (
-	ActionLoss   Action = "loss"
-	ActionReward Action = "reward"
-	ActionReset  Action = "reset"
-	ActionStatus Action = "status"
-	ActionRules  Action = "rules"
-	ActionHelp   Action = "help"
+	ActionLoss    Action = "loss"
+	ActionClanker Action = "clanker"
+	ActionReward  Action = "reward"
+	ActionReset   Action = "reset"
+	ActionStatus  Action = "status"
+	ActionRules   Action = "rules"
+	ActionHelp    Action = "help"
 )
 
 // Bounds on operator text. They keep one slash command from writing an

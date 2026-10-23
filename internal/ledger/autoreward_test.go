@@ -381,4 +381,3 @@ func TestShipReviewGrantsOncePerAdjudicatedEvidence(t *testing.T) {
 		t.Fatalf("distinct adjudication granted %d, want 1000000", other.AutorewardGranted)
 	}
 }
-

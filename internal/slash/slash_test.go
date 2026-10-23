@@ -588,13 +588,38 @@ func TestRunResetUnblocksAgentWithoutTouchingLoss(t *testing.T) {
 		t.Fatal("expected outstanding loss after loss command")
 	}
 
-	// Drain balance to 0
-	r, err := op.Ledger().Reserve(context.Background(), "alice", "res-drain", "", projBefore.Spendable)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := op.Ledger().Settle(context.Background(), r.Reservation.ID, projBefore.Spendable, ledger.ClassCompleted, "sha256:evidence"); err != nil {
-		t.Fatal(err)
+	// Drain balance to 0 in capped attempts: recorded pain limits what one
+	// attempt may reserve, so drain in chunks like real metered work.
+	for round := 0; ; round++ {
+		proj, err := op.Ledger().Projection(context.Background(), "alice")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if proj.Spendable <= 0 {
+			break
+		}
+		bp := int64(10-proj.Pain)*900 + 1000
+		if bp < 1000 {
+			bp = 1000
+		}
+		if bp > 10000 {
+			bp = 10000
+		}
+		amount := proj.Spendable * bp / 10000
+		if amount > proj.Spendable {
+			amount = proj.Spendable
+		}
+		if amount < 1 {
+			amount = 1
+		}
+		r, err := op.Ledger().Reserve(context.Background(), "alice",
+			fmt.Sprintf("res-drain-%d", round), "", amount)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := op.Ledger().Settle(context.Background(), r.Reservation.ID, amount, ledger.ClassCompleted, "sha256:evidence"); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	// Verify balance is 0
@@ -627,4 +652,3 @@ func TestRunResetUnblocksAgentWithoutTouchingLoss(t *testing.T) {
 		t.Fatalf("outstanding loss changed: got %d, want %d (must be untouched!)", projAfter.OutstandingLoss, projBefore.OutstandingLoss)
 	}
 }
-

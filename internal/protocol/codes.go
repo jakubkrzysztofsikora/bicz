@@ -47,6 +47,9 @@ const (
 	// It is folded into malformed_request at the envelope level, and kept
 	// distinct for callers that validate before sending.
 	CodeMissingIdempotencyKey Code = "missing_idempotency_key"
+	// CodePainNarrowed is a reserve refused because recorded pain caps the
+	// single-attempt exposure (docs/PRESSURE_MECHANICS.md §6).
+	CodePainNarrowed Code = "pain_narrowed"
 	// CodeInvalidArgument is a payload that decodes but is not usable.
 	CodeInvalidArgument Code = "invalid_argument"
 	// CodeInvalidAmount is a non-positive or non-integer amount. Booleans and
@@ -106,6 +109,7 @@ var ledgerCodes = map[string]Code{
 	"suspended":                 CodeSuspended,
 	"dismissed":                 CodeDismissed,
 	"guard_band_narrowed":       CodeGuardBandNarrowed,
+	"pain_narrowed":             CodePainNarrowed,
 	"task_revoked":              CodeTaskRevoked,
 	"unknown_reservation":       CodeUnknownReservation,
 	"reservation_revoked":       CodeReservationRevoked,

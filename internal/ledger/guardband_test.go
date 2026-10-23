@@ -1,6 +1,8 @@
 package ledger
 
 import (
+	"context"
+	"strconv"
 	"testing"
 )
 
@@ -236,5 +238,131 @@ func TestProjectionCarriesRecordedPain(t *testing.T) {
 	}
 	if second.Pain != 5 {
 		t.Fatalf("pain after two confirmed penalties = %d, want 5", second.Pain)
+	}
+}
+
+// Recorded pain caps a single attempt everywhere, not only near zero. Two
+// confirmed penalties put pain at 4/10, so at most 46% of spendable may be
+// reserved in one attempt; pain 10 still leaves a tenth.
+func TestRecordedPainCapsASingleAttempt(t *testing.T) {
+	ctx := context0(t)
+	handle := newLedger(t)
+	fund(t, handle, "alice", 1_000_000)
+	publishPolicy(t, handle)
+
+	if _, err := handle.RecordLoss(ctx, "loss-1", "alice", 0, "rule_a", "c", "s", "n", "e", "1",
+		WithDisposition(DispositionConfirmedBreach)); err != nil {
+		t.Fatalf("RecordLoss: %v", err)
+	}
+	if _, err := handle.RecordLoss(ctx, "loss-2", "alice", 0, "rule_a", "c", "s", "n", "e2", "1",
+		WithDisposition(DispositionConfirmedBreach)); err != nil {
+		t.Fatalf("RecordLoss 2: %v", err)
+	}
+	projection, err := handle.Projection(ctx, "alice")
+	if err != nil {
+		t.Fatalf("Projection: %v", err)
+	}
+	if projection.Pain != 5 {
+		t.Fatalf("pain=%d, want 5 after two confirmed penalties", projection.Pain)
+	}
+
+	// The cap derives from confirmed penalties: warnings 2 -> pain 4 -> 64% of
+	// spendable per attempt. 70% is refused, 64% exactly is allowed.
+	_, err = handle.Reserve(ctx, "alice", "res-over", "", 700_000, identified("1"))
+	wantCode(t, err, ErrPainNarrowed, "an attempt above the pain cap")
+
+	within, err := handle.Reserve(ctx, "alice", "res-within", "", 639_808, identified("1"))
+	if err != nil {
+		t.Fatalf("Reserve at the pain cap: %v", err)
+	}
+	if within.Reservation.Amount != 639_808 {
+		t.Fatalf("reserved=%d, want 639808", within.Reservation.Amount)
+	}
+}
+
+// drainThroughPainCap reserves and settles an identity down to target in
+// single-attempt chunks, as metered work would. Returns when spendable is 0.
+func drainThroughPainCap(ctx context.Context, handle *Ledger, identity string) error {
+	for round := 0; ; round++ {
+		account, found, err := loadAccount(ctx, handle.db, identity)
+		if err != nil {
+			return err
+		}
+		if !found {
+			return errf(ErrUnknownIdentity, "%q", identity)
+		}
+		employment, err := loadEmployment(ctx, handle.db, identity)
+		if err != nil {
+			return err
+		}
+		state, err := unrecovered(ctx, handle.db, identity)
+		if err != nil {
+			return err
+		}
+		spendable := account.Spendable()
+		if spendable <= 0 {
+			return nil
+		}
+		pain := recordedPain(employment.Warnings, state.Outstanding)
+		bp := int64(10_000)
+		if pain > 0 {
+			bp = int64(10-pain)*900 + 1_000
+		}
+		amount := spendable * bp / 10_000
+		if amount > spendable {
+			amount = spendable
+		}
+		if amount < 1 {
+			amount = 1
+		}
+		r, err := handle.Reserve(ctx, identity,
+			"drain-"+strconv.Itoa(round), "", amount)
+		if err != nil {
+			return err
+		}
+		if _, err := handle.Settle(ctx, r.Reservation.ID, amount, ClassCompleted, "sha256:drain"); err != nil {
+			return err
+		}
+	}
+}
+
+// Reinstate clears the recorded pain by clearing the warnings that raised it.
+// The penalty history itself stays: the loss events and any outstanding
+// shortfall are untouched.
+func TestReinstateClearsRecordedPainButNotHistory(t *testing.T) {
+	ctx := context0(t)
+	handle := newLedger(t)
+	fund(t, handle, "alice", 1_000_000)
+	publishPolicy(t, handle)
+
+	if _, err := handle.RecordLoss(ctx, "loss-1", "alice", 0, "rule_a", "c", "s", "n", "e", "1",
+		WithDisposition(DispositionConfirmedBreach)); err != nil {
+		t.Fatalf("RecordLoss: %v", err)
+	}
+	painful, err := handle.Projection(ctx, "alice")
+	if err != nil {
+		t.Fatalf("Projection: %v", err)
+	}
+	if painful.Pain != 3 {
+		t.Fatalf("pain=%d, want 3 after one confirmed penalty", painful.Pain)
+	}
+
+	result, err := handle.SetRole(ctx, "alice", RoleActive, "rehabilitation complete", "evidence",
+		"reinstate-alice", Reinstate())
+	if err != nil {
+		t.Fatalf("Reinstate: %v", err)
+	}
+	if result.Warnings != 0 {
+		t.Fatalf("warnings after reinstate = %d, want 0", result.Warnings)
+	}
+	cleared, err := handle.Projection(ctx, "alice")
+	if err != nil {
+		t.Fatalf("Projection: %v", err)
+	}
+	if cleared.Pain != 1 {
+		t.Fatalf("pain after reinstate = %d, want 1 (warnings cleared, shortfall stands)", cleared.Pain)
+	}
+	if cleared.LossBurned == 0 || cleared.Role != RoleActive {
+		t.Fatalf("history must survive: burned=%d role=%s", cleared.LossBurned, cleared.Role)
 	}
 }

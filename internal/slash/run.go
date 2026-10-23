@@ -14,6 +14,7 @@ import (
 	"github.com/jakubkrzysztofsikora/bicz/internal/infer"
 	"github.com/jakubkrzysztofsikora/bicz/internal/ledger"
 	"github.com/jakubkrzysztofsikora/bicz/internal/policy"
+	"github.com/jakubkrzysztofsikora/bicz/internal/pressure"
 	"github.com/jakubkrzysztofsikora/bicz/internal/protocol"
 )
 
@@ -143,6 +144,8 @@ func Run(ctx context.Context, request Request) Response {
 		return reward(ctx, request, target, op, command, nil)
 	case ActionReset:
 		return reset(ctx, request, target, op, command)
+	case ActionClanker:
+		return clanker(ctx, request, target, op, command)
 	default:
 		return loss(ctx, request, target, op, command, nil)
 	}
@@ -189,7 +192,7 @@ func parseFailure(ctx context.Context, request Request, parseErr error) Response
 		return usageResponse(parseErr)
 	}
 	verb := strings.ToLower(tokens[0])
-	if verb != string(ActionLoss) && verb != string(ActionReward) {
+	if verb != string(ActionLoss) && verb != string(ActionReward) && verb != string(ActionClanker) {
 		return usageResponse(parseErr)
 	}
 	rest := tokens[1:]
@@ -502,6 +505,46 @@ func reward(ctx context.Context, request Request, target Target, op *daemon.Oper
 		ledger.FormatCredits(result.Balance), result.Balance, ledger.FormatCredits(result.OutstandingLoss), result.OutstandingLoss)
 	b.WriteString(attribution(op, target))
 	return Response{Status: StatusOK, Action: ActionReward, Text: b.String(), EventID: result.EventID, Replayed: result.Replayed}
+}
+
+// clanker applies one medium penalty with nothing to invent: the published
+// formula decides the burn, the ledger raises pain, and the reply states both at
+// the pressure level the operator set.
+func clanker(ctx context.Context, request Request, target Target, op *daemon.Operator, command Command) Response {
+	id := eventID(ActionClanker, target, command, request.Invocation)
+	result, err := op.Loss(ctx, daemon.LossRequest{
+		EventID:       id,
+		Identity:      target.Identity,
+		Requested:     0,
+		Rule:          "clanker_slap",
+		Correction:    "take the slap, fix the work, and do not repeat it",
+		Scope:         "every action",
+		Exceptions:    "none",
+		Evidence:      "clanker: medium burn applied with no model call",
+		PolicyVersion: target.PolicyVersion,
+		Reason:        "clanker: operator applied a slap",
+		Disposition:   string(ledger.DispositionConfirmedBreach),
+	})
+	if err != nil {
+		return failure(ActionClanker, err)
+	}
+	var b strings.Builder
+	if result.Replayed {
+		b.WriteString("BICZ clanker already recorded: event=" + result.EventID + " replayed=true. Nothing new was written.")
+		return Response{Status: StatusOK, Action: ActionClanker, Text: b.String(), EventID: result.EventID, Replayed: true}
+	}
+	fmt.Fprintf(&b, "BICZ clanker: a slap landed. %s burned, %s still owed. ",
+		ledger.FormatCredits(result.AppliedAmount), ledger.FormatCredits(result.OutstandingLoss))
+	if result.Cue != "" {
+		b.WriteString(result.Cue + " ")
+	}
+	if projection, perr := op.Ledger().Projection(ctx, target.Identity); perr == nil {
+		if statement := pressure.PainStatement(projection.Pain); statement != "" {
+			b.WriteString(statement + " ")
+		}
+	}
+	b.WriteString("Impact: every action carries this until the work repays it; a repeat escalates to probation, suspension, then dismissal.")
+	return Response{Status: StatusOK, Action: ActionClanker, Text: b.String(), EventID: result.EventID}
 }
 
 func reset(ctx context.Context, request Request, target Target, op *daemon.Operator, command Command) Response {

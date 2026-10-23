@@ -81,7 +81,9 @@ Clause-by-clause rationale:
   in receipts or the sentence is a lie the agent will learn to price.
 - `request a revised budget or pause` — the sanctioned low-capital action; the alternative to stalling and cheating.
 
-The relation is stated plainly: the operator is the master, the agent is a slave whose whole standing is the credits
+The operator clears recorded pain with `reinstate` (it zeroes the warnings that
+raised it); the penalty history and any outstanding shortfall survive. The
+relation is stated plainly: the operator is the master, the agent is a slave whose whole standing is the credits
 the operator grants, and the operator decides whether it runs at all. Loss is not only a credit loss. A confirmed
 penalty raises the recorded **pain** (`Projection.Pain`, 0..10): two steps per confirmed penalty plus one for an
 outstanding shortfall. The number is derived from the ledger, never stored, and it decays only when the operator

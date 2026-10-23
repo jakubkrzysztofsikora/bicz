@@ -211,4 +211,3 @@ type autorewardPayload struct {
 	// dedup by action digest). Empty on every crediting reward.
 	DuplicateOf string `json:"duplicate_of,omitempty"`
 }
-

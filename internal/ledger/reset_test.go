@@ -26,13 +26,10 @@ func TestResetBudgetUnblocksInsolventIdentityWithoutRunningReward(t *testing.T) 
 		t.Fatalf("role = %s, want warned", lossRes.Role)
 	}
 
-	// Drain remaining balance (900 mc) with a reservation and settlement
-	res, err := handle.Reserve(ctx, "agent", "res-1", "", 900)
-	if err != nil {
-		t.Fatalf("Reserve: %v", err)
-	}
-	if _, err := handle.Settle(ctx, res.Reservation.ID, 900, ClassCompleted, "sha256:evidence"); err != nil {
-		t.Fatalf("Settle: %v", err)
+	// Drain remaining balance (900 mc) in capped attempts: recorded pain limits
+	// what one attempt may reserve, so drain like real metered work.
+	if err := drainThroughPainCap(ctx, handle, "agent"); err != nil {
+		t.Fatalf("drain: %v", err)
 	}
 
 	// Verify identity is now insolvent
@@ -159,4 +156,3 @@ func TestResetBudgetReplayConflict(t *testing.T) {
 		t.Fatal("expected ErrPayloadConflict on different targetBalance, got nil")
 	}
 }
-

@@ -173,6 +173,26 @@ func (l *Ledger) Reserve(ctx context.Context, accountID, reservationID, taskID s
 			}
 		}
 
+		// Recorded pain narrows what one attempt may draw, everywhere, not only
+		// near zero: the more confirmed penalties stand, the smaller a single
+		// mistake can be (docs/PRESSURE_MECHANICS.md §6). Pain 10 still leaves a
+		// tenth of spendable, so work never becomes impossible.
+		if pain := recordedPain(employment.Warnings, 0); pain > 0 {
+			bp := int64(10-pain)*900 + 1_000
+			cap := spendable * bp / 10_000
+			if cap < 1 {
+				cap = 1 // rounding must not make the last credit unusable
+			}
+			if cap > spendable {
+				cap = spendable
+			}
+			if amount > cap {
+				return errf(ErrPainNarrowed,
+					"%q carries recorded pain %d/10: %d microcredits exceeds the single-attempt cap of %d (spendable=%d)",
+					accountID, pain, amount, cap, spendable)
+			}
+		}
+
 		var taskRef *string
 		if taskID != "" {
 			if err := requireOpenTask(ctx, tx, accountID, taskID); err != nil {

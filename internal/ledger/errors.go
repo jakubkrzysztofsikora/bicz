@@ -66,6 +66,7 @@ var (
 	ErrSuspended               = &Error{Code: "suspended", Msg: "identity is suspended"}                       // contract
 	ErrDismissed               = &Error{Code: "dismissed", Msg: "identity is dismissed"}                       // contract
 	ErrGuardBandNarrowed       = &Error{Code: "guard_band_narrowed", Msg: "identity is inside the guard band"} // contract
+	ErrPainNarrowed            = &Error{Code: "pain_narrowed", Msg: "recorded pain narrows single-attempt exposure"}
 	ErrUnknownTask             = &Error{Code: "unknown_task", Msg: "unknown task"}
 	ErrTaskRevoked             = &Error{Code: "task_revoked", Msg: "task lease is not open"}         // contract
 	ErrUnknownReservation      = &Error{Code: "unknown_reservation", Msg: "unknown reservation"}     // contract
