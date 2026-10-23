@@ -775,6 +775,7 @@ func runDoctor(ctx context.Context, args []string) error {
 	fs := newFlagSet("doctor")
 	db := fs.String("db", "", "ledger database")
 	socket := fs.String("socket", "", "endpoint path (default: derived from --db)")
+	identity := fs.String("identity", "", "also report this identity's recorded standing (pain, role, shortfall)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -791,6 +792,16 @@ func runDoctor(ctx context.Context, args []string) error {
 		return err
 	}
 	report.Render(os.Stdout)
+	if *identity != "" {
+		// Pain is per-identity while the rest of the report is ledger-wide, so it
+		// is read only when the operator names one.
+		standing, projectErr := op.Ledger().Projection(ctx, *identity)
+		if projectErr != nil {
+			return projectErr
+		}
+		fmt.Fprintf(os.Stdout, "PAIN identity=%s level=%d/10 role=%s balance=%d mc outstanding=%d mc\n",
+			standing.AccountID, standing.Pain, standing.Role, standing.Balance, standing.OutstandingLoss)
+	}
 	if report.ChainError != nil {
 		return errors.New("doctor: the ledger failed verification")
 	}
