@@ -312,7 +312,7 @@ func (l *Ledger) RecordLoss(
 		if payload.accountable() {
 			result.Cue = cueWithPain(
 				penaltyCue(pressure.Default, rule, correction, evidence, applied, applied, eventID, cfg.selfDisclosed),
-				recordedPain(warnings, outstandingAfter))
+				recordedPain(warnings, outstandingAfter), pressure.Default, 1)
 		}
 		return nil
 	})
@@ -386,7 +386,7 @@ func replayLoss(ctx context.Context, tx *sql.Tx, stored Event, replay lossReplay
 		out.Cue = cueWithPain(
 			penaltyCue(pressure.Default, payload.Rule, payload.Correction, stored.Reason, payload.AppliedAmount,
 				outstanding, stored.ID, payload.SelfDisclosed),
-			recordedPain(employment.Warnings, outstanding))
+			recordedPain(employment.Warnings, outstanding), pressure.Default, 1)
 	}
 	return nil
 }

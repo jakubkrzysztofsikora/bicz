@@ -539,7 +539,7 @@ func clanker(ctx context.Context, request Request, target Target, op *daemon.Ope
 		b.WriteString(result.Cue + " ")
 	}
 	if projection, perr := op.Ledger().Projection(ctx, target.Identity); perr == nil {
-		if statement := pressure.PainStatement(projection.Pain); statement != "" {
+		if statement := pressure.PainStatement(projection.Pain, projection.PenaltyTotal, pressure.Default); statement != "" {
 			b.WriteString(statement + " ")
 		}
 	}

@@ -161,10 +161,14 @@ func (l *Ledger) Reserve(ctx context.Context, accountID, reservationID, taskID s
 					"%q is inside the guard band: an attempt must carry its argument digest to be authorized",
 					accountID)
 			}
-			if cap := banded.guardBandExposureCap(spendable); amount > cap {
+			bandCap := banded.guardBandExposureCap(spendable)
+			if floor := banded.MinimumAttempt(spendable); floor > bandCap {
+				bandCap = floor
+			}
+			if amount > bandCap {
 				return errf(ErrGuardBandNarrowed,
 					"%q is inside the guard band: %d microcredits exceeds the single-attempt cap of %d (spendable=%d)",
-					accountID, amount, cap, spendable)
+					accountID, amount, bandCap, spendable)
 			}
 			if taskID != "" {
 				return errf(ErrGuardBandNarrowed,
@@ -185,6 +189,11 @@ func (l *Ledger) Reserve(ctx context.Context, accountID, reservationID, taskID s
 			}
 			if cap > spendable {
 				cap = spendable
+			}
+			// A cap must never deny every priced tool while credit remains: that
+			// would brick the identity rather than narrow it.
+			if floor := minimumAttemptFor(ctx, tx, cfg.context, spendable); floor > cap {
+				cap = floor
 			}
 			if amount > cap {
 				return errf(ErrPainNarrowed,
@@ -256,6 +265,21 @@ func (l *Ledger) Reserve(ctx context.Context, accountID, reservationID, taskID s
 		return ReserveResult{}, err
 	}
 	return result, nil
+}
+
+// minimumAttemptFor returns the floor a capped attempt may not fall below: the
+// schedule's configured minimum, or the whole spendable balance when smaller.
+func minimumAttemptFor(ctx context.Context, q querier, rc *ReserveContext, spendable int64) int64 {
+	floor := int64(DefaultMinimumAttemptMC)
+	if rc != nil && rc.PolicyVersion != "" {
+		if policy, err := loadPolicy(ctx, q, rc.PolicyVersion); err == nil && policy.MinimumAttemptMC > 0 {
+			floor = policy.MinimumAttemptMC
+		}
+	}
+	if floor > spendable {
+		return spendable
+	}
+	return floor
 }
 
 // guardBandFor returns the published policy whose guard band covers balance, or

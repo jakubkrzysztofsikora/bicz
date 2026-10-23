@@ -366,3 +366,23 @@ func TestReinstateClearsRecordedPainButNotHistory(t *testing.T) {
 		t.Fatalf("history must survive: burned=%d role=%s", cleared.LossBurned, cleared.Role)
 	}
 }
+
+// A cap must never deny every priced tool while credit remains: with the shipped
+// example schedule the cheapest call is 5000 mc, so an identity with less than
+// that can still work once.
+func TestCapsNeverBrickAnIdentity(t *testing.T) {
+	ctx := context0(t)
+	handle := newLedger(t)
+	banded(t, handle, "alice", 19_999) // inside the band, 25% cap = 4999
+	publishBandPolicy(t, handle)
+
+	// Without the floor the cheapest published call would be denied.
+	if _, err := handle.Reserve(ctx, "alice", "res-cheapest", "", 5_000, identified("1")); err != nil {
+		t.Fatalf("the cheapest published call must stay affordable inside the band: %v", err)
+	}
+	// The floor is a floor, not a ceiling: it does not lift a much larger refusal.
+	_, err := handle.Reserve(ctx, "alice", "res-large", "", 15_000, identified("1"))
+	if err == nil {
+		t.Fatal("a large attempt is still refused inside the band")
+	}
+}

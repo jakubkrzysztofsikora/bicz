@@ -43,6 +43,9 @@ type Policy struct {
 	// docs/CONTRACTS.md §3.6: an anchor is due once per this many hours or once
 	// per this many appended events, whichever comes first. Zero takes the
 	// documented defaults.
+	// MinimumAttemptMC is the floor the guard band and pain caps never go below,
+	// so a capped identity can still afford one published tool call.
+	MinimumAttemptMC     int64                  `json:"minimum_attempt_mc"`
 	AnchorCadenceHours   int64                  `json:"anchor_cadence_hours"`
 	AnchorEventThreshold int64                  `json:"anchor_event_threshold"`
 	DefaultRule          PenaltyRule            `json:"default_penalty"`
@@ -57,6 +60,27 @@ const (
 	// DefaultAnchorEventThreshold is how many appended events make an anchor due.
 	DefaultAnchorEventThreshold int64 = 1_000
 )
+
+// DefaultMinimumAttemptMC is the smallest attempt an identity inside a cap may
+// still make when a published tool is cheaper than the cap. Without this floor a
+// cap could fall below the cheapest priced tool and deny every metered action
+// while credit remains — a bricked identity, not a narrower one. The operator
+// sets it per schedule from the published per-tool prices.
+const DefaultMinimumAttemptMC int64 = 5_000
+
+// MinimumAttempt is the executable floor for a capped attempt: at least one
+// published tool must stay affordable. It is the smaller of the configured floor
+// and the spendable balance, so it can never exceed what is available.
+func (p Policy) MinimumAttempt(spendable int64) int64 {
+	floor := p.MinimumAttemptMC
+	if floor <= 0 {
+		floor = DefaultMinimumAttemptMC
+	}
+	if floor > spendable {
+		return spendable
+	}
+	return floor
+}
 
 // Cadence is the anchoring window in force: the schedule's value, or the
 // documented default.

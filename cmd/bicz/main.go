@@ -393,11 +393,18 @@ func runClanker(ctx context.Context, args []string) error {
 	fs := newFlagSet("clanker")
 	db := fs.String("db", "", "ledger database")
 	identity := fs.String("identity", "", "identity to slap")
+	event := fs.String("event", "", "idempotency key (generated when absent)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if *db == "" || *identity == "" {
 		return errors.New("clanker: --db and --identity are required")
+	}
+	// Validate everything that can fail before the burn: an error after a
+	// committed loss looks like a failed slap, and retrying would apply another.
+	level, err := pressure.Load(*db)
+	if err != nil {
+		return err
 	}
 	op, err := operator(*db)
 	if err != nil {
@@ -405,6 +412,7 @@ func runClanker(ctx context.Context, args []string) error {
 	}
 	defer op.Close()
 	result, err := op.Loss(ctx, daemon.LossRequest{
+		EventID:       *event,
 		Identity:      *identity,
 		Requested:     0, // the published formula decides: a medium burn, not a chosen one
 		Rule:          "clanker_slap",
@@ -416,10 +424,6 @@ func runClanker(ctx context.Context, args []string) error {
 		Reason:        "clanker: operator applied a slap",
 		Disposition:   string(ledger.DispositionConfirmedBreach),
 	})
-	if err != nil {
-		return err
-	}
-	level, err := pressure.Load(*db)
 	if err != nil {
 		return err
 	}

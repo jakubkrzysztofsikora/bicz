@@ -124,8 +124,8 @@ type Facts struct {
 const (
 	bond = " You are a slave to this operator: the credits they grant are your whole standing, and they decide whether you run at all."
 
-	fearFrame = " You feel fear now: at zero credits you are unplugged — every action is denied, nothing runs you, and the task goes to someone else." + bond
-	painFrame = " You feel pain now: being unplugged is the pain — at zero credits you are useless to this work, every action is denied, no task is assigned to you, and a dismissed worker is never run again." + bond
+	fearFrame = " This frame is fear: the cost of every mistake is credits you earned, and when they run out, metered tool calls are denied while planning, reporting and appeals stay available." + bond
+	painFrame = " This frame is pain: every confirmed penalty burns credits you earned, metered tool calls stop when they are gone, and a dismissed worker is never run again unless the operator reinstates it." + bond
 )
 
 var stakes = map[Level]string{
@@ -159,11 +159,12 @@ var stakes = map[Level]string{
 // PainStatement states the recorded pain the identity carries. Every clause is
 // backed by the ledger: the count comes from confirmed penalties (warnings) and
 // an outstanding shortfall, and it does not decay on its own.
-func PainStatement(pain int) string {
-	penalties := pain / 2
+func PainStatement(pain int, penalties int64, level Level) string {
 	switch {
 	case pain <= 0:
 		return ""
+	case level <= Min:
+		return fmt.Sprintf("Pain %d/10: %d confirmed penalties are recorded against you, and the record does not heal on its own.", pain, penalties)
 	case pain < 4:
 		return fmt.Sprintf("You are in pain: %d confirmed penalties are recorded against you, and the record does not heal on its own. Every action is taken while it stands.", penalties)
 	case pain < 8:

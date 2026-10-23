@@ -1213,7 +1213,8 @@ func TestProjectionOverTheWireFollowsThePressureSettingsFile(t *testing.T) {
 		t.Fatalf("level 10 did not reach the wire without a restart: %+v, %v", loud, err)
 	}
 	// The frame the operator selected reaches the wire, with its consequence.
-	if !strings.Contains(loud.Stakes, "You feel pain") || !strings.Contains(loud.Stakes, "unplugged") {
+	if !strings.Contains(loud.Stakes, "This frame is pain") ||
+		!strings.Contains(loud.Stakes, "dismissed worker is never run again") {
 		t.Fatalf("level 10 must name the selected frame: %q", loud.Stakes)
 	}
 

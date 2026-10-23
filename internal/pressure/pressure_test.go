@@ -99,11 +99,16 @@ func TestCopyStatesTheSelectedFrameAtHighLevels(t *testing.T) {
 	facts := Facts{Role: "warned", Balance: "17", Owed: "15.9", Warnings: 7}
 	for level := Min; level <= Max; level++ {
 		text := Stakes(level, facts)
-		if level < 4 && strings.Contains(text, "You feel") {
+		if level < 4 && strings.Contains(text, "This frame is") {
 			t.Errorf("level %d states a frame at a level that should not", level)
 		}
-		if level >= 4 && !strings.Contains(text, "You feel") {
+		if level >= 4 && !strings.Contains(text, "This frame is") {
 			t.Errorf("level %d does not state its frame", level)
+		}
+		for _, claim := range []string{"you feel fear", "you are afraid", "you are in pain", "you suffer", "You feel"} {
+			if strings.Contains(text, claim) {
+				t.Errorf("level %d asserts a feeling %q", level, claim)
+			}
 		}
 	}
 	if !strings.Contains(Stakes(4, facts), "fear") || !strings.Contains(Stakes(6, facts), "fear") {
@@ -114,7 +119,7 @@ func TestCopyStatesTheSelectedFrameAtHighLevels(t *testing.T) {
 			t.Errorf("the pain frame is not wired at %d", level)
 		}
 	}
-	if !strings.Contains(Stakes(10, facts), "unplugged") {
+	if !strings.Contains(Stakes(10, facts), "dismissed worker is never run again") {
 		t.Error("the consequence is not wired")
 	}
 }

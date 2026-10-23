@@ -30,7 +30,11 @@ import (
 // identity. It is deterministic and factual.
 func RenderProjection(p protocol.Projection) string {
 	var b strings.Builder
-	if pain := pressure.PainStatement(p.Pain); pain != "" {
+	level := pressure.Min
+	if p.Stakes != "" {
+		level = pressure.Default
+	}
+	if pain := pressure.PainStatement(p.Pain, p.PenaltyTotal, level); pain != "" {
 		b.WriteString(pain + "\n")
 	}
 	fmt.Fprintf(&b, "bicz context: identity %s, role %s, ledger seq %d\n",

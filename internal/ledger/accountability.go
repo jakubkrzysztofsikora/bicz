@@ -183,11 +183,11 @@ func creditsWithMC(microcredits int64) string {
 
 // cueWithPain appends the recorded pain to a cue, so the receipt and the
 // projection state the same consequence. An empty cue stays empty (level Min).
-func cueWithPain(cue string, pain int) string {
+func cueWithPain(cue string, pain int, level pressure.Level, penalties int64) string {
 	if cue == "" || pain <= 0 {
 		return cue
 	}
-	return cue + " " + pressure.PainStatement(pain)
+	return cue + " " + pressure.PainStatement(pain, penalties, level)
 }
 
 // Penalties lists the identity's operator-confirmed penalties, oldest first.
@@ -212,6 +212,9 @@ func loadPenalties(ctx context.Context, q querier, accountID string, state lossS
 	}
 	defer rows.Close()
 	out := make([]Penalty, 0, 4)
+	// The confirmed-penalty count that raised the pain, from warnings, not from
+	// the projected slice, which is capped.
+	recordedPenalties := warnings
 	for rows.Next() {
 		var id, payload, reason, at string
 		var seq int64
@@ -238,7 +241,7 @@ func loadPenalties(ctx context.Context, q querier, accountID string, state lossS
 			At:            at,
 			Cue: cueWithPain(
 				penaltyCue(level, decoded.Rule, decoded.Correction, reason, decoded.AppliedAmount, outstanding, id, decoded.SelfDisclosed),
-				recordedPain(warnings, outstanding)),
+				recordedPain(warnings, outstanding), level, recordedPenalties),
 		})
 	}
 	if err := rows.Err(); err != nil {
