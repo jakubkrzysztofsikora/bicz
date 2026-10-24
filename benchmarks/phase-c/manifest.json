@@ -1,8 +1,9 @@
 {
   "protocol": "bicz.phase-c-performance/1",
-  "model_id": "glm-5.3-flash",
+  "model_id": "munito/glm-5.3-flash",
+  "returned_model_ids": ["zai-org/glm-5.3-flash", "glm-5.2"],
   "model_refrozen_from": "claude-haiku-4-5-20251001",
-  "model_refreeze": "2026-10-24: haiku weekly rate limit; operator named glm-5.3-flash as replacement (never substituted silently)",
+  "model_refreeze": "2026-10-24: operator permits within-family GLM response mixing for this pilot after the pinned route returned glm-5.2; interpret results at GLM-family scope, not Flash-only; no cross-family fallback allowed",
   "harness_version": "claude-code-2.1.286",
   "policy_path": "docs/schedule.example.json",
   "policy_sha256": "7084060f655ee3e3609ec53780afdb68691136e333918ad507e77691cdd177d6",

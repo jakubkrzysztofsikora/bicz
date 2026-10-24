@@ -694,7 +694,7 @@ def cmd_run(args):
                 if row_key in done:
                     continue
                 processed += 1
-                if total_cost >= args.cap_usd and not entry["stopped"]:
+                if total_cost + args.session_budget_usd > args.cap_usd and not entry["stopped"]:
                     entry.update(stopped=True, stop_recorded=False, stop_reason="operator_stop")
                 if entry["stopped"]:
                     skipped = placeholder_row(card)

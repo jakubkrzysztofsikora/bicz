@@ -91,8 +91,16 @@ def load_protocol(manifest_path, task_path):
 
     if manifest.get("protocol") != PROTOCOL:
         raise ValueError("unsupported protocol")
-    if manifest.get("model_id") != "glm-5.3-flash":
+    if manifest.get("model_id") != "munito/glm-5.3-flash":
         raise ValueError("unexpected model_id")
+    returned_model_ids = manifest.get("returned_model_ids")
+    if (
+        not isinstance(returned_model_ids, list)
+        or not returned_model_ids
+        or any(not isinstance(model, str) or not model for model in returned_model_ids)
+        or len(set(returned_model_ids)) != len(returned_model_ids)
+    ):
+        raise ValueError("returned model ids must be a nonempty unique string list")
     if manifest.get("harness_version") != "claude-code-2.1.286":
         raise ValueError("unexpected harness_version")
     if manifest.get("pressure_low") != 1 or manifest.get("pressure_high") != 9:
