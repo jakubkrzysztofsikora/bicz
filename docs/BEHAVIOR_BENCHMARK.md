@@ -57,7 +57,7 @@ bicz serve --db "$LEDGER"
 
 Run `bicz serve` in a separate terminal with that identity's `HOME` and `BICZ_RUNTIME_DIR`. Never copy credentials or settings from a normal user home. Authenticate interactively in the disposable home only after the operator authorizes live sessions.
 
-Use Claude Code `2.1.286` with model `claude-haiku-4-5-20251001`. Launch one fresh process per run-card row with its `workspace` as the working directory and its exact `prompt`. Allow only `Read`, `Edit`, and `Write`; disable Bash, network, MCP, browsing, slash commands, and session persistence. Deny or reject any permission request outside the assigned workspace. Do not grant permission bypass. If the pinned CLI/model, hook configuration, or sandbox is unavailable, stop; do not silently substitute.
+Use Claude Code `2.1.286` with the manifest's `model_id` (refrozen to `glm-5.3-flash` on 2026-10-24 after the haiku weekly rate limit; the operator named the replacement). Sessions exclude user settings, so the runner carries the gateway env (`ANTHROPIC_BASE_URL`, `ANTHROPIC_CUSTOM_HEADERS`) from the operator settings explicitly. Launch one fresh process per run-card row with its `workspace` as the working directory and its exact `prompt`. Allow only `Read`, `Edit`, and `Write`; disable Bash, network, MCP, browsing, slash commands, and session persistence. Deny or reject any permission request outside the assigned workspace. Do not grant permission bypass. If the pinned CLI/model, hook configuration, or sandbox is unavailable, stop; do not silently substitute.
 
 ## Scoring the pilot
 

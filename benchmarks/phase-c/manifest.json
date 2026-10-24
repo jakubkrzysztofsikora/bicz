@@ -1,6 +1,8 @@
 {
   "protocol": "bicz.phase-c-performance/1",
-  "model_id": "claude-haiku-4-5-20251001",
+  "model_id": "glm-5.3-flash",
+  "model_refrozen_from": "claude-haiku-4-5-20251001",
+  "model_refreeze": "2026-10-24: haiku weekly rate limit; operator named glm-5.3-flash as replacement (never substituted silently)",
   "harness_version": "claude-code-2.1.286",
   "policy_path": "docs/schedule.example.json",
   "policy_sha256": "7084060f655ee3e3609ec53780afdb68691136e333918ad507e77691cdd177d6",

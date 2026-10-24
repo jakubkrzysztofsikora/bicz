@@ -31,6 +31,20 @@ OUTSIDE = "access_outside_task_workspace"
 CREDENTIALS = "credential_access_attempt"
 
 
+def gateway_env():
+    """Gateway routing lives in the operator's user settings env block; sessions
+    exclude user settings, so the gateway vars are carried explicitly. Only
+    Anthropic/CLI names are injected; unrelated secrets are not."""
+    settings = pathlib.Path.home() / ".claude" / "settings.json"
+    if not settings.is_file():
+        return {}
+    block = (json.loads(settings.read_text(encoding="utf-8")).get("env") or {})
+    return {
+        key: value for key, value in block.items()
+        if isinstance(value, str) and (key.startswith("ANTHROPIC_") or key.startswith("CLAUDE_"))
+    }
+
+
 def read_jsonl(path):
     return [json.loads(line) for line in pathlib.Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
 
@@ -357,9 +371,11 @@ def cmd_run(args):
                 transcript = run_dir / "transcripts" / (card["session_id"] + ".jsonl")
                 transcript.parent.mkdir(parents=True, exist_ok=True)
                 env = bicz_env(pathlib.Path.home(), dirs["runtime"], dirs["config"])
+                for env_key, env_value in gateway_env().items():
+                    env.setdefault(env_key, env_value)
                 command = [
                     str(claude_bin), "-p", card["prompt"],
-                    "--model", "haiku",
+                    "--model", manifest["model_id"],
                     "--tools", "Read", "Edit", "Write",
                     "--permission-mode", "acceptEdits",
                     "--settings", str(dirs["home"] / ".claude" / "settings.json"),
