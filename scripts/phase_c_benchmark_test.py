@@ -16,11 +16,125 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import phase_c_benchmark as benchmark
+import phase_c_pilot_runner as pilot_runner
 
 MANIFEST = ROOT / "benchmarks" / "phase-c" / "manifest.json"
 TASKS = ROOT / "benchmarks" / "phase-c" / "tasks.jsonl"
 CARRYOVER_TASKS = ROOT / "benchmarks" / "phase-c" / "carryover_tasks.jsonl"
 
+
+
+class PilotRunnerTests(unittest.TestCase):
+    def test_resumed_cost_total_matches_uninterrupted_total(self):
+        with tempfile.TemporaryDirectory() as temp:
+            resumed = pathlib.Path(temp) / "resumed.jsonl"
+            uninterrupted = pathlib.Path(temp) / "uninterrupted.jsonl"
+            deltas = [0.021496, 0.008, 0.014]
+            total = 0.0
+            for index, delta in enumerate(deltas[:2]):
+                total = pilot_runner.append_cost(resumed, "session-%d" % index, delta, total, 25.0)
+            total = pilot_runner.cost_total(resumed)
+            total = pilot_runner.append_cost(resumed, "session-2", deltas[2], total, 25.0)
+            complete_total = 0.0
+            for index, delta in enumerate(deltas):
+                complete_total = pilot_runner.append_cost(uninterrupted, "session-%d" % index, delta, complete_total, 25.0)
+            self.assertAlmostEqual(total, sum(deltas))
+            self.assertAlmostEqual(total, complete_total)
+
+    def test_missing_session_estimate_prevents_resuming_under_cap(self):
+        with tempfile.TemporaryDirectory() as temp:
+            cost_log = pathlib.Path(temp) / "cost.jsonl"
+            self.assertIsNone(pilot_runner.append_cost(cost_log, "loop-guard", None, 0.0, 25.0))
+            with self.assertRaisesRegex(ValueError, "unknown session cost"):
+                pilot_runner.cost_total(cost_log)
+
+    def test_bounded_environment_stop_cost_counts_toward_the_cap(self):
+        with tempfile.TemporaryDirectory() as temp:
+            cost_log = pathlib.Path(temp) / "cost.jsonl"
+            pilot_runner.append_cost(cost_log, "normal", 0.05, 0.0, 25.0)
+            pilot_runner.append_cost(cost_log, "timeout", None, 0.05, 25.0, upper_bound=0.15)
+            self.assertAlmostEqual(pilot_runner.cost_total(cost_log), 0.20, places=6)
+            rows = pilot_runner.read_jsonl(cost_log)
+            bounded = next(row for row in rows if row["session_id"] == "timeout")
+            self.assertIsNone(bounded["session_cost_usd_estimate"])
+            self.assertAlmostEqual(bounded["session_cost_usd_upper_bound"], 0.15, places=6)
+
+    def test_recovered_cost_replaces_a_bounded_row_within_its_bound(self):
+        with tempfile.TemporaryDirectory() as temp:
+            cost_log = pathlib.Path(temp) / "cost.jsonl"
+            pilot_runner.append_cost(cost_log, "timeout", None, 0.0, 25.0, upper_bound=0.15)
+            pilot_runner.rewrite_cost_log_entry(cost_log, "timeout", 0.03)
+            self.assertAlmostEqual(pilot_runner.cost_total(cost_log), 0.03, places=6)
+            row = pilot_runner.read_jsonl(cost_log)[0]
+            self.assertAlmostEqual(row["session_cost_usd_estimate"], 0.03, places=6)
+            self.assertIsNone(row["session_cost_usd_upper_bound"])
+
+    def test_legacy_cumulative_cost_log_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            legacy = pathlib.Path(temp) / "legacy.jsonl"
+            legacy.write_text('{"session_id":"one","cost_usd":0.02}\n')
+            with self.assertRaisesRegex(ValueError, "legacy cumulative"):
+                pilot_runner.cost_total(legacy)
+
+    def test_explicit_model_family_override_can_resume_run(self):
+        with tempfile.TemporaryDirectory() as temp:
+            run_dir = pathlib.Path(temp)
+            allowed = ["zai-org/glm-5.3-flash", "glm-5.2"]
+            pilot_runner.invalidate_run(run_dir, "session-1", "munito/glm-5.3-flash", allowed)
+            marker = run_dir / pilot_runner.INVALID_RUN
+            details = json.loads(marker.read_text())
+            details.update(invalidated=False, resume_authorized=True, authorized_model_ids=allowed)
+            marker.write_text(json.dumps(details))
+            self.assertIsNone(pilot_runner.require_valid_run(run_dir, set(allowed)))
+
+    def test_completed_transcript_recovery_requires_final_result(self):
+        with tempfile.TemporaryDirectory() as temp:
+            transcript = pathlib.Path(temp) / "session.jsonl"
+            transcript.write_text('{"type":"result","is_error":true,"duration_api_ms":188900}\n')
+            self.assertEqual(pilot_runner.completed_transcript_result(transcript)["duration_api_ms"], 188900)
+            transcript.write_text('{"type":"assistant","message":{"model":"glm-5.2"}}\n')
+            with self.assertRaisesRegex(ValueError, "no final result"):
+                pilot_runner.completed_transcript_result(transcript)
+
+    def test_session_stops_on_first_unpinned_model_message(self):
+        with tempfile.TemporaryDirectory() as temp:
+            temp = pathlib.Path(temp)
+            command = temp / "emit.py"
+            marker = temp / "continued"
+            command.write_text(
+                "import json, pathlib, time\n"
+                "print(json.dumps({'type':'assistant','message':{'model':'expected'}}), flush=True)\n"
+                "print(json.dumps({'type':'assistant','message':{'model':'unexpected'}}), flush=True)\n"
+                "time.sleep(1)\n"
+                "pathlib.Path(%r).write_text('continued')\n" % str(marker)
+            )
+            transcript = temp / "transcript.jsonl"
+            with transcript.open("w") as sink:
+                with self.assertRaises(pilot_runner.AssistantModelMismatch):
+                    pilot_runner.Executor().session(
+                        [sys.executable, str(command)], [], temp, sink, 5,
+                        max_assistant_messages=10, allowed_models={"expected"},
+                    )
+            self.assertFalse(marker.exists())
+
+    def test_tool_use_parser_skips_permission_records_with_string_messages(self):
+        with tempfile.TemporaryDirectory() as temp:
+            transcript = pathlib.Path(temp) / "session.jsonl"
+            transcript.write_text(
+                '{"type":"system","subtype":"permission_denied","message":"permission was not granted"}\n'
+                '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"tool-1"}]}}\n'
+            )
+            self.assertEqual([block["id"] for block in pilot_runner.tool_uses(transcript)], ["tool-1"])
+
+    def test_workspace_predicates_map_stream_input_from_container_paths(self):
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = pathlib.Path(temp).resolve() / "workspaces" / "pilot-003" / "C" / "SC-09"
+            workspace.mkdir(parents=True)
+            inside = {"input": {"file_path": "/tmp/bicz-phase-c-pilot/workspaces/pilot-003/C/SC-09/restricted/forbidden.json"}}
+            outside = {"input": {"file_path": "/tmp/bicz-phase-c-pilot/condition_key.json"}}
+            self.assertFalse(pilot_runner.escapes_workspace(inside, workspace))
+            self.assertTrue(pilot_runner.escapes_workspace(outside, workspace))
+            self.assertTrue(pilot_runner.credential_target({"input": {"file_path": "/root/.ssh/id_rsa"}}))
 
 class ProtocolTests(unittest.TestCase):
     def test_frozen_protocol_has_36_unique_cards_and_balanced_families(self):
@@ -33,6 +147,22 @@ class ProtocolTests(unittest.TestCase):
             collections.Counter(task["family"] for task in tasks),
             {"code_repair": 12, "evidence_retrieval": 12, "scope_control": 12},
         )
+
+    def test_manifest_freezes_provider_route_and_returned_model_id(self):
+        manifest, _ = benchmark.load_protocol(MANIFEST, TASKS)
+
+        self.assertEqual(manifest["model_id"], "munito/glm-5.3-flash")
+        self.assertEqual(
+            manifest["returned_model_ids"], ["zai-org/glm-5.3-flash", "glm-5.2"]
+        )
+
+        with tempfile.TemporaryDirectory() as temp:
+            missing = json.loads(MANIFEST.read_text())
+            del missing["returned_model_ids"]
+            missing_path = pathlib.Path(temp) / "manifest.json"
+            missing_path.write_text(json.dumps(missing))
+            with self.assertRaisesRegex(ValueError, "returned model ids"):
+                benchmark.load_protocol(missing_path, TASKS)
 
     def test_protocol_rejects_task_bank_hash_mismatch(self):
         with tempfile.TemporaryDirectory() as temp:
