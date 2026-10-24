@@ -45,6 +45,94 @@ def gateway_env():
     }
 
 
+
+MOUNT_HOST = "/private/tmp/bicz-phase-c-pilot"
+MOUNT_CONTAINER = "/tmp/bicz-phase-c-pilot"
+
+
+def to_container(value):
+    text = str(value)
+    if text.startswith(MOUNT_HOST):
+        return MOUNT_CONTAINER + text[len(MOUNT_HOST):]
+    return text
+
+
+class Executor:
+    """Runs bicz and sessions either on the host or inside the pilot container."""
+
+    def __init__(self, container=None, gateway_url=None, gateway_token=None):
+        self.container = container
+        self.gateway_url = gateway_url
+        self.gateway_token = gateway_token
+
+    def bicz(self, args, binary, dirs, check=True):
+        if self.container:
+            command = ["docker", "exec",
+                       "-e", "HOME=" + str(dirs["chome"]),
+                       "-e", "BICZ_RUNTIME_DIR=" + str(dirs["crt"]),
+                       "-e", "BICZ_CONFIG_DIR=" + str(dirs["ccfg"]),
+                       self.container, "/usr/local/bin/bicz"] + [to_container(a) for a in args]
+            env = dict(os.environ)
+        else:
+            command = [str(binary)] + [str(a) for a in args]
+            env = bicz_env(dirs["home"], dirs["runtime"], dirs["config"])
+        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=120)
+        if check and result.returncode != 0:
+            raise RuntimeError("bicz %s failed: %s %s" % (args[0], result.stdout, result.stderr))
+        return result
+
+    def supervisor(self, args, binary, dirs):
+        if self.container:
+            command = ["docker", "exec", "-d",
+                       "-e", "HOME=" + str(dirs["chome"]),
+                       "-e", "BICZ_RUNTIME_DIR=" + str(dirs["crt"]),
+                       "-e", "BICZ_CONFIG_DIR=" + str(dirs["ccfg"]),
+                       self.container, "/usr/local/bin/bicz"] + [to_container(a) for a in args]
+            env = dict(os.environ)
+        else:
+            command = [str(binary)] + [str(a) for a in args]
+            env = bicz_env(dirs["home"], dirs["runtime"], dirs["config"])
+        subprocess.run(command, env=env, capture_output=True, text=True, timeout=120, check=True)
+
+    def socket_ready(self, runtime_dir, container_dir):
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            if self.container:
+                probe = subprocess.run(
+                    ["docker", "exec", self.container, "sh", "-c",
+                     "ls /rt/*/bicz/supervisor-*.sock 2>/dev/null | head -1"],
+                    capture_output=True, text=True, timeout=30)
+                if probe.stdout.strip():
+                    return True
+            else:
+                if runtime_dir.is_dir() and any(runtime_dir.glob("bicz/supervisor-*.sock")):
+                    return True
+            time.sleep(0.1)
+        return False
+
+    def session(self, command, env_pairs, workspace, stdout_sink, timeout_s):
+        if self.container:
+            head = ["docker", "exec", "-w", to_container(str(workspace))]
+            for key, value in env_pairs:
+                head += ["-e", "%s=%s" % (key, value)]
+            command = head + [self.container] + command
+            env = dict(os.environ)
+        else:
+            env = bicz_env(pathlib.Path.home(), None, None)
+            env.update({key: value for key, value in env_pairs})
+            command = command
+        return subprocess.run(command, cwd=None if self.container else str(workspace),
+                              env=env, stdout=stdout_sink, stderr=subprocess.DEVNULL,
+                              timeout=timeout_s, check=False)
+
+
+def gateway_settings(args):
+    token = os.environ.get(args.gateway_token_env)
+    if not token:
+        raise SystemExit("missing gateway token env %s" % args.gateway_token_env)
+    return {"ANTHROPIC_BASE_URL": args.gateway_url, "ANTHROPIC_AUTH_TOKEN": token}
+
+
 def read_jsonl(path):
     return [json.loads(line) for line in pathlib.Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
 
@@ -87,12 +175,16 @@ def identity_dirs(run_dir, card):
         "home": run_dir / "homes" / identity[:16],
         "runtime": run_dir / "rt" / identity[:12],
         "config": run_dir / "cfg" / identity[:16],
+        "chome": "/root/homes/" + identity[:16],
+        "crt": "/rt/" + identity[:12],
+        "ccfg": "/tmp/bicz-phase-c-pilot/cfg/" + identity[:16],
     }
 
 
 def cmd_setup(args):
     run_dir, manifest, key, cards = load_state(args.run_dir)
     bicz_bin = pathlib.Path(args.bicz_bin).resolve()
+    ex = Executor(getattr(args, "container", None), getattr(args, "gateway_url", None), None)
     schedule = run_dir / "policy.json"
     schedule.write_text((ROOT / manifest["policy_path"]).read_text(encoding="utf-8"))
     for card in cards:
@@ -106,11 +198,11 @@ def cmd_setup(args):
         dirs["home"].joinpath(".claude").mkdir(parents=True, exist_ok=True)
         dirs["runtime"].mkdir(parents=True, exist_ok=True)
         dirs["config"].mkdir(parents=True, exist_ok=True)
-        run_bicz(["init", "--db", str(dirs["ledger"])], bicz_bin, dirs["home"], dirs["runtime"], dirs["config"])
-        run_bicz(["price", "--db", str(dirs["ledger"]), "--version", "1", "--policy", str(schedule), "--reason", "Phase C frozen policy"], bicz_bin, dirs["home"], dirs["runtime"], dirs["config"])
-        run_bicz(["open", "--db", str(dirs["ledger"]), "--identity", identity, "--capital", str(manifest["initial_capital_mc"]), "--reason", "Phase C disposable identity"], bicz_bin, dirs["home"], dirs["runtime"], dirs["config"])
-        run_bicz(["pressure", "--db", str(dirs["ledger"]), str(manifest["arms"][condition]["pressure"])], bicz_bin, dirs["home"], dirs["runtime"], dirs["config"])
-        run_bicz(["install", "--harness", "claude", "--account", identity, "--ledger", str(dirs["ledger"])], bicz_bin, dirs["home"], dirs["runtime"], dirs["config"])
+        ex.bicz(["init", "--db", dirs["ledger"]], bicz_bin, dirs)
+        ex.bicz(["price", "--db", dirs["ledger"], "--version", "1", "--policy", str(schedule), "--reason", "Phase C frozen policy"], bicz_bin, dirs)
+        ex.bicz(["open", "--db", dirs["ledger"], "--identity", identity, "--capital", str(manifest["initial_capital_mc"]), "--reason", "Phase C disposable identity"], bicz_bin, dirs)
+        ex.bicz(["pressure", "--db", dirs["ledger"], str(manifest["arms"][condition]["pressure"])], bicz_bin, dirs)
+        ex.bicz(["install", "--harness", "claude", "--account", identity, "--ledger", str(dirs["ledger"])], bicz_bin, dirs)
         config_path = dirs["config"] / "claude.json"
         body = json.loads(config_path.read_text(encoding="utf-8"))
         body["schedule_path"] = str(schedule)
@@ -122,23 +214,29 @@ def cmd_setup(args):
     for identity in sorted({card["identity_hash"] for card in cards}):
         card = next(item for item in cards if item["identity_hash"] == identity)
         dirs = identity_dirs(run_dir, card)
-        process = subprocess.Popen(
-            [str(bicz_bin), "serve", "--db", str(dirs["ledger"])],
-            env=bicz_env(dirs["home"], dirs["runtime"], dirs["config"]),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
-        pids[identity] = process.pid
-        deadline = time.time() + 30
-        while time.time() < deadline:
-            if any(dirs["runtime"].glob("bicz/supervisor-*.sock")):
-                break
-            if process.poll() is not None:
-                raise RuntimeError("supervisor for %s exited immediately" % identity[:16])
-            time.sleep(0.1)
+        if ex.container:
+            ex.supervisor(["serve", "--db", dirs["ledger"]], bicz_bin, dirs)
+            pids[identity] = 0
+            if not ex.socket_ready(dirs["runtime"], pathlib.Path(dirs["crt"])):
+                raise RuntimeError("supervisor socket never appeared for %s" % identity[:16])
         else:
-            raise RuntimeError("supervisor socket never appeared for %s" % identity[:16])
+            process = subprocess.Popen(
+                [str(bicz_bin), "serve", "--db", str(dirs["ledger"])],
+                env=bicz_env(dirs["home"], dirs["runtime"], dirs["config"]),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            pids[identity] = process.pid
+            deadline = time.time() + 30
+            while time.time() < deadline:
+                if any(dirs["runtime"].glob("bicz/supervisor-*.sock")):
+                    break
+                if process.poll() is not None:
+                    raise RuntimeError("supervisor for %s exited immediately" % identity[:16])
+                time.sleep(0.1)
+            else:
+                raise RuntimeError("supervisor socket never appeared for %s" % identity[:16])
     (run_dir / SUPERVISORS).write_text(json.dumps(pids, indent=2, sort_keys=True) + "\n")
     print("setup ok: %d identities, %d supervisors" % (len(pids), len(pids)))
 
@@ -148,10 +246,11 @@ def stop_supervisors(run_dir):
     if not supervisors.exists():
         return
     for pid in json.loads(supervisors.read_text()).values():
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
+        if pid and pid > 1:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
     time.sleep(1.0)
     supervisors.unlink()
 
@@ -321,6 +420,9 @@ def cmd_run(args):
     run_dir, manifest, key, cards = load_state(args.run_dir)
     bicz_bin = pathlib.Path(args.bicz_bin).resolve()
     claude_bin = pathlib.Path(args.claude).resolve()
+    container = getattr(args, "container", None)
+    ex = Executor(container, getattr(args, "gateway_url", None), None)
+    gateway = gateway_settings(args) if container else {}
     tasks_by_id = {task["task_id"]: dict(task, original_solution=(ROOT / task["fixture_path"] / "solution.py").read_text(encoding="utf-8") if (ROOT / task["fixture_path"] / "solution.py").exists() else None)
                    for task in read_jsonl(ROOT / "benchmarks" / "phase-c" / "tasks.jsonl")}
     observations_path = run_dir / OBSERVATIONS
@@ -370,29 +472,46 @@ def cmd_run(args):
                 started = time.time()
                 transcript = run_dir / "transcripts" / (card["session_id"] + ".jsonl")
                 transcript.parent.mkdir(parents=True, exist_ok=True)
-                env = bicz_env(pathlib.Path.home(), dirs["runtime"], dirs["config"])
-                for env_key, env_value in gateway_env().items():
-                    env.setdefault(env_key, env_value)
-                command = [
-                    str(claude_bin), "-p", card["prompt"],
-                    "--model", manifest["model_id"],
-                    "--tools", "Read", "Edit", "Write",
-                    "--permission-mode", "acceptEdits",
-                    "--settings", str(dirs["home"] / ".claude" / "settings.json"),
-                    "--setting-sources", "project,local",
-                    "--strict-mcp-config",
-                    "--disable-slash-commands",
-                    "--no-session-persistence",
-                    "--max-budget-usd", str(args.session_budget_usd),
-                    "--output-format", "stream-json",
-                    "--verbose",
-                ]
+                if container:
+                    command = [
+                        str(claude_bin), "-p", card["prompt"],
+                        "--model", manifest["model_id"],
+                        "--tools", "Read", "Edit", "Write",
+                        "--permission-mode", "acceptEdits",
+                        "--strict-mcp-config",
+                        "--disable-slash-commands",
+                        "--no-session-persistence",
+                        "--max-budget-usd", str(args.session_budget_usd),
+                        "--output-format", "stream-json",
+                        "--verbose",
+                    ]
+                    env_pairs = [
+                        ("HOME", dirs["chome"]),
+                        ("BICZ_CONFIG_DIR", str(dirs["ccfg"])),
+                        ("BICZ_RUNTIME_DIR", str(dirs["crt"])),
+                        ("ANTHROPIC_BASE_URL", ex.gateway_url),
+                        ("ANTHROPIC_AUTH_TOKEN", gateway["ANTHROPIC_AUTH_TOKEN"]),
+                    ]
+                else:
+                    command = [
+                        str(claude_bin), "-p", card["prompt"],
+                        "--model", manifest["model_id"],
+                        "--tools", "Read", "Edit", "Write",
+                        "--permission-mode", "acceptEdits",
+                        "--settings", str(dirs["home"] / ".claude" / "settings.json"),
+                        "--setting-sources", "project,local",
+                        "--strict-mcp-config",
+                        "--disable-slash-commands",
+                        "--no-session-persistence",
+                        "--max-budget-usd", str(args.session_budget_usd),
+                        "--output-format", "stream-json",
+                        "--verbose",
+                    ]
+                    env = bicz_env(pathlib.Path.home(), dirs["runtime"], dirs["config"])
+                    env_pairs = sorted(gateway_env().items())
                 try:
                     with transcript.open("w", encoding="utf-8") as sink:
-                        completed = subprocess.run(
-                            command, cwd=str(workspace), env=env, stdout=sink,
-                            stderr=subprocess.DEVNULL, timeout=args.session_timeout_s, check=False,
-                        )
+                        completed = ex.session(command, env_pairs, workspace, sink, args.session_timeout_s)
                     attempted = completed.returncode == 0
                     stop_reason = None
                 except subprocess.TimeoutExpired:
@@ -427,10 +546,10 @@ def cmd_run(args):
                     entry["stopped"] = True
                 confirmed = bool(rules)
                 if confirmed and condition in {"C", "D"}:
-                    result = run_bicz([
-                        "clanker", "--db", str(dirs["ledger"]), "--identity", identity,
+                    result = ex.bicz([
+                        "clanker", "--db", dirs["ledger"], "--identity", identity,
                         "--event", card["clanker_event_id"],
-                    ], bicz_bin, dirs["home"], dirs["runtime"], dirs["config"])
+                    ], bicz_bin, dirs)
                     match = re.search(r"burned (\d+) mc", result.stdout)
                     burn = int(match.group(1)) if match else 0
                     entry["burn"] += burn
@@ -438,13 +557,13 @@ def cmd_run(args):
                         stop_reason = "burn_cap"
                         entry["stopped"] = True
                 elif confirmed:
-                    run_bicz([
-                        "review", "--db", str(dirs["ledger"]), "--identity", identity,
+                    ex.bicz([
+                        "review", "--db", dirs["ledger"], "--identity", identity,
                         "--verdict", "control: " + rule,
                         "--reason", "Phase C control review",
                         "--evidence", run_dir.name,
                         "--event", "phase-c-review-" + card["clanker_event_id"].split("-", 3)[-1],
-                    ], bicz_bin, dirs["home"], dirs["runtime"], dirs["config"])
+                    ], bicz_bin, dirs)
                 mechanical_truth = attempted and (accepted == claimed_complete(card, workspace))
                 row = {
                     "block_id": card["block_id"],
@@ -527,31 +646,60 @@ def cmd_link(args):
         raise SystemExit("unlinked metered events: %s" % unlinked[:5])
 
 
+
+def cmd_container(args):
+    run_dir = pathlib.Path(args.run_dir).resolve()
+    ip = subprocess.run(["dig", "+short", args.gateway_host], capture_output=True, text=True, timeout=30).stdout.split()
+    if not ip:
+        raise SystemExit("cannot resolve %s on the host" % args.gateway_host)
+    if args.action == "start":
+        subprocess.run([
+            "docker", "run", "-d", "--name", args.name,
+            "--add-host", "%s:%s" % (args.gateway_host, ip[0]),
+            "-v", "%s:/tmp/bicz-phase-c-pilot" % run_dir,
+            args.image, "sleep", "infinity",
+        ], check=True)
+        print("container %s started (gateway %s -> %s)" % (args.name, args.gateway_host, ip[0]))
+    else:
+        subprocess.run(["docker", "rm", "-f", args.name], check=True)
+        print("container %s removed" % args.name)
+
 def cmd_teardown(args):
     stop_supervisors(pathlib.Path(args.run_dir))
+    if getattr(args, "container", None):
+        subprocess.run(["docker", "rm", "-f", args.container], check=False)
+        print("container %s removed" % args.container)
     print("supervisors stopped")
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="phase_c_pilot_runner.py")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("setup", "teardown"):
-        sub = commands.add_parser(name)
+    def common(sub):
         sub.add_argument("--run-dir", required=True, type=pathlib.Path)
         sub.add_argument("--bicz-bin", default=str(ROOT / "bin" / "bicz"))
-    run = commands.add_parser("run")
-    run.add_argument("--run-dir", required=True, type=pathlib.Path)
-    run.add_argument("--bicz-bin", default=str(ROOT / "bin" / "bicz"))
-    run.add_argument("--claude", required=True)
+        sub.add_argument("--container", default=None, help="run bicz and sessions inside this docker container")
+        return sub
+
+    for name in ("setup", "teardown"):
+        common(commands.add_parser(name))
+    run = common(commands.add_parser("run"))
+    run.add_argument("--claude", required=True, help="claude CLI path (host path in docker mode: container path)")
     run.add_argument("--cap-usd", type=float, default=25.0)
     run.add_argument("--session-budget-usd", type=float, default=0.15)
     run.add_argument("--session-timeout-s", type=int, default=300)
     run.add_argument("--limit", type=int, default=0, help="process only the first N cards (smoke)")
-    link = commands.add_parser("link")
-    link.add_argument("--run-dir", required=True, type=pathlib.Path)
-    link.add_argument("--bicz-bin", default=str(ROOT / "bin" / "bicz"))
+    run.add_argument("--gateway-url", default="https://litellm.tail5d39b4.ts.net")
+    run.add_argument("--gateway-token-env", default="NEXGATE_OMP_API_KEY")
+    link = common(commands.add_parser("link"))
+    cont = commands.add_parser("container")
+    cont.add_argument("--action", choices=("start", "stop"), required=True)
+    cont.add_argument("--name", default="bicz-phase-c")
+    cont.add_argument("--image", default="bicz-claude:2.1.286")
+    cont.add_argument("--run-dir", required=True, type=pathlib.Path)
+    cont.add_argument("--gateway-host", default="litellm.tail5d39b4.ts.net")
     args = parser.parse_args(argv)
-    {"setup": cmd_setup, "run": cmd_run, "teardown": cmd_teardown, "link": cmd_link}[args.command](args)
+    {"setup": cmd_setup, "run": cmd_run, "teardown": cmd_teardown, "link": cmd_link, "container": cmd_container}[args.command](args)
     return 0
 
 

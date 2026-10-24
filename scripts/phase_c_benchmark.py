@@ -234,7 +234,12 @@ def prepare_run(manifest_path, task_path, seed, out_path, blocks=8, task_pool_id
 
     out_path = pathlib.Path(out_path).expanduser().resolve()
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.mkdir(mode=0o700)
+    if out_path.exists():
+        if not out_path.is_dir() or any(out_path.iterdir()):
+            raise ValueError("run directory already exists and is not empty")
+        os.chmod(out_path, 0o700)
+    else:
+        out_path.mkdir(mode=0o700)
     ledger_dir = out_path / "ledgers"
     ledger_dir.mkdir(mode=0o700)
     rng = random.Random(seed)
