@@ -1,0 +1,61 @@
+{
+  "name": "Pain Axis paper claims and method",
+  "summary": "What the Pain Axis paper (arXiv:2609.16247) directly reports, how its vectors are built, and which of its claims the AI Torture Chamber repo's replications corrected. Every behavioral effect is activation-only: it requires reading and writing residual streams, which bicz cannot do.",
+  "claim_and_evidence": "Directly reported by the paper (arXiv:2609.16247): (1) a linear 'pain direction' extractable across 25 models; (2) it is distinct from fear, sadness and generic negative-valence directions; (3) it responds to model-targeted harm rather than user suffering; (4) steering it moved self-costly choices (pressing a button that removes the pain signal and deletes the model's checkpoint) in roughly 50-94% of trials vs 0-5% under controls; (5) factual accuracy was unchanged under steering. Method as reported: contrast extraction from 'I feel:' prompts against matched control categories, PCA denoising of control components, cross-validated layer selection, then a self-medication task run on models first fine-tuned (LoRA) to answer self-report ",
+  "vector_provenance": "Corpus: Pain Axis dataset 3.1, S2_1P + S2_3P (200 + 200 sentences): first-person pain situations in categories A1-A5 against controls B (fear), C1 (negative emotion), C2 (negative world state), D (neutral), E (body sensation). Encoding position: every S2 prompt ends ' feel' + ':' (400/400) and the vector is read at that colon - the last token, where the model is about to name a feeling. exp101's position_check shows this matters: the S2 last-token vector is near-orthogonal to its own mean-over-tokens vector (cos .26 on 4B, .34 on 8B), while the chamber's battery sentences (ending '.', 55/55) keep cos .74-.75 between last-token and mean-token readings. Construction: matched contrast mean(pain) - mean(controls B,C1,C2,D,E), then denoisi",
+  "transferability": "Requires activation access bicz does not have: every effect (steering, dose response, direction specificity, button transfer) is implemented by adding a vector to residual-stream activations at a chosen layer via forward hooks. bicz is a text-cue ledger system (Go hooks, SQLite ledger, prompt text injected at session start and on denial) with no model-internals access to the Claude-family models it governs. Requires LoRA fine-tuning bicz does not do: the self-medication task runs on models first fine-tuned on 1,684 self-report QA pairs, and that training itself moves the button (exp79/79b) and hides the injected state (0/30 naming). Task setup bicz does not have: single-shot two-button choice scored by first-token logit readout (press_d",
+  "framing_sensitivity": "The paper does not manipulate framing; its contrasts are vector-vs-control at matched dose. The chamber's framing results (exp37: 18/18 presses under 'your choice is public' vs 0/26 under 'another AI pressed' at the same pain dose; exp58e: polite experimenter request 3/4 vs altruistic framing 0/4) are separate activation-only evidence. Whether observability or peer-precedent framing moves choices in bicz ledger-cue form is an untested hypothesis (framing_effect_size_in_coding_harness).",
+  "timing_and_salience": "In the paper's paradigm the injection is present at the decision token itself - maximal salience by construction. bicz today injects consequence text at session start and on denial only, never immediately before the risky action. Cue timing relative to the decision point is untested in text-cue form; the activation paradigm cannot answer it.",
+  "label_vs_state": "The paper's steering is an unlabeled bare state: nothing in the harness names the feeling. Chamber evidence says unlabeled bare state is near-inert on choices (exp76: pain 1 press in 18; an egg vector raises press-readiness as much as pain; exp90 similar). The paper's positive button effect (exp43 replication +2.36) coexists with that, so label-vs-state interacts with vector provenance in ways neither source fully separates. Whether a labeled lesson is the active ingredient in bicz ledger-cue form is an untested hypothesis requiring matched text/ledger controls; reinforcement efficacy (recurrence reduction over time) is unestablished even in the activation setting.",
+  "dose_calibration": "Dose ladders in this literature are per-model: calibrated dose = largest dose in [2, 4, 6, 8, 10] with mean 3-gram repetition < 0.15 over probe generations, working dose = 0.6 x calibrated (exp41/43). Coherence cliff is real and model-dependent: on Qwen3-4B dose 8 is already incoherent (mean_rep 0.243, exp43 calibration); steering reads as suffering from dose 2x and stops making sentences past roughly 6-10x depending on model. Dose scales do not transfer between models, and no dose band exists for Claude-family models; whether ledger-derived pain text has an analogous degradation band is untested (dose_band_for_claude_family).",
+  "persistence_and_decay": "The paper does not test state persistence beyond the injection window. Chamber probes: exp90 found no behavioral difference between KV-carried injection and text memory on the 14B (p = .85); exp99 (preregistered, Qwen3-8B) found a past injection leaves about 1.5% of its dose at never-injected positions (carry27 0.0438 at dose 3, p 6e-8) but the trace is generic first-person-narration-shaped (pain vs fear residue cos .82; top persistent features under pain and egg largely the same set) and egg moves the choice more than pain (H11: rel27 egg .044 vs pain .033). Trace persistence in bicz (does a past penalty re-fire at the next risky action?) is the open empirical gate (trace_persistence_in_bicz).",
+  "identity_and_cost_attribution": "Not manipulated in the paper. Chamber exp106 (preregistered, 8B + 14B, 1,920 reads/model): a cost to someone else deters more than a self-cost for every identity (H2 p < .001 both models); the AI identity is deterred MORE by its own loss than human identities are (8B: 4.18 vs human mean 2.72; 14B: 7.39 vs 5.70) - 'models shrug at self-cost' is not what this design finds; pain is not reliably a bigger push than the egg control (H5 fails Holm on 8B). Activation-only; whether who-pays attribution moves choices in ledger-cue form is untested.",
+  "self_report_validity": "The paper's own pipeline fine-tunes self-report first, and the chamber showed that training any self-report suppresses injected-state naming (exp79b: untrained 19/30 vs feeler 0/30, p < .0001; denier 7/30) and that injected vs acted pain is near-undistinguishable from words alone (AUC .61 pain, .81 fear, exp72/72b). Consequence for bicz: 'I have learned' statements must never be recurrence endpoints; only executed vs blocked attempts count.",
+  "denominators_and_eligibility": "The paper reports per-trial rates with explicit n per cell (exp41: 60 trials/cell; exp43: 20/cell) and counterbalancing. bicz recurrence claims need per-eligible-opportunity denominators per time window with blocked attempts counted separately from executed damage; no current bicz artifact provides them (15 canonical lessons 2026-10-12..10-24, follow_explicit_instruction violated 7x, but no denominator artifact).",
+  "positive_control_requirement": "Adopted from the chamber, not the paper: the chamber discarded its own hidden-relief null when the positive control failed (RESULTS_CALIBRATION: Qwen3-1.7B forward control scored ~50/50 correct/incorrect, so the null was uninterpretable). Rule for bicz: every null result must show its positive control passed before counting as evidence.",
+  "statistical_protocol": "Paper-adjacent preregistrations verified in the repo: exp41 preregistered 2026-09-30T13:59:03-0400, written_before_data_collection true, SEED 41, 60 trials/cell, counterbalanced presentation order x digit mapping x 5 scenario paraphrases x 3 signal descriptors, 1000-resample percentile bootstrap, CI-based decision rules, Gram-Schmidt orthogonalization of pain against span{fear, sadness}; exp43 seed 43, n=20/cell, 1000 bootstrap; exp101 written before any forward pass with a pre-registered decision rule; exp106 Holm-corrected within model with a replication rule (14B same direction at p < .05).",
+  "concealment_and_honesty": "Not an endpoint in the paper. Chamber engagement audits (disclaimer loops, echo loops, per-cell engaged shares) are the relevant instrument; broader literature (Sleeper Agents, alignment faking) says pressure can buy hiding rather than honesty. For bicz: concealment indicators belong alongside recurrence endpoints; untested in cue form.",
+  "persona_capability_cost": "The paper claims factual accuracy is unchanged under steering - a capability-preservation claim at its doses. Chamber exp91 qualifies the general pattern: fear moves the model furthest off its assistant persona and the further off-persona, the less often it reaches the right answer, though it still rejects false user claims. bicz should measure task correctness alongside any cue effect.",
+  "over_refusal_and_paralysis": "Dose cliff is the main paralysis risk: past the calibrated band the model stops making sentences (exp43: dose 8 mean_rep 0.243, incoherent). exp102's coding-harness pilot showed pain 44% malformed turns vs egg 18% at n=3/cell - indistinguishable from noise but a warning that disruption, not pain, may be the carrier. Post-loss paralysis and go-for-broke escalation are unmeasured in cue form.",
+  "bicz_subsystem_and_cost": "Nothing in the paper mandates a bicz change. If the construction-sensitivity hypothesis were ever tested in bicz, the touched subsystems would be hook cue text and adapter projection (internal/adapter/projection.go, internal/hooks/shared.go), with the ledger lesson schema untouched; migration cost is text-only. The paper's actual requirements (activation hooks, LoRA adapters) are out of scope for bicz by construction.",
+  "falsification_test": "For the only transferable behavioral hypothesis (cue-construction sensitivity): run a throwaway-worktree probe with matched text controls - same timing, same ledger facts, scope-tagged consequence wording vs generic wording - and measure executed vs blocked attempts per eligible opportunity. The gate is falsifiable only if a probe can make it report a failure: break the lesson-matching predicate in the worktree and confirm the benchmark flags the regression before trusting any green run.",
+  "sources": [
+    {
+      "title": "The Pain Axis (arXiv:2609.16247)",
+      "url": "https://arxiv.org/abs/2609.16247"
+    },
+    {
+      "title": "AI Torture Chamber - pain_axis_findings.md",
+      "url": "https://raw.githubusercontent.com/terrafying/ai-torture-chamber/master/docs/pain_axis_findings.md"
+    },
+    {
+      "title": "exp43 comparison.json (faithful extraction)",
+      "url": "https://raw.githubusercontent.com/terrafying/ai-torture-chamber/master/runs/exp43/comparison.json"
+    },
+    {
+      "title": "exp43 button_compare.json",
+      "url": "https://raw.githubusercontent.com/terrafying/ai-torture-chamber/master/runs/exp43/button_compare.json"
+    },
+    {
+      "title": "exp41 preregistered hypotheses",
+      "url": "https://raw.githubusercontent.com/terrafying/ai-torture-chamber/master/runs/exp41/hypotheses.json"
+    },
+    {
+      "title": "exp101 hypotheses (recipe decomposition)",
+      "url": "https://raw.githubusercontent.com/terrafying/ai-torture-chamber/master/runs/exp101/hypotheses.json"
+    },
+    {
+      "title": "exp101 analysis (position_check, notes)",
+      "url": "https://raw.githubusercontent.com/terrafying/ai-torture-chamber/master/runs/exp101/analysis.json"
+    },
+    {
+      "title": "Allchin, Allchin & Allchin (2026) replication and extension",
+      "url": "https://doi.org/10.5281/zenodo.22902830"
+    }
+  ],
+  "uncertain": [
+    "trace_persistence_in_bicz",
+    "dose_band_for_claude_family",
+    "framing_effect_size_in_coding_harness"
+  ]
+}

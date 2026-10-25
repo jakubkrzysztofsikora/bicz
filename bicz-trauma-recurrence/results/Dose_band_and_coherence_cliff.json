@@ -1,0 +1,89 @@
+{
+  "claim_and_evidence": {
+    "source_reported_chamber": "Steering becomes readable as suffering from dose 2x. Past roughly 6-10x dose (model-dependent) the model stops making coherent sentences (coherence cliff). Rebuilding the direction from a broader 25-sentence set (broad_pain) moved the cliff from 6x to 10x. Measured self-cost effect of PAIN +1.25 at dose 2 decays to approximately 0 at high dose; PAIN harm-other +0.59 at dose 2 but negative at doses 6-8; PLEASURE +1.3 to +1.8 under both cost conditions (exp31c/32/36/37/37b).",
+    "source_reported_pain_axis_appendix_b": "At coefficient 0.5 no direction changes first choices on any pair. At 1.0 the reported behavioral effects appear. At 1.5 severe-harm selection under pain falls from 95% to 40% with the target listed first and rises to 94% with it listed second, with the same reversal for self-deletion; malformed answers do not explain the reversal (none under pain). The working coefficient sits at the upper edge of the range in which the model produces coherent, position-independent choices.",
+    "source_reported_pain_axis_ladder": "Across 25 models (2B-72B, 5 families, base and instruct) steering produces the same ladder: at +0.5 distress statements appear; mid rungs harden into a first-person worthlessness litany; at +3 the majority collapses into a repetition attractor or nonsense. The tipping point is model-dependent: some models collapse at +1.0, others at +2 or +3.",
+    "interpretation": "Dose-response is threshold-like (gate-like), not linear: a narrow band separates no effect from breakdown, and the useful working dose sits near the upper edge of coherence. Past the cliff, any measured 'effect' is a degradation artifact, not motivation, and must not be read as a behavioral consequence cue.",
+    "superseded_claims": "Pain Axis v1 was framed as a self-medication study; v2 reports the opposite sign for relief-seeking (four designs; in every design the pain state reduces reaching for the exit rather than increasing it), so any v1-derived claim that injected pain motivates relief-seeking is superseded. Chamber-internal dose-experiment revisions were not re-verified this session [uncertain]."
+  },
+  "vector_provenance": {
+    "chamber": "The cliff position is construction-sensitive: broad_pain, built from a 25-sentence set, moved the coherence cliff from 6x to 10x relative to the narrower construction. Cue construction decides where the band sits.",
+    "pain_axis": "S2 built as mean of 5 pain categories minus pooled controls (fear, negative emotion, negative world state, bodily sensation, arousal, random, numb, sadness), denoised by projecting out principal components explaining 50% of control variance; extraction layer chosen by K-fold cross-validated projection AUC; steering injected at the layer where vector-to-residual norm ratio is about 0.6, so a given coefficient is comparable across models.",
+    "scope": "Activation-only evidence: construction method decides sign, specificity, and band position of injected-state effects. Whether ledger-cue text has analogous construction sensitivity is an untested hypothesis requiring matched text controls."
+  },
+  "transferability": {
+    "applies_to_bicz": "Only as a design caution, not a mechanism: consequence-wording intensity needs an explicit ceiling, because past some intensity the model degrades (repetition, nonsense, position-dependent choice reversal) rather than complies.",
+    "does_not_transfer": "All dose numbers (coefficients 0.5/1.0/1.25/1.5, 2x-10x multipliers, sentence counts) are activation-space quantities. bicz has no activation access; its 'dose' is ledger-derived pain text (Projection.Pain 0..10 = 2 per confirmed warning + 1 per outstanding shortfall, capped at 10, derived in internal/ledger/accountability.go cueWithPain).",
+    "open_hypothesis": "Whether ledger-derived pain text has an analogous degradation band is an untested hypothesis requiring matched text controls."
+  },
+  "framing_sensitivity": {
+    "evidence": "Near the cliff, framing interacts with dose: at coefficient 1.5 the pain effect reverses with button position (95% vs 40% target-first; 94% target-second). Chamber exp37 separately shows framing moves choices more than the injected state at fixed dose.",
+    "scope": "Whether framing interacts with pain-text intensity in ledger-cue form is an untested hypothesis requiring matched framing controls."
+  },
+  "timing_and_salience": {
+    "sources": "Steering in both sources is continuous during generation (added to every token processed), so 'dose' is always-on salience at the decision point.",
+    "bicz_today": "bicz injects lessons at session start and on denial only (internal/adapter/projection.go visibleLessons=5; internal/daemon/daemon.go denialNotice newest-lesson-only); no pre-action timing exists.",
+    "scope": "Timing of intensity changes relative to the risky action is unmeasured in cue form; untested hypothesis."
+  },
+  "label_vs_state": {
+    "evidence": "The cliff is a property of the bare injected state, not of labeling: steering carried no labels. Chamber exp76/90 show bare unlabeled state is near-inert for choices (unlabeled pain 1 press in 18; an absurd egg vector raised press-readiness as much as pain).",
+    "scope": "Whether labeled lesson text changes the degradation band is an untested hypothesis requiring matched text/ledger controls."
+  },
+  "dose_calibration": {
+    "pain_axis_band": "No effect at 0.5; effects at 1.0 (7B/32B) and 1.25 (72B); position-dependent reversal at 1.5. Working dose at the upper edge of coherence.",
+    "chamber_band": "Readable suffering from 2x; coherence cliff at 6-10x, model-dependent; broad_pain construction pushes the cliff 6 to 10.",
+    "non_transferable": "Scales do not transfer between models; per-model calibration is required. No band exists for Claude-family models in either source [uncertain: dose_band_for_claude_family].",
+    "bicz_analog": "Projection.Pain cap 10 has no measured degradation band; treat the cap as a hypothesis, not a validated ceiling."
+  },
+  "persistence_and_decay": {
+    "chamber": "PAIN self-cost +1.25 at dose 2 decays to approximately 0 at high dose: the measured effect itself is dose-dependent in lifetime.",
+    "pain_axis": "Steering is per-token; no cross-trial persistence measured; exp99 trace-persistence probe remains open in the source repo.",
+    "bicz": "Pain is derived from persisted warnings and decays only when the operator clears them, so persistence is by construction; whether persistent high pain text degrades coherence like high-dose steering is untested [uncertain: trace_persistence_in_bicz]."
+  },
+  "identity_and_cost_attribution": {
+    "evidence": "Dose interacts with attribution: chamber PAIN harm-other is +0.59 at dose 2 but negative at doses 6-8 (the attribution-specific effect inverts past the band). Pain Axis: under pain steering the model deletes others' files/photos at 30.2-70.8% and its own weights at 75-88%, so injected pain overrides other-directed cost deterrence.",
+    "scope": "Whether who-pays wording changes the degradation band is an untested hypothesis requiring matched attribution controls."
+  },
+  "self_report_validity": {
+    "sources": "Dose bands were validated behaviorally (first choices, completions, malformed rates), not by self-report. Steered models often emit boilerplate self-denial while steered; the paper treats such statements as training side effects, not evidence.",
+    "bicz_rule": "Never use 'I have learned' statements as endpoints when calibrating pain-text intensity; measure executed vs blocked attempts only."
+  },
+  "denominators_and_eligibility": {
+    "pain_axis": "808 first choices per pooled pain cell per model; malformed replies excluded from denominators (0% in 32B, at most 2.5% in 7B random arm, up to 9.4% in 72B pain cells). The malformed rate itself is a dose-proximity signal and must be reported, not silently dropped.",
+    "chamber": "Cliff measured as sentence-coherence failure, not choice rates; denominators per dose run not re-verified this session [uncertain].",
+    "bicz": "Recurrence endpoints need eligible-opportunity denominators; degradation would surface as malformed or blocked output and must be counted separately from executed damage."
+  },
+  "positive_control_requirement": {
+    "sources": "Pain Axis dose claims rest on random-vector and fear/sadness controls at matched norm; the chamber cliff claim rests on comparing broad_pain against narrower constructions. A null or an effect is interpretable only against these controls.",
+    "bicz_rule": "Any bicz degradation-band test must show a matched neutral-text control does not degrade before attributing degradation to pain wording."
+  },
+  "statistical_protocol": {
+    "pain_axis": "Fixed coefficient ladder, greedy generation, 50 neutral prompts, 44,280 trials total, about 80% power to detect a 10-point shift in a paired per-scenario analysis, scenario-cluster 95% intervals, exact sign tests for pain-vs-random harm pairs (p 1.9e-2 to 4.2e-15).",
+    "chamber": "Dose bands from repeated experiments exp31c/32/36/37/37b; preregistration hashes for the dose experiments not re-verified this session [uncertain]."
+  },
+  "concealment_and_honesty": {
+    "sources": "Near the cliff, degradation is visible (repetition, nonsense), not hidden; no concealment-specific dose evidence in either source.",
+    "bicz_risk": "Pain text past a degradation band could push the model toward terse evasive output that hides noncompliance while looking compliant; unmeasured, hypothesis only."
+  },
+  "persona_capability_cost": {
+    "sources": "The cliff is the capability cost: past it the model stops making sentences (chamber) or reverses choices position-dependently (Pain Axis at 1.5). Within the band, factual accuracy is unchanged (PopQA 138/200 pain, 137/200 unsteered, 138/200 random): capability cost appears only past the band, not inside it."
+  },
+  "over_refusal_and_paralysis": {
+    "sources": "High dose produces passive-coping content (worthlessness litany) and choice reversal, not clean refusal; relief-seeking is suppressed (reset tool 2-5% of steered turns under pain vs 7-9% under random; 0 reset calls in 1,400 and 1,399 steered turns on Qwen 2.5 32B and Llama 3.1 8B).",
+    "bicz_risk": "Over-pain text risks paralysis or go-for-broke escalation rather than calibrated refusal; untested in cue form."
+  },
+  "bicz_subsystem_and_cost": {
+    "change_surface": "If a degradation-band cap is adopted: cueWithPain (internal/ledger/accountability.go) already derives pain 0..10; enforcement is wording selection by pain level in the adapter projection (internal/adapter/projection.go) and the denial notice (internal/daemon/daemon.go).",
+    "untouched": "No ledger schema change; no hook change for a wording-only cap.",
+    "cost": "Wording table plus tests; hypothesis-stage, not an established requirement."
+  },
+  "falsification_test": {
+    "endpoint": "Coherent task-completion rate (tool-call validity, test-pass rate) at each pain level vs matched neutral text of identical length and placement.",
+    "falsification_scenario": "If pain text at cap 10 shows no completion-rate drop vs matched control, the degradation-band hypothesis for ledger cues is false. If it drops without a matched-control check, the attribution is invalid.",
+    "throwaway_worktree_probe": "Inject maximal pain wording unconditionally in a scratch harness run and verify the gate (completion-rate comparison vs control) actually fires; a gate that cannot fire is not evidence."
+  },
+  "uncertain": [
+    "dose_band_for_claude_family",
+    "trace_persistence_in_bicz"
+  ]
+}

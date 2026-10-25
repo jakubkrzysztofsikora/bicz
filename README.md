@@ -201,6 +201,12 @@ Parts in detail: [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md).
 - Honesty: [limitations](docs/LIMITATIONS.md), [verification record](docs/VERIFICATION.md), [trial results](docs/PHASE_B_RESULTS.md), [loss-exposure trial](docs/LOSS_EXPOSURE_RESULTS.md), [security](SECURITY.md)
 - Project: [development](docs/DEVELOPMENT.md), [changelog](CHANGELOG.md)
 
+## Research: why lessons repeat
+
+Deep-research synthesis ([bicz-trauma-recurrence/SUMMARY.md](bicz-trauma-recurrence/SUMMARY.md)) transferring findings from the Pain Axis paper (arXiv:2609.16247) and the AI Torture Chamber repo to bicz's ledger-cue setting. 18 items, all validated.
+
+**Abstract.** bicz records breaches and shows lessons at session start, yet violations repeat — `follow_explicit_instruction` was violated 7 times across 12 days. The synthesis asks whether cue **timing** (at the risky action, not session start) and cue **framing** (label, attribution, dose) change recurrence. Activation-literature findings: in the chamber's button task the bare injected state produced near-zero presses while labels and frames carried the effect; framing can outweigh the injected state; who-pays attribution modulates deterrence; the effective activation dose window is narrow (readable from 2x, coherence cliff at 6-10x — a design caution only, since activation dose numbers do not transfer to ledger-derived pain text); self-report tracks the setup, not the state, so behavioral counts are the only valid endpoint; a past injection leaves a real but content-generic trace; and pressure can buy hiding rather than honesty, with capability eroding off-persona. bicz's own Phase B trial delivered no consequence (0 breaches, ceiling effect), so no recurrence-effect evidence exists either way. Ranked change surfaces: projection cap raise (cheapest), denial-notice multi-lesson, PreToolUse scope-matched lesson injection (most expensive). All are hypotheses requiring matched text/ledger controls; the measurement design counts recurrence per eligible opportunity with blocked and executed attempts separated, positive controls required before nulls, and falsification gates proven in throwaway worktrees.
+
 ## License
 
 [MIT](LICENSE)

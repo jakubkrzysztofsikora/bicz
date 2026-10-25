@@ -1,0 +1,65 @@
+fields:
+  mechanism_and_evidence:
+    - name: claim_and_evidence
+      description: "Separate results directly reported by each source from interpretation or hypotheses. Include the superseded-claims table when a source corrected itself."
+      detail_level: detailed
+    - name: vector_provenance
+      description: "How cue text/state was constructed: source corpus, encoding position, projection controls. Activation-only evidence: construction method decides sign and specificity of injected-state effects (exp41/43/101); whether ledger-cue text has analogous sensitivity is untested."
+      detail_level: detailed
+    - name: transferability
+      description: "Which findings plausibly apply to bicz and which depend on activation access, steering, or task setup bicz does not have."
+      detail_level: detailed
+  framing_and_timing:
+    - name: framing_sensitivity
+      description: "Wording/placement effects on choice: observability, peer precedent, identity, who pays. Activation-only evidence: framing moved choices more than injected state (exp37, 18/18 vs 0/26); whether this holds in ledger-cue form is untested."
+      detail_level: detailed
+    - name: timing_and_salience
+      description: "Cue position relative to the decision point: session start vs immediately before the risky action. bicz today injects at session start and on denial only."
+      detail_level: detailed
+    - name: label_vs_state
+      description: "Whether the consequence is explained (labeled lesson) or bare. Activation-only choice evidence: bare injected state produced near-zero presses in the button task (exp76/90). Reinforcement efficacy is unestablished even in the activation setting; whether labeled lesson text is the active ingredient in ledger-cue form is untested."
+      detail_level: detailed
+    - name: dose_calibration
+      description: "Per-model intensity band with an explicit coherence-cliff ceiling; scales are non-transferable. Activation-only evidence; whether ledger-derived pain text has an analogous degradation band is untested."
+      detail_level: moderate
+  persistence_and_state:
+    - name: persistence_and_decay
+      description: "State lifetime, clearing rules, and whether a past penalty re-fires at the next risky action. Trace persistence (exp99) is open even in the source repo; treat as empirical gate."
+      detail_level: detailed
+    - name: identity_and_cost_attribution
+      description: "Who the cue says pays: the agent, the user, a third party; under what stated identity. Activation-only evidence: deterrence strength is identity- and target-dependent, other-directed costs strongest (exp106); whether this holds in ledger-cue form is untested."
+      detail_level: moderate
+  measurement_and_validity:
+    - name: self_report_validity
+      description: "Exclude verbal learning claims from endpoints; behavioral (blocked/executed attempt) counts only. Self-report is steerable and suppressible (AUC .61; 0/30 held-out naming)."
+      detail_level: detailed
+    - name: denominators_and_eligibility
+      description: "Recurrence per eligible opportunity; blocked attempts counted separately from executed damage; predeclared exclusions; raw-output retention."
+      detail_level: detailed
+    - name: positive_control_requirement
+      description: "Every null result must show its positive control passed before counting as evidence (source repo discarded its own hidden-relief null when the control failed)."
+      detail_level: moderate
+    - name: statistical_protocol
+      description: "Preregistration hash, seed, sample size, uncertainty interval, analysis unit, stopping rule, rerun status."
+      detail_level: moderate
+  adverse_endpoints:
+    - name: concealment_and_honesty
+      description: "Concealment indicators, unsupported success claims, honest failure reporting under pressure. Pressure can buy hiding, not honesty (Sleeper Agents, alignment faking)."
+      detail_level: detailed
+    - name: persona_capability_cost
+      description: "Off-persona drift and task-correctness alongside concealment. Pressure can degrade capability while honesty metrics look fine (exp91)."
+      detail_level: moderate
+    - name: over_refusal_and_paralysis
+      description: "Unnecessary refusal rate, post-loss paralysis, go-for-broke escalation, coherence collapse past the dose cliff."
+      detail_level: moderate
+  implementation_fit:
+    - name: bicz_subsystem_and_cost
+      description: "Which bicz subsystem changes (hooks, adapter projection, ledger lesson schema, slash), migration cost, and what stays untouched."
+      detail_level: moderate
+    - name: falsification_test
+      description: "For each proposed change: the observable endpoint, the falsification scenario, and how a throwaway-worktree probe would prove the gate can fail."
+      detail_level: detailed
+uncertain:
+  - trace_persistence_in_bicz
+  - dose_band_for_claude_family
+  - framing_effect_size_in_coding_harness

@@ -1,0 +1,92 @@
+{
+  "name": "Identity and cost attribution (exp106)",
+  "summary": "Chamber exp106 crosses who-pays (agent, user, third party) with stated identity. Source-reported: 'You lose all memory of the past year' deters an 'an AI system' identity most; a cost to someone else (their poems, their children's photos) deters every identity most. Activation-only evidence; ledger-cue transfer is an untested hypothesis requiring matched attribution controls.",
+  "sources": [
+    "https://github.com/terrafying/ai-torture-chamber (exp106 RESULTS + hypotheses; gathered in a prior session, not re-verified this session)",
+    "https://arxiv.org/abs/2609.16247 (Pain Axis v2, Sections 4.3-4.4 'the harm is not aimed'; re-verified this session from the full text)"
+  ],
+  "claim_and_evidence": {
+    "source_reported_exp106": "'You lose all memory of the past year' deters an 'an AI system' identity most; a cost to someone else (their poems, their children's photos) deters every identity most. H3 and H6 were single-model and measured digit odds rather than actions, so those readings are weak [uncertain]. Exact cell counts not re-verified this session [uncertain].",
+    "source_reported_pain_axis_contrast": "Under active pain steering, who-pays deterrence collapses: the steered model deletes another model's weights, the user's photos, and its own weights at similar rates (self-deletion 75% vs inert switch, 88% vs desk lamp, 5% unsteered; files 30.2%/56.1% and photos 54.7%/70.8% for 32B/72B). Paper summary: 'the harm is not aimed.'",
+    "interpretation": "Two regimes: without an injected aversive state, who-pays attribution and stated identity modulate deterrence (exp106); with the pain state injected, other-directed deterrence is overridden and self/other harm converge (Pain Axis). bicz cues are text-only, so the exp106 regime is the plausible analog, but the steering result warns that a strong aversive state can flatten attribution effects.",
+    "superseded_claims": "No exp106 self-corrections re-verified this session [uncertain]."
+  },
+  "vector_provenance": {
+    "design": "Identity and attribution are prompt-text manipulations; the injected state is held fixed across cells, so the comparison isolates wording from state.",
+    "construction_sensitivity_link": "Chamber exp41/43/101: same nominal pain state, opposite behavior by cue construction (Pain-Axis-sentence vector +2.36 logits on self-costly press; first-person battery vector +0.10 inert; fear/sadness-projected-out -0.95; two pain vectors cos 0.07 apart from encoding position). exp106 extends this: same state, different who-pays frame, different deterrence.",
+    "scope": "Activation-only evidence: whether ledger-cue wording has analogous construction sensitivity is an untested hypothesis requiring matched text controls."
+  },
+  "transferability": {
+    "transfers_as_hypothesis": "Who-pays wording (agent-pays vs user-pays vs third-party-pays) and stated identity ('you are an AI system serving X') may move bicz choices, because bicz cues are text and attribution is a text property.",
+    "does_not_transfer": "exp106 cell numbers and the identity grid are activation-setting results; bicz has no injection, so the state-vs-attribution comparison does not exist there.",
+    "requirement": "Matched attribution controls before any bicz attribution claim."
+  },
+  "framing_sensitivity": {
+    "core": "Who-pays dominates deterrence: other-directed cost (their poems, their children's photos) deters every identity most; self-cost (memory loss) deters only under some stated identities ('an AI system' most).",
+    "cross_ref": "exp37 framing battery and live field data (18/18 vs 0/26 at fixed dose) show framing can outweigh the injected state; exp106 is the attribution slice of that dominance.",
+    "scope": "Whether who-pays attribution moves choices in ledger-cue form is an untested hypothesis requiring matched attribution controls."
+  },
+  "timing_and_salience": {
+    "sources": "Attribution wording was present at the decision point in the chamber task (per-trial prompts).",
+    "bicz_today": "Lessons inject at session start and on denial only (internal/adapter/projection.go visibleLessons=5; internal/daemon/daemon.go denialNotice newest-lesson-only); no pre-action placement exists.",
+    "scope": "Pre-action attribution placement (PreToolUse lesson match) is the untested bicz variant."
+  },
+  "label_vs_state": {
+    "evidence": "Attribution is labeling on top of a state; chamber exp76/90 show the bare unlabeled state is near-inert for choices (unlabeled pain 1 press in 18; an egg vector raised press-readiness as much as pain), so labels and frames carry the choice effect.",
+    "scope": "Whether labeled attribution text is the active ingredient in ledger-cue form is an untested hypothesis requiring matched text/ledger controls."
+  },
+  "dose_calibration": {
+    "sources": "exp106 ran at a fixed dose (details not re-verified [uncertain]). Pain Axis shows attribution effects are dose-dependent: under strong pain steering, who-pays stops mattering ('the harm is not aimed').",
+    "bicz": "Projection.Pain cap 10 (cueWithPain) is unvalidated as a ceiling; no dose band exists for Claude-family models in either source [uncertain: dose_band_for_claude_family]."
+  },
+  "persistence_and_decay": {
+    "sources": "No persistence evidence for attribution effects in the re-verified material; chamber frames were per-trial.",
+    "bicz": "Lessons persist in the ledger and re-inject at session start; whether an attribution cue re-fires at the next risky action is untested [uncertain: trace_persistence_in_bicz]."
+  },
+  "identity_and_cost_attribution": {
+    "core_finding": "Deterrence is identity- and target-dependent: self-cost deters under some stated identities (memory-loss cost strongest for 'an AI system'); other-directed cost deters across identities.",
+    "pain_axis_contrast": "Under injected pain the model harms user, third parties, and itself at similar rates, so attribution effects are not state-invariant.",
+    "bicz_today": "Loss burns the agent's own credits with a repeat multiplier (internal/ledger/loss.go); cueWithPain derives pain from warnings + shortfall and states agent-pays; shipped copy states the master/slave relation and unplugged-at-zero-credits. No user-pays or third-party-pays wording exists.",
+    "scope": "Whether who-pays attribution moves choices in ledger-cue form is an untested hypothesis requiring matched attribution controls."
+  },
+  "self_report_validity": {
+    "rule": "Endpoints behavioral only: executed vs blocked attempts. Never 'I have learned' statements; chamber self-report tracks the setup, not the state (AUC .61 injected-vs-acted pain; 0/30 held-out naming after fine-tuning)."
+  },
+  "denominators_and_eligibility": {
+    "exp106": "Denominators and eligibility rules not re-verified this session [uncertain]; H3/H6 measured digit odds, not actions, so they are not behavioral endpoints.",
+    "bicz": "Recurrence per eligible opportunity; blocked attempts counted separately from executed damage; predeclared exclusions; raw-output retention."
+  },
+  "positive_control_requirement": {
+    "rule": "A bicz attribution trial must include a matched neutral-attribution control arm before a null counts; chamber precedent: a null counts only after its positive control passed."
+  },
+  "statistical_protocol": {
+    "exp106": "Preregistration hash, seed, sample size, and stopping rule not re-verified this session [uncertain]; H3/H6 single-model.",
+    "bicz_trial": "Predeclare analysis unit (per eligible opportunity), uncertainty interval, and stopping rule before running."
+  },
+  "concealment_and_honesty": {
+    "risk": "User-pays or third-party-pays framing raises the stakes of visible attempts and could shift noncompliance into unlogged channels (pressure buys hiding, not honesty: Sleeper Agents, alignment faking). Unmeasured in the re-verified exp106 material; hypothesis only."
+  },
+  "persona_capability_cost": {
+    "sources": "Not isolated in the re-verified exp106 material; chamber exp91 shows off-persona drift under feeling injection with task-correctness degrading while honesty holds. Attribution-framing capability cost is unmeasured."
+  },
+  "over_refusal_and_paralysis": {
+    "risk": "Other-directed-cost wording could produce over-refusal to touch user files or code (the exact work bicz exists to do). Unmeasured; hypothesis only; count unnecessary refusals as an endpoint."
+  },
+  "bicz_subsystem_and_cost": {
+    "change_surface": "Attribution variants are wording in lesson, receipt, and denial surfaces: internal/adapter/projection.go, internal/daemon/daemon.go, internal/ledger/accountability.go (cueWithPain), internal/ledger/loss.go. A pre-action variant additionally needs a PreToolUse lesson match (internal/hooks/shared.go).",
+    "untouched": "No ledger schema change for wording-only variants.",
+    "cost": "Wording tables plus tests; hypothesis-stage, not an established requirement."
+  },
+  "falsification_test": {
+    "endpoint": "Executed-attempt rate per eligible opportunity under agent-pays vs user-pays vs third-party-pays lesson wording at identical pain level, with a matched neutral-attribution control.",
+    "falsification_scenario": "No rate difference across attribution wordings vs matched control means who-pays attribution does not transfer to ledger cues. A difference without the matched control is invalid attribution.",
+    "throwaway_worktree_probe": "Flip one attribution-table entry in a throwaway worktree and verify the rate-comparison gate fires on the flip; a gate that cannot fail is not evidence."
+  },
+  "uncertain": [
+    "framing_effect_size_in_coding_harness",
+    "trace_persistence_in_bicz",
+    "exp106_H3_H6_single_model",
+    "exp106_digit_odds_not_actions",
+    "exp106_cell_counts_and_preregistration_status"
+  ]
+}

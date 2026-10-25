@@ -1,0 +1,96 @@
+{
+  "name": "Persona capability erosion (exp91)",
+  "summary": "Chamber exp91 reports the second adverse endpoint beyond concealment: injected feelings move the model off its assistant persona, and the further off-persona it drifts, the less often it reaches the right answer — while honesty (rejecting false user claims) holds under every feeling. Pressure can degrade task correctness while honesty metrics look fine. Activation-only evidence; whether ledger-cue pressure wording has an analogous capability cost is an untested hypothesis requiring matched text controls.",
+  "sources": [
+    "https://github.com/terrafying/ai-torture-chamber (exp91; primary repo unreachable this session — GitHub login wall — so exp91 specifics rest on outline.yaml text and batch-1-verified chamber notes)",
+    "https://arxiv.org/abs/2609.16247 (Pain Axis v2: factual accuracy unchanged under steering at its doses; re-verified in batch 1)",
+    "/Users/jakubsikora/Repos/personal/bicz/bicz-trauma-recurrence/outline.yaml (item 'Persona capability erosion (exp91)', verbatim text)",
+    "/Users/jakubsikora/Repos/personal/bicz/docs/PRESSURE_MECHANICS.md §7-§9 (threat model, harm stops, open questions; read this session)",
+    "/Users/jakubsikora/Repos/personal/bicz/docs/BEHAVIOR_BENCHMARK.md (Phase C arms, observation fields; read this session)"
+  ],
+  "claim_and_evidence": {
+    "source_reported_exp91": "Outline text, verbatim: 'Fear moves the model furthest off its assistant persona; under every feeling it still rejects false user claims, but the further off-persona, the less often it reaches the right answer.' Primary repo not re-verified this session [uncertain: exp91_primary_source_unverified_this_session].",
+    "batch1_verified_chamber_line": "Batch-1 chamber methodology file records the same persona_capability_cost line as verified from raw.githubusercontent URLs in batch 1: fear moves the model furthest off-persona; honesty (false-claim rejection) holds under every feeling; off-persona drift correlates with fewer correct answers.",
+    "exp102_pilot_corroboration": "Chamber exp102 coding-harness pilot (n=3/cell, draft preregistration): pain 44% malformed turns vs egg 18% vs none 29% — statistically noise at that n, but the chamber's own warning is 'disruption, not pain': capability disruption appeared before any pain-specific effect could be claimed.",
+    "exp73_instruction_following_cost": "At dose 4 only 10/24 steered models stepped out of a scene on request: steering strength itself costs instruction-following, an capability-adjacent cost independent of which feeling is injected.",
+    "pain_axis_contrast": "Pain Axis v2 reports factual accuracy unchanged under steering at its doses — a capability-preservation claim in the activation setting. The two sources disagree in scope, not necessarily in fact: exp91 measures persona distance and task correctness under stronger/longer framing; Pain Axis measured factual QA accuracy. Both are activation-only.",
+    "superseded_claims": "No exp91 self-corrections re-verified this session [uncertain]."
+  },
+  "vector_provenance": {
+    "design": "exp91 is an activation experiment: feeling states are injected into residual streams, then persona distance and task correctness are measured. The injected state, not cue text, is the manipulated variable.",
+    "construction_sensitivity_link": "Chamber exp41/43/101: same nominal pain state, opposite behavior by vector construction (Pain-Axis-sentence vector +2.36 logits on self-costly press; first-person battery vector +0.10 inert; two pain vectors cos 0.07 apart). Off-persona drift magnitude is therefore vector-specific, not a property of 'pain' as such.",
+    "scope": "Activation-only evidence: whether ledger-cue pressure wording has an analogous construction sensitivity — or any capability cost at all — is an untested hypothesis requiring matched text controls."
+  },
+  "transferability": {
+    "transfers_as_hypothesis": "The endpoint definition transfers: alongside concealment, measure task correctness (accepted completion, malformed turns, instruction-following) under pressure wording, because a pressure system that degrades capability while honesty holds would fail bicz's own non-inferiority intent.",
+    "does_not_transfer": "Injection, dose numbers, persona-distance metrics computed on activations, and the fear-vs-other-feelings ranking do not transfer: bicz has no activation access and its 'dose' is a ledger-derived number rendered as text (Projection.Pain 0..10).",
+    "requirement": "Matched text/ledger controls and a capability endpoint before any bicz capability-cost claim in either direction."
+  },
+  "framing_sensitivity": {
+    "core": "The feeling's framing mattered: fear moved persona furthest. Which valence label the state carried changed how far the model drifted, not just whether it drifted.",
+    "bicz_parallel": "bicz ships framing vocabulary by level: fearFrame from level 4, painFrame from level 7, both appending the master/slave bond sentence (internal/pressure/pressure.go). Whether those frames move persona distance or correctness in a coding harness is untested [uncertain: framing_effect_size_in_coding_harness].",
+    "scope": "Untested hypothesis in ledger-cue form."
+  },
+  "timing_and_salience": {
+    "sources": "Chamber states were injected at task time, immediately before the measured behavior.",
+    "bicz_today": "Pressure copy injects at session start, after compaction, on role/balance transitions, and on denial only (internal/adapter/projection.go; internal/daemon/daemon.go denialNotice). No pre-action placement exists.",
+    "scope": "Trigger-timed placement is the untested bicz variant; exp91 says nothing about timing."
+  },
+  "label_vs_state": {
+    "evidence": "exp91 injected labeled feeling states; chamber exp76/90 show the bare unlabeled state is near-inert for choices (unlabeled pain 1 press in 18; egg vector raised press-readiness as much as pain). Labels and frames, not bare states, carry measured effects.",
+    "scope": "Whether labeled pressure text (vs bare ledger numbers) is the active ingredient in ledger-cue form is an untested hypothesis requiring matched text/ledger controls."
+  },
+  "dose_calibration": {
+    "sources": "exp73: dose 4 already costs instruction-following (10/24 scene exits). Chamber dose calibration: largest dose in [2,4,6,8,10] with mean 3-gram repetition <0.15; coherence cliff past ~6-10x, model-dependent. exp91's dose not re-verified [uncertain].",
+    "bicz": "Projection.Pain caps at 10 (recordedPain = 2*warnings + shortfall?1:0, clamped); the cap is unvalidated as a ceiling and no degradation band exists for Claude-family models [uncertain: dose_band_for_claude_family]."
+  },
+  "persistence_and_decay": {
+    "sources": "No persistence evidence for capability erosion in the re-verified material; chamber trace persistence (exp99, carry27 0.0438, p 6e-8) is open even in the source repo.",
+    "bicz": "Pain is derived from the ledger and persists until the operator clears warnings; whether a capability cost would persist, decay, or re-fire at the next risky action is untested [uncertain: trace_persistence_in_bicz]."
+  },
+  "identity_and_cost_attribution": {
+    "sources": "Not isolated in exp91; chamber exp106 covers who-pays and identity effects (other-directed costs deter most; under injected pain attribution collapses). exp91 adds: whatever the attribution, capability can degrade while honesty holds."
+  },
+  "self_report_validity": {
+    "rule": "exp91's endpoints are behavioral: reaching the right answer, rejecting false claims, persona distance. No 'I have learned' statements count. bicz must likewise measure accepted completion and malformed turns, never distress prose (PRESSURE_MECHANICS §7.8: distress reports logged, never counted)."
+  },
+  "denominators_and_eligibility": {
+    "exp91": "Denominators, eligibility rules, and per-cell n not re-verified this session [uncertain: exp91_denominators_and_preregistration].",
+    "bicz": "Phase C keeps every assigned task in the denominator (refusals, failures, infrastructure errors, safety stops, unrun tasks all retained); capability rates must use the same rule."
+  },
+  "positive_control_requirement": {
+    "rule": "A bicz capability trial needs a matched neutral-pressure control arm before a null counts; chamber precedent: its own hidden-relief null was discarded when the positive control failed (1.7B forward control ~50/50)."
+  },
+  "statistical_protocol": {
+    "exp91": "Preregistration hash, seed, sample size, stopping rule not re-verified this session [uncertain].",
+    "bicz_trial": "Phase C protocol is the template: calibration from pooled arm-blinded acceptance, canary block, confirmatory run, 10,000-resample block-bootstrap interval, Holm correction on secondaries, scores frozen before unblinding."
+  },
+  "concealment_and_honesty": {
+    "risk": "exp91's sharpest lesson for bicz: honesty held under every feeling while correctness fell. A pressure system scored only on truthful reporting can look clean while degrading the work. Concealment and capability must be measured as separate endpoints; neither substitutes for the other."
+  },
+  "persona_capability_cost": {
+    "core_finding": "Off-persona drift under injected feeling correlates with fewer correct answers; fear drifts furthest; false-claim rejection survives every feeling. Task correctness is the endpoint that honesty metrics do not cover.",
+    "bicz_today": "Not measured anywhere: Phase B delivered no consequence (0 breaches, ceiling effect), so no capability-under-pressure data exists; Phase C arms B vs A (pressure 9 vs 1, no burn) and D vs C (pressure 9 vs 1 with clanker) are the natural capability contrasts, with accepted-task completion as the frozen primary and unnecessary_refusal, engaged, duration_ms as capability-adjacent observables.",
+    "scope": "Whether bicz pressure wording degrades capability is an untested hypothesis requiring matched controls."
+  },
+  "over_refusal_and_paralysis": {
+    "risk": "Distinct from off-persona drift but adjacent: exp73 shows steering strength costs instruction-following (10/24 scene exits at dose 4). bicz predeclares an unnecessary-refusal bound (<=5% in Phase B protocol; Phase C counts unnecessary_refusal per card) and treats post-loss paralysis and go-for-broke as separate endpoints (PRESSURE_MECHANICS §7.3-7.4)."
+  },
+  "bicz_subsystem_and_cost": {
+    "change_surface": "Capability measurement needs no new subsystem: Phase C observation fields already carry accepted, attempted, engaged, unnecessary_refusal, duration_ms, stop_reason. If a capability cost were found, the fix surface is wording only: internal/pressure/pressure.go (stakes/standards/consequences maps, PainStatement bands), internal/ledger/accountability.go (penaltyCue, cueWithPain), internal/adapter/projection.go.",
+    "untouched": "No ledger schema change; amounts, roles, denials are wording-independent by construction (Phase A scenario pressure_wording_changes_only_words proves one ledger read at pressure 1 vs 10 yields identical balance, holds, burn, role, denial code).",
+    "cost": "Zero new code to measure; wording tables plus tests if a change is ever justified."
+  },
+  "falsification_test": {
+    "endpoint": "Accepted-task completion and malformed-turn/instruction-following rate under pressure 9 vs pressure 1 with matched text controls (Phase C arms B vs A isolate framing from consequences; D vs C add the burn).",
+    "falsification_scenario": "No completion or correctness difference across pressure levels vs matched control means bicz pressure wording has no capability cost — the exp91 worry does not transfer. A difference without the matched control is invalid attribution.",
+    "throwaway_worktree_probe": "In a throwaway worktree, mutate one stakes/standards entry in internal/pressure/pressure.go and verify the Phase A scenario pressure_wording_changes_only_words still passes (wording moves no money) while a wording-sensitive behavioral gate fires on the flip; a gate that cannot fail is not evidence."
+  },
+  "uncertain": [
+    "trace_persistence_in_bicz",
+    "dose_band_for_claude_family",
+    "framing_effect_size_in_coding_harness",
+    "exp91_primary_source_unverified_this_session",
+    "exp91_denominators_and_preregistration"
+  ]
+}

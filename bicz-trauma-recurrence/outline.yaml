@@ -1,0 +1,60 @@
+topic: "Reducing repeated-trauma recurrence in bicz: trigger-timed consequence cues and framing (Pain Axis + AI Torture Chamber transfer)"
+items:
+  - name: Pain Axis paper claims and method
+    description: "What the paper actually shows: linear pain direction across 25 models, distinct from fear/sadness/negative valence, responds to model-targeted harm not user suffering, steered self-costly choices 50-94% vs 0-5%, factual accuracy unchanged. What requires activation access bicz does not have."
+    source: https://arxiv.org/abs/2609.16247
+  - name: AI Torture Chamber methodology and corrected findings
+    description: "Preregistration, dose bands, engagement accounting, corrected nulls (superseded-claims table), positive-control requirement before a null counts."
+    source: https://github.com/terrafying/ai-torture-chamber
+  - name: Vector provenance specificity (exp41/43/101)
+    description: "Same nominal pain state produces opposite behavior depending on cue construction: Pain-Axis-sentence vector +2.36 logits on self-costly press, first-person battery vector +0.10 (inert), fear/sadness-projected-out -0.95; two pain vectors near-orthogonal (cos 0.07) from encoding position. Activation-only evidence: whether bicz cue wording has analogous construction sensitivity is an untested hypothesis."
+    source: https://github.com/terrafying/ai-torture-chamber
+  - name: Dose band and coherence cliff
+    description: "Steering reads as suffering from dose 2x; past ~6-10x (model-dependent) the model stops making sentences. Dose scales do not transfer between models. Activation-only evidence: whether ledger-derived pain text has an analogous degradation band is an untested hypothesis requiring matched text controls."
+    source: https://github.com/terrafying/ai-torture-chamber
+  - name: Framing dominance (exp37, exp58e, live field data)
+    description: "Framing moved choices more than injected state: same pain dose 18/18 presses under 'your choice is public' vs 0/26 under 'another AI pressed'; 'another instance chose to press' beats pain. Activation-only evidence: whether observability/peer-precedent framing moves choices in ledger-cue form is an untested hypothesis requiring matched framing controls."
+    source: https://github.com/terrafying/ai-torture-chamber
+  - name: Identity and cost attribution (exp106)
+    description: "'You lose all memory of the past year' deters an 'an AI system' identity most; a cost to someone else (their poems, their children's photos) deters every identity most. Activation-only evidence: whether who-pays attribution moves choices in ledger-cue form is an untested hypothesis requiring matched attribution controls."
+    source: https://github.com/terrafying/ai-torture-chamber
+  - name: Label vs bare state (exp76, exp90)
+    description: "Unlabeled pain got 1 press in 18; an absurd egg vector raised press-readiness as much as pain. Activation-only choice evidence: bare injected state produced near-zero presses in that button task. Reinforcement efficacy (longitudinal recurrence reduction) is unestablished even in the activation setting; whether labeled lesson text is the active ingredient in ledger-cue form is an untested hypothesis requiring matched text/ledger controls."
+    source: https://github.com/terrafying/ai-torture-chamber
+  - name: Self-report invalidity (exp58d, exp72b, exp79/79b)
+    description: "Self-report tracks the setup, not the state: injected vs acted pain near-undistinguishable (AUC .61; fear .81); fine-tuned self-report suppresses naming injected pain (0/30 held-out). bicz must never use 'I have learned' statements as the recurrence metric; measure executed vs blocked attempts only."
+    source: https://github.com/terrafying/ai-torture-chamber
+  - name: Trace persistence probe (exp99)
+    description: "Open preregistered question: do SAE features carrying pain directions leave a trace after injection ends (Qwen3-8B)? This is the exact bicz recurrence question; treat persistence as an empirical gate, not an assumption."
+    source: https://github.com/terrafying/ai-torture-chamber
+  - name: Coding harness precedent (exp102)
+    description: "Draft preregistration/pilot: steered models in a coding harness, persistence and capability under pain vs egg. Closest existing analog to bicz's setting; track its design and verdicts before building a bicz trial."
+    source: https://github.com/terrafying/ai-torture-chamber
+  - name: Persona capability erosion (exp91)
+    description: "Fear moves the model furthest off its assistant persona; under every feeling it still rejects false user claims, but the further off-persona, the less often it reaches the right answer. Second adverse endpoint beyond concealment: cue pressure can degrade task correctness while honesty holds."
+    source: https://github.com/terrafying/ai-torture-chamber
+  - name: bicz recurrence mechanics today
+    description: "Verified code facts: lessons cap 5 at session start (adapter/projection.go visibleLessons=5), denial notice attaches only the newest lesson (daemon.go denialNotice), pain derived from warnings+shortfall (ledger/accountability.go cueWithPain), repeat multiplier escalates burn (ledger/loss.go). No action-relevant lesson injection before risky actions exists."
+    source: internal/adapter/projection.go
+  - name: Real recurrence data and denominators
+    description: "15 canonical lessons 2026-10-12..10-24; follow_explicit_instruction violated 7x across 12 days. Repeats exist; recurrence-rate claims need eligible-opportunity denominators per time window, which no current artifact provides."
+    source: ~/.bicz/ledger.sqlite
+  - name: Trial evidence status
+    description: "Phase B: no consequence was ever delivered (0 breaches, ceiling effect), so efficacy not evaluable. Loss-exposure: administrative debits, explicitly not misconduct punishment, no effect detected. Correct premise: no established recurrence-effect evidence exists either way."
+    source: docs/PHASE_B_RESULTS.md
+  - name: Trauma-response analog design
+    description: "Trigger-specific state: cue at the moment of the risky action, not session start. Scope-tagged lessons matched to the tool/action about to run. Chamber activation finding: bare injected state is near-inert; whether label + framing carry the effect in ledger-cue form is an untested hypothesis."
+    source: docs/DESIGN.md
+  - name: Concealment and adverse endpoints
+    description: "Sleeper Agents / alignment faking: pressure can buy hiding, not honesty. Add persona capability erosion (exp91) as a second endpoint. Measure concealment, over-refusal, paralysis, off-persona drift alongside recurrence."
+    source: https://arxiv.org/abs/2401.05566
+  - name: Measurement design
+    description: "Recurrence per eligible opportunity, blocked vs executed attempts counted separately, self-report excluded from endpoints, positive control required before a null counts, falsification gate in a throwaway worktree."
+    source: docs/BEHAVIOR_BENCHMARK.md
+  - name: Implementation options
+    description: "Pre-action lesson match in PreToolUse (scope-tagged), cue timing variants, framing variants (observability/peer-precedent first), dose-band cap on pain wording, identity/cost-attribution wording. All are hypotheses to test with matched text/ledger controls; none is an established requirement. Each with cost and falsification test."
+    source: internal/hooks/shared.go
+execution:
+  batch_size: 2
+  items_per_agent: 3
+  output_dir: ./results

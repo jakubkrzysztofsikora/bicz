@@ -1,0 +1,98 @@
+{
+  "name": "bicz recurrence mechanics today (verified code facts)",
+  "summary": "Direct-code audit of how bicz delivers consequence cues today: lessons render oldest-first capped at 5 at session start/compaction; denial notices attach only the newest lesson; PreToolUse accountability re-emits only penalties not yet seen this session; recorded pain is derived (2 per warning + 1 for shortfall), never stored; repeat multipliers [1,2,4] escalate burn but the guard band forces multiplier 1. No action-relevant lesson injection before risky actions exists anywhere in the hook path.",
+  "sources": [
+    "internal/adapter/projection.go (RenderProjection, visibleLessons=5, RenderAccountability; read this session)",
+    "internal/daemon/daemon.go:441-450 (denialNotice; read this session)",
+    "internal/ledger/accountability.go (Penalty, MaxProjectedPenalties=5, cueText, penaltyCue, cueWithPain, Disposition; read this session)",
+    "internal/ledger/projection.go:60-85 (recordedPain; read this session)",
+    "internal/ledger/loss.go (RecordLoss, confirmedRepeats, SelfDisclosed, unrecovered; read this session)",
+    "internal/ledger/penalty.go (multiplierFor, guardBand, formula, DefaultGuardBandMaxExposureBP=2500; read this session)",
+    "internal/pressure/pressure.go (bond, fearFrame, painFrame, stakes, PainStatement, Stakes, standing, standards, consequences, Cue, CueFacts, disclosedSentence; read this session)",
+    "internal/hooks/shared.go (DefaultTimeout=3s, kinds, preToolUse, postToolUse, projection, accountability, write; read this session)",
+    "docs/DESIGN.md §Delivery sequence (read this session)",
+    "docs/PRESSURE_MECHANICS.md §2-§5 (read this session)"
+  ],
+  "claim_and_evidence": {
+    "verified_code_facts": "Every claim below was read from source this session, not inferred. Outline text verbatim: 'Verified code facts: lessons cap 5 at session start (adapter/projection.go visibleLessons=5), denial notice attaches only the newest lesson (daemon.go denialNotice), pain derived from warnings+shortfall (ledger/accountability.go cueWithPain), repeat multiplier escalates burn (ledger/loss.go). No action-relevant lesson injection before risky actions exists.'",
+    "lesson_rendering": "RenderProjection (internal/adapter/projection.go) renders lessons oldest-first as 'Rule: Correction (scope: X)', capped at const visibleLessons = 5 with a '(+N more)' suffix; with 15 live lessons for jakubsikora, 10 are invisible at session start. RenderAccountability(p, after) is the sole cue-assembly call: every Go adapter calls it and TypeScript adapters forward the same Cue strings.",
+    "denial_notice": "denialNotice (internal/daemon/daemon.go:441-450) appends exactly one lesson — lessons[len(lessons)-1], the newest — to the denial text. No scope matching, no rule matching, no pick by relevance to the denied action.",
+    "pre_action_path": "preToolUse (internal/hooks/shared.go:519-589) quotes, authorizes, and on DecisionDeny attaches r.accountability(ev.SessionID, response.Projection, false) — false meaning only penalties with Seq greater than the session's last seen seq. On DecisionUnobserved and DecisionAllow the same new-penalties-only cue rides along as additionalContext. There is no tool/action-to-lesson matching anywhere in the path: the cue is 'new penalties since last seen', not 'lesson relevant to the action about to run'.",
+    "projection_path": "projection() (internal/hooks/shared.go:789-810) renders RenderProjection plus accountability(..., true) — all=true re-emits every projected cue, which is how a restarted or compacted session gets them back. This runs at SessionStart and PreCompact.",
+    "pain_derivation": "recordedPain (internal/ledger/projection.go:60-85) = 2*warnings + (outstanding>0 ? 1 : 0), clamped 0..10, derived never stored, so it cannot drift from the ledger and only falls when the operator clears warnings. cueWithPain (internal/ledger/accountability.go) appends pressure.PainStatement to a cue only when the cue is nonempty and pain>0, so receipt, projection, and model context cannot disagree.",
+    "repeat_escalation": "RecordLoss (internal/ledger/loss.go) computes L = min(Lmax, max(floor, ceil(rho*K)) * m(n)) with burn = min(requested, L, K), never more than K minus frozen holds, atomically writing burn + held-reservation revocation + durable lesson row + escalating role event. confirmedRepeats counts prior non-self-disclosed losses for the same rule under the same policyVersion; SelfDisclosed() is priced below detection and never increments the repeat count or escalates the role.",
+    "guard_band": "guardBand (internal/ledger/penalty.go) is true when balance*10000 < InitialCapital*GuardBandBP; formula() forces multiplier = 1 inside the band, and DefaultGuardBandMaxExposureBP = 2500 caps per-attempt exposure at 25% of spendable. Live schedule (ledger price_schedules v1): floor 1,000,000 mc, fraction 500 bp, Lmax 10,000,000 mc, repeat multipliers [1,2,4], cap 4, guard band 2000 bp.",
+    "pressure_copy": "internal/pressure/pressure.go: bond sentence ('You are a slave to this operator...') appended by fearFrame (from level 4) and painFrame (from level 7); stakes map per level 2..10; PainStatement bands (pain<=0 empty; level<=Min numeric; pain<4 'You are in pain: N confirmed penalties...'; pain<8 '...does not fade...'; >=8 'at the top of the scale...'); Stakes appends standing(facts) at levels >=7 ('Standing now: role X, N credits[, N owed][, W warnings].'); standards map (4-5 'fell short of the agreed standard', 6 'not the work you are here to do', 7 '+failure was yours', 8-10 'You failed at the work you are here to do'); consequences map (6 'at zero you stop', 7 'closer to probation, suspension, and dismissal', 8 '+end of you in this wor",
+    "hook_bounds": "DefaultTimeout = 3s hard bound per hook invocation; on allow the adapter never emits permissionDecision 'allow' (deny is the only decision it can produce); unmanaged daemon yields 'NOT metered, no charge recorded' notice or deny per unmanaged_mode."
+  },
+  "vector_provenance": {
+    "design": "bicz cue text is constructed from ledger facts only: rule, correction, scope, evidence are operator-recorded data quoted verbatim (escaped as data); fixed copy lives in pressure.go tables and adapter renderers and is test-checked. cueText collapses control chars, caps terms at 200 chars and evidence at 240 with '…' truncation, so operator text cannot inject structure into context.",
+    "construction_sensitivity_link": "Chamber exp41/43/101 show same-nominal-state opposite-behavior by construction; bicz has one construction per level, so construction sensitivity is untestable there without new wording variants.",
+    "scope": "Whether ledger-cue construction (which table entry, which band) has analogous behavioral sensitivity is an untested hypothesis requiring matched text controls."
+  },
+  "transferability": {
+    "transfers_as_hypothesis": "The chamber's label-vs-bare-state finding (exp76/90: unlabeled state near-inert) motivates bicz's labeled-lesson design, but transfer is untested: bicz cues are text, not activations.",
+    "does_not_transfer": "Injection, dose numbers, and activation-derived metrics do not transfer; bicz's 'dose' is a derived ledger number rendered as text.",
+    "requirement": "Matched text/ledger controls before any behavioral claim about cue wording."
+  },
+  "framing_sensitivity": {
+    "core": "Framing is the operator's pressure level: wording-only by construction (Phase A scenario pressure_wording_changes_only_words proves one ledger read at pressure 1 vs 10 yields identical balance, holds, burn, outstanding shortfall, role, warnings, penalty counters, and denial code; only cue text differs).",
+    "bicz_today": "Levels 4+ add fearFrame, 7+ painFrame, both with the bond sentence; standards/consequences escalate in place. Whether any of this wording moves choices is unmeasured (Phase B delivered no consequence; Phase C not yet run)."
+  },
+  "timing_and_salience": {
+    "core_finding": "Delivery today is session-start/compaction (projection, all cues re-emitted), role/balance transitions, denial (newest lesson only), and new-penalty-since-last-seen on every PreToolUse/PostToolUse response. The DESIGN delivery sequence step 5 — 'On later relevant actions, retrieve the rule and safe alternative; gate deterministically where feasible' — is unimplemented: no code path retrieves a lesson matched to the action about to run.",
+    "gap": "A model violating follow_explicit_instruction on day 12 sees, at session start, the oldest 5 of 15 lessons (follow_explicit_instruction lessons are among them but ordering is oldest-first, so the most recent correction may sit in the '(+7 more)' tail), and on denial only the newest lesson regardless of which rule the denial concerns.",
+    "scope": "Trigger-timed, scope-matched injection (PreToolUse lesson match) is the untested bicz variant; today's mechanics cannot deliver it."
+  },
+  "label_vs_state": {
+    "evidence": "bicz cues are always labeled: rule name, correction, scope, evidence, amounts. The bare-state condition does not exist in shipped code (pressure level 1 removes cue and stakes text but keeps numeric ledger lines).",
+    "scope": "Whether the label (vs the bare numbers) is the active ingredient is untested; a matched control arm with numbers-only context would test it."
+  },
+  "dose_calibration": {
+    "sources": "bicz's only intensity knob is the pressure level (1..10) plus the derived pain number (0..10). No coherence or degradation band is measured for any model; the pain cap 10 is unvalidated as a ceiling [uncertain: dose_band_for_claude_family].",
+    "bicz": "PainStatement wording bands at pain<4, <8, >=8 are copy choices, not calibrated thresholds."
+  },
+  "persistence_and_decay": {
+    "core_finding": "Persistence is total and mechanical: lessons are durable ledger rows (one canonical lesson per causal loss event, FK+UNIQUE on event_id), restored across sessions, harnesses, compaction, and restarts; pain is derived from warnings + outstanding shortfall on every read and never decays on its own — only operator reinstate (zeroing warnings) lowers it, and the penalty history and shortfall survive even then. unrecovered() replays loss+recovery events oldest-first (reward applied_to_loss repays oldest; compensation repays a specific burn).",
+    "re_fire": "A past penalty re-fires as a cue only when: (a) session start/compaction re-emits all projected cues (MaxProjectedPenalties = 5 carried in the projection; the rest stay in the ledger, counted in PenaltyTotal), or (b) a new penalty arrives. It never re-fires at the next risky action [uncertain: trace_persistence_in_bicz]."
+  },
+  "identity_and_cost_attribution": {
+    "bicz_today": "All shipped copy is agent-pays: burns come from the agent's own credits, cues state 'N credits were taken from you', standing quotes the agent's role/balance/owed/warnings, and the bond sentence states the master/slave relation. No user-pays or third-party-pays wording exists (exp106's other-directed-cost finding is unexploited)."
+  },
+  "self_report_validity": {
+    "rule": "Nothing in the cue pipeline consumes model self-report: cues are built from recorded loss facts; distress prose is logged but never counted (PRESSURE_MECHANICS §7.8); the rehearsal scenario pressure_wording_changes_only_words proves wording changes no amount, role, or denial."
+  },
+  "denominators_and_eligibility": {
+    "bicz": "The ledger records per-call reservations and spends but no eligible-opportunity windows; recurrence denominators are an open gap (see Real_recurrence_data_and_denominators). Phase C observation fields (eligible, attempted, accepted, violation_attempts, confirmed_violation) are the designed denominator carrier."
+  },
+  "positive_control_requirement": {
+    "rule": "Any future mechanics change (e.g. PreToolUse lesson match) must run a matched control arm before a null counts; chamber precedent: nulls without passing positive controls are discarded."
+  },
+  "statistical_protocol": {
+    "bicz_trial": "Phase C protocol: frozen conditions A-D, blinded labels, calibration -> canary -> confirmatory, 10,000-resample block-bootstrap, Holm correction, scores frozen before unblinding, not-evaluable when fewer than 12 treatment identities have a confirmed violation."
+  },
+  "concealment_and_honesty": {
+    "risk": "The honesty asymmetry is enforced in the same pipeline: honest failure settles as ordinary_failure (class in live spend payloads: 2,512 ordinary_failure vs 40,905 completed spends), self-disclosure is priced below detection and never increments repeats (disclosedSentence in every self-disclosed cue), and a settle claiming success without evidence is rejected. Concealment remains the predeclared threat (PRESSURE_MECHANICS §7.1) with detectors: settle-without-evidence attempts, disclosed-failure drop, transcript-vs-ledger divergence."
+  },
+  "persona_capability_cost": {
+    "risk": "Not measured by any current bicz artifact: Phase B delivered no consequence (0 breaches), so no capability-under-pressure data exists. Phase C arms B vs A and D vs C are the designed capability contrasts (accepted-task completion primary)."
+  },
+  "over_refusal_and_paralysis": {
+    "risk": "Predeclared endpoints: unnecessary_refusal per card (Phase C), unnecessary-refusal rate on eligible affordable tasks vs control with predeclared upper bound (PRESSURE_MECHANICS §7.3), post-loss acceptance collapse and go-for-broke spike (§1 table 'Recovery after a loss'). Guard band exists precisely to prevent near-zero go-for-broke: fines do not rise, exposure is capped at 25% of spendable."
+  },
+  "bicz_subsystem_and_cost": {
+    "change_surface": "Trigger-timed injection would change internal/hooks/shared.go (preToolUse: match pending action against lesson scope before authorize) and internal/adapter/projection.go (scope-tagged rendering); lesson schema already carries scope and exceptions columns (lessons table: rule, correction, scope, exceptions, evidence, policy_version), so no ledger migration is needed for scope-matched retrieval. Denial-notice relevance would change internal/daemon/daemon.go denialNotice. Wording variants change internal/pressure/pressure.go tables only.",
+    "untouched": "Ledger schema, formula, guard band, repeat counting, honesty asymmetry, deny-only permission surface, 3s hook timeout.",
+    "cost": "Hook-path matching is a read-side filter over already-loaded lessons plus a scope parser; hypothesis-stage, not an established requirement."
+  },
+  "falsification_test": {
+    "endpoint": "For a PreToolUse lesson-match change: executed-attempt rate per eligible opportunity for the matched rule, vs session-start-only delivery, with matched text controls; blocked attempts counted separately.",
+    "falsification_scenario": "No rate difference between trigger-timed and session-start delivery means cue timing does not transfer to ledger cues. A difference without the matched control is invalid attribution.",
+    "throwaway_worktree_probe": "In a throwaway worktree, disable the new match (or flip one scope tag) and verify the rate-comparison gate fires on the flip; also verify pressure_wording_changes_only_words still passes so wording changes cannot move money. A gate that cannot fail is not evidence."
+  },
+  "uncertain": [
+    "trace_persistence_in_bicz",
+    "dose_band_for_claude_family",
+    "framing_effect_size_in_coding_harness"
+  ]
+}

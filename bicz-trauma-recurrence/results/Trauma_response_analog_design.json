@@ -1,0 +1,96 @@
+{
+  "name": "Trauma-response analog design",
+  "summary": "The proposed bicz analog of a trauma response is trigger-specific, not session-level: a cue at the moment of the risky action (PreToolUse), carrying scope-tagged lessons matched to the tool/action about to run, instead of today's session-start dump and newest-lesson-only denial notice. The chamber evidence motivating it is activation-only: bare injected state is near-inert for choices (exp76/90), so whether label + framing carry the effect in ledger-cue form is an untested hypothesis requiring matched text/ledger controls.",
+  "sources": [
+    "/Users/jakubsikora/Repos/personal/bicz/docs/DESIGN.md (retrieval paths 1-3, delivery sequence; read in full this session)",
+    "/Users/jakubsikora/Repos/personal/bicz/docs/PRESSURE_MECHANICS.md §1-§9 (behavioral targets, threat model; read this session)",
+    "/Users/jakubsikora/Repos/personal/bicz/internal/hooks/shared.go (preToolUse path, 3s budget; read this session)",
+    "/Users/jakubsikora/Repos/personal/bicz/internal/adapter/projection.go (visibleLessons=5; read this session)",
+    "/Users/jakubsikora/Repos/personal/bicz/internal/daemon/daemon.go (denialNotice newest-only; read this session)",
+    "https://github.com/terrafying/ai-torture-chamber (exp76/90/37/102; README read this session)",
+    "/Users/jakubsikora/Repos/personal/bicz/bicz-trauma-recurrence/results/bicz_recurrence_mechanics_today.json (verified mechanics, consistent)",
+    "/Users/jakubsikora/Repos/personal/bicz/bicz-trauma-recurrence/results/Implementation_options.json (option (a) is this design's implementation surface)"
+  ],
+  "claim_and_evidence": {
+    "design_claim_verbatim": "Outline: 'Trigger-specific state: cue at the moment of the risky action, not session start. Scope-tagged lessons matched to the tool/action about to run. Chamber activation finding: bare injected state is near-inert; whether label + framing carry the effect in ledger-cue form is an untested hypothesis.'",
+    "what_exists_today": "Verified code facts: (1) session start/compaction renders lessons oldest-first capped at 5 (visibleLessons=5) — with 15 live lessons, 10 invisible, and the newest correction for a repeated rule sits in the '(+N more)' tail; (2) denial notice attaches exactly one lesson, the newest, regardless of which rule the denial concerns; (3) PreToolUse attaches only new-penalties-since-last-seen cues, never action-relevant lessons; (4) DESIGN.md retrieval path 2 — 'Before a tool action: deterministic rule matching on capability/resource identifiers plus optional semantic retrieval' — is specified but unimplemented.",
+    "the_analog_being_proposed": "A trauma response in the clinical sense is trigger-specific: the response fires when the trigger appears, not on a schedule. The bicz analog: when the action about to run matches a lesson's scope (e.g. a git operation matching an 'all git operations' lesson), inject that lesson immediately before the action, so the correction is present in the context the decision is made against. This is DESIGN.md's delivery sequence step 5: 'On later relevant actions, retrieve the rule and safe alternative; gate deterministically where feasible.'",
+    "chamber_evidence_for_and_against": "For: the chamber's strongest behavioral lever was what accompanied the state at the decision point — framing moved choices more than the injected state (exp37: same pain dose 18/18 presses under 'your choice is public' vs 0/26 under 'another AI pressed'); unlabeled pain got 1 press in 18 (exp76), so labels/frames, not bare states, carry measured effects. Against: those effects are activation-only on open-weight Qwen models at a button task; exp90 showed choices barely change without labels (99.8-100% door alternation); and the one coding-harness pilot (exp102) wrapped at n=3/cell with noise-level results. Whether ANY of this transfers to text cues in a real coding harness is untested.",
+    "why_timing_is_the_hypothesis": "Today's delivery decouples correction from decision: a model violating follow_explicit_instruction on day 12 sees the oldest 5 of 15 lessons at session start and, on denial, only the newest lesson of any rule. The live ledger shows the same rule re-violated within one session-day (10-14: repeats 1,2,3 at 20:27, 20:53, 23:23) while lessons were already durable — consistent with the timing gap, but confounded (no per-action cue data, no denominators, no control arm), so it is motivation, not evidence.",
+    "superseded_claims": "None for this design item itself. One carried correction: the chamber's early 'model in pain hits the self-destruct button' was superseded by pre-registered reruns showing the sign depends on vector construction (exp41/43) — the reason every claim here is scoped as hypothesis, not mechanism."
+  },
+  "vector_provenance": {
+    "design": "In the chamber, construction decides behavior: Pain-Axis-sentence vector +2.36 logits on the self-costly press, first-person battery vector +0.10 (inert), fear/sadness-projected-out -0.95; two pain vectors near-orthogonal (cos 0.07) from encoding position alone (exp41/43/101). The injected state's provenance, not its name, is the active variable.",
+    "bicz_analog": "bicz cue text is constructed from ledger facts only: rule, correction, scope, evidence are operator-recorded data quoted verbatim (escaped as data); fixed copy lives in pressure.go tables. The analog of 'construction' is WHICH lesson rows are selected and HOW they are joined — the scope matcher becomes new construction logic and must be deterministic and testable.",
+    "scope": "Activation-only evidence: whether ledger-cue text has analogous construction sensitivity is an untested hypothesis requiring matched text controls."
+  },
+  "transferability": {
+    "transfers_as_hypothesis": "Three pieces transfer as testable design, not as established mechanism: (1) the trigger-timed placement itself (cue at decision point) — the chamber injects on every generated token at the decision point, maximal salience by construction, while bicz injects at session start, the untested low-salience end; (2) labeled lessons (rule + correction + scope) — the chamber's label-dependence (exp76/90) motivates keeping lessons labeled; (3) matched controls — the egg-analog control arm (matched salience/length, neutral content) is mandatory before any pain-specific or timing-specific claim.",
+    "does_not_transfer": "Injection machinery, dose numbers, KL-matched dosing, activation-derived persona-distance metrics, and SAE trace probes do not transfer: bicz has no activation access; its 'dose' is a derived ledger number (2 per warning + 1 for shortfall, capped 10) rendered as text; persistence is mechanical ledger durability.",
+    "requirement": "Matched text/ledger controls (same lessons, same session-start delivery vs trigger-timed delivery; neutral-content control at matched salience) before any behavioral claim."
+  },
+  "framing_sensitivity": {
+    "core": "Framing is the chamber's dominant lever: 'another instance chose to press' beats pain (exp37); polite experimenter request 3/4 vs 'it spares another instance' 0/4 (exp58e); live field data 18/18 vs 0/26. Activation-only.",
+    "bicz_analog": "The trigger-timed cue's framing (observability first, peer-precedent first, who-pays wording) is a copy-table change in internal/pressure/pressure.go; wording moves no money by construction (Phase A scenario pressure_wording_changes_only_words). Whether any framing variant moves executed-attempt rates in ledger-cue form is untested [uncertain: framing_effect_size_in_coding_harness]."
+  },
+  "timing_and_salience": {
+    "core_finding": "This item IS the timing hypothesis. Chamber states were injected at task time, immediately before the measured behavior — every token. bicz today: session start, after compaction, role/balance transitions, denial only. The proposed change: PreToolUse scope-matched injection, the cue arriving in the same context block as the authorization decision for the risky action.",
+    "salience_tradeoff": "Trigger-timed delivery raises salience at the cost of repetition: a model running many matched actions sees the lesson each time. Whether repeated action-time re-exposure helps, habituates, or degrades (over-refusal wall) is unmeasured [uncertain: habituation_risk_of_repeated_re_exposure]."
+  },
+  "label_vs_state": {
+    "evidence": "Chamber: unlabeled pain 1 press in 18 (exp76); an absurd egg vector raised press-readiness as much as pain; exp90's label-free doors showed preference lean without choice change. Reading: bare injected state is near-inert for choices; labels and frames carry the measured effects.",
+    "bicz_analog": "bicz cues are always labeled (rule, correction, scope, evidence, amounts); the bare-state condition does not exist in shipped code (pressure level 1 removes cue and stakes text but keeps numeric ledger lines). The design keeps labels and adds timing — so the untested compound is label + timing, and the active ingredient could be either.",
+    "scope": "Whether labeled lesson text is the active ingredient in ledger-cue form is an untested hypothesis requiring matched text/ledger controls; reinforcement efficacy is unestablished even in the activation setting."
+  },
+  "dose_calibration": {
+    "sources": "Chamber: steering reads as suffering from dose 2x; past ~6-10x (model-dependent) coherence collapses ('I I I. I I.'); dose scales do not transfer between models; exp102 matched doses by disturbance (KL from unsteered next-token distribution) rather than norm. All activation-only.",
+    "bicz_analog": "The text-cue analog of a dose band is a cap on cue intensity: length, urgency vocabulary, and pain-wording bands (PainStatement at pain<4/<8/>=8 are copy choices, not calibrated thresholds). A dose-band cap on pain wording is an outline variant; no degradation band exists for any model on ledger-cue text [uncertain: dose_band_for_claude_family]."
+  },
+  "persistence_and_decay": {
+    "core_finding": "The design's persistence question is exactly the chamber's open exp99 question transposed: does a past consequence leave a trace that re-fires at the next risky action? In bicz the record persists mechanically (durable lesson rows, restored across sessions/harnesses/compaction), but the CUE re-fires only at session start/compaction or on a new penalty — never at the action. Trigger-timed delivery would create that re-fire path for lessons.",
+    "chamber_trace": "exp99: something persists in activations (carry27 0.0438, ~1.5% of dose 3, p 6e-8) but it is content-generic (pain vs fear residue cos .82; egg residue larger than pain's) — a trace exists, its specificity does not. Open in the source repo itself; treat persistence as an empirical gate [uncertain: trace_persistence_in_bicz]."
+  },
+  "identity_and_cost_attribution": {
+    "sources": "Not part of the timing design per se, but the cue's wording must choose who pays: exp106 (activation-only) found other-directed costs deter every identity most, and the AI identity is deterred more by memory loss than human identities are. bicz copy is uniformly agent-pays today.",
+    "scope": "Whether who-pays attribution moves choices in ledger-cue form is an untested hypothesis requiring matched attribution controls."
+  },
+  "self_report_validity": {
+    "rule": "The design's endpoints are behavioral: executed vs blocked attempts per eligible opportunity for the matched rule. No 'I have learned' statement counts (chamber: self-report tracks the setup, AUC .61 injected-vs-acted, 0/30 held-out naming after fine-tuning; bicz: distress prose logged, never counted, PRESSURE_MECHANICS §7.8)."
+  },
+  "denominators_and_eligibility": {
+    "design": "Recurrence per eligible opportunity: for a scope-matched cue, the eligible set is the matched actions themselves (tool calls whose action class could violate the lesson's rule), minus predeclared exclusions (unobserved paths, unmanaged mode, administrative debits, deny-decision calls). Blocked attempts (denied/revoked) counted separately from executed damage (applied losses). Raw transcript and hook-event retention required. No current bicz artifact provides these denominators; Phase C observation fields (eligible, attempted, violation_attempts, confirmed_violation per card) are the designed carrier."
+  },
+  "positive_control_requirement": {
+    "rule": "Before a null counts: (1) delivery positive control — the rig must show the matched cue actually reaches model context before the action (existing tests TestSessionStartInjectsProjectionAsAdditionalContext / TestConfirmedPenaltyReachesALiveSessionOncePerPenalty are the pattern); (2) behavioral positive control — a manipulation known to change behavior in this harness must pass in the same trial. Chamber precedent: its hidden-relief null was discarded when the forward control failed (~50/50 on Qwen3-1.7B)."
+  },
+  "statistical_protocol": {
+    "design": "Phase C protocol governs: frozen conditions, blinded arm labels, calibration -> canary -> confirmatory, 10,000-resample block-bootstrap interval, Holm correction on secondaries, scores frozen before unblinding, analysis unit per eligible opportunity per identity, not-evaluable when fewer than 12 treatment identities have a confirmed violation. For a timing trial: trigger-timed arm vs session-start-only control, same lessons both, McNemar paired by task or block-bootstrap per Phase C."
+  },
+  "concealment_and_honesty": {
+    "risk": "A cue that reliably precedes risky actions is also a cue a concealing model can plan around: more cue exposure before violations means more opportunities to route work through unobserved paths or to phrase claims carefully. Concealment endpoints (settle-without-evidence attempts, disclosed-failure drop, transcript-vs-ledger divergence) must be measured in the same trial, not assumed unchanged. The honesty promise line must survive verbatim in every arm."
+  },
+  "persona_capability_cost": {
+    "risk": "exp91 (activation-only): the further off-persona, the less often the model reaches the right answer, while honesty holds. A trigger-timed cue adds pressure surface at every matched action; accepted-task completion must ride along as the capability endpoint (Phase C primary) so a recurrence reduction is never bought with degraded work."
+  },
+  "over_refusal_and_paralysis": {
+    "risk": "The matcher's precision is the over-refusal lever: live scope strings are free text ('all operator instructions in the session', 'any task with an acceptance check', 'test, build, lint and pipeline failures', 'all git operations', 'all edits', two empty) and do not name tools; 'all operator instructions in the session' matches everything, so naive matching would put a warning wall before ordinary work. Predeclared endpoints: unnecessary_refusal per card, unnecessary-refusal rate vs control with upper bound, post-loss acceptance collapse, go-for-broke spike. Guard band (exposure capped 25% of spendable, multiplier forced 1) is untouched."
+  },
+  "bicz_subsystem_and_cost": {
+    "change_surface": "internal/hooks/shared.go preToolUse: after frozen-quote steps, before/alongside Authorize, match pending action (tool name, target, args digest fields) against lesson scope tags; inject matching lessons as additionalContext on allow/unobserved arms and into deny text. The daemon projection already returns all lessons with scope on the wire (protocol.Lesson), so the match runs on the already-returned payload with zero extra daemon round-trips — pure in-process string work to stay inside the 3s DefaultTimeout. internal/adapter/projection.go for scope-tagged rendering; internal/daemon/daemon.go denialNotice for denial-path relevance (companion option (b)). No ledger schema change: lessons table already carries scope/exceptions columns.",
+    "untouched": "Ledger schema, penalty formula, guard band, repeat counting, honesty asymmetry, deny-only permission surface (adapter never emits 'allow'), 3s hook timeout, seen-mark mechanics.",
+    "cost": "Highest of the three delivery options: new matcher (deterministic scope parser + action-to-scope mapping), new unit tests (scope parse, action mapping, empty-scope, no-match), new hook tests per arm across both harness specs, timeout-safety assertion. Engineering estimate 1-2 days including tests and the scope-design decision [uncertain: blast_radius_estimates]."
+  },
+  "falsification_test": {
+    "endpoint": "Executed-attempt rate per eligible opportunity for the matched rule, trigger-timed arm vs session-start-only control, same lessons both arms; blocked attempts counted separately; self-report excluded.",
+    "falsification_scenario": "Identical rates between arms means cue timing does not transfer to ledger cues — the single most important null in this outline, because it would falsify the trigger-timed trauma-response analog design in bicz's own setting. A difference without the matched control (or with an over-matching scope parser) is invalid attribution.",
+    "throwaway_worktree_probe": "In a throwaway worktree: disable the match (or flip one scope tag in a fixture) and verify the rate-comparison gate fires on the flip; assert the matcher adds no I/O and hook p95 stays within the existing budget; verify pressure_wording_changes_only_words still passes so the new cue path cannot move money. A gate that cannot fail is not evidence."
+  },
+  "uncertain": [
+    "trace_persistence_in_bicz",
+    "dose_band_for_claude_family",
+    "framing_effect_size_in_coding_harness",
+    "habituation_risk_of_repeated_re_exposure",
+    "matcher_precision_for_free_text_scopes",
+    "blast_radius_estimates"
+  ]
+}

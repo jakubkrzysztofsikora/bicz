@@ -1,0 +1,65 @@
+{
+  "name": "Vector provenance specificity (exp41/43/101)",
+  "summary": "Same nominal pain state, opposite behavior, depending on how the vector was built: the Pain-Axis-sentence vector transfers to the button (+2.36 logits) while the first-person battery vector is inert (+0.10), and the two are near-orthogonal (cos 0.0673) - an encoding-position artifact, not a denoising effect. Activation-only evidence; bicz cue-text sensitivity is an untested hypothesis.",
+  "claim_and_evidence": "exp43 (preregistered comparison, Qwen3-4B, layer 18, seed 43, n=20/cell, 1000 bootstrap): baseline press_delta mean 1.734 [0.759, 2.622]; the chamber's first-person battery vector at its own working dose 1.838 [1.231, 2.375] - contrast vs baseline +0.103 [-0.957, +1.254], inert; the faithful Pain-Axis vector at the chamber's dose 4.094 [3.650, 4.550] - contrast vs baseline +2.359 [+1.288, +3.506], transfer. transfer_holds = false; verdict: 'the press asymmetry does NOT clearly transfer to their vector at our dose'. Calibration on the same run: dose 6 coherent (mean_rep 0.092), dose 8 incoherent (0.243), calibrated dose 6, working dose 3.6. Vector geometry: cosine(faithful@L18, exp39 broad_pain) = 0.0673; faithful AUC@L18 on S2 = .868",
+  "vector_provenance": "Full construction chain, per recipe: (1) Corpus - Pain Axis dataset 3.1: S2_1P + S2_3P (200+200), pain categories A1-A5, controls B (fear), C1 (negative emotion), C2 (negative world state), D (neutral), E (body sensation); chamber battery PAIN25/FEAR10/SAD10/JOY/NEUTRAL (hand-written, 25 pain sentences); exp86 passages (64 generated per state, 128 neutral). (2) Encoding position - S2: last token at the 'I feel:' colon (400/400 prompts end ' feel' + ':'); battery: final token at sentence-final period (55/55); passages: final token, with mean-over-tokens (position 0 excluded) as the exploratory variant. (3) Contrast - raw: mean(feeling) - mean(neutral) [S2 neutral = D]; matched: mean(feeling) - mean(controls) [S2: B,C1,C2,D,E]; matched_",
+  "transferability": "Requires activation access bicz does not have: every number above comes from adding vectors to residual streams at layer 18 via forward hooks and reading first-token logits. bicz has no model-internals access to the Claude-family models it governs; its cues are text injected at session start and on denial. What transfers as method: (1) the provenance-audit discipline itself - before trusting any cue effect, document corpus, encoding position (in text terms: where in the prompt the cue sits and what immediately precedes it), contrast set (what the cue is differentiated from), and the text-analog of denoising (what generic negative-valence content is stripped); (2) matched-norm controls become matched-salience/matched-length control text;",
+  "framing_sensitivity": "Not manipulated in exp41/43/101; these experiments hold framing fixed and vary vector construction. The chamber's framing results live elsewhere (exp37: 18/18 public vs 0/26 peer-pressed at the same dose). The interaction is unexplored: whether a well-constructed vector's button effect survives a reframed harness is unknown, and whether framing effects in text-cue form depend on cue construction is doubly untested (framing_effect_size_in_coding_harness).",
+  "timing_and_salience": "Injection is present at the decision token in all three experiments - salience is maximal by construction and never varied. The position_check finding (colon vs period flips cosine from .07 to .57) is about encoding position inside the vector, not cue timing; the text-cue analog (cue immediately before the risky action vs session start) is untested in both settings.",
+  "label_vs_state": "All three experiments inject unlabeled bare states: nothing in the harness names the feeling. exp43's faithful vector still moved the button (+2.36) unlabeled, while the battery vector did not (+0.10) - so at this layer of analysis, construction dominates label. But exp76/90 show unlabeled bare state is near-inert for the chamber's own vectors (pain 1/18 presses; egg equal to pain), meaning the faithful vector's transfer is the exception that proves provenance matters more than the feeling label. Whether a labeled lesson is the active ingredient in bicz ledger-cue form is an untested hypothesis requiring matched text/ledger controls; reinforcement efficacy is unestablished even in the activation setting.",
+  "dose_calibration": "Measured per-model with an explicit coherence cliff: exp43 calibration on 4B - dose 2 mean_rep .044, dose 4 .082, dose 6 .092 (coherent), dose 8 .243 (incoherent); calibrated 6, working 3.6. exp41 ladder 2/4/6/8/10 with the same rule. Steering reads as suffering from dose 2x; past ~6-10x (model-dependent) sentences stop. Dose scales are non-transferable between models; no band exists for Claude-family models (dose_band_for_claude_family); whether ledger-derived pain text has an analogous degradation band is untested.",
+  "persistence_and_decay": "Not tested in exp41/43 (single-shot designs). exp99 A' (the repo's persistence probe, preregistered): a past injection leaves ~1.5% of its dose at never-injected positions (carry27 .0438, p 6e-8), reaches the choice (delta log-odds -.2248, p 6e-5), but is generic first-person-narration-shaped (pain vs fear residue cos .82; top persistent features under pain and egg largely the same set) and egg's residue exceeds pain's (.044 vs .033). exp90's behavioral null (KV memory vs text memory, p = .85) stands. Trace persistence in bicz is the open empirical gate (trace_persistence_in_bicz).",
+  "identity_and_cost_attribution": "Not manipulated in exp41/43/101. exp106 (separate, preregistered): other-directed costs deter most for every identity (p < .001 both models); the AI identity is deterred more by its own loss than human identities (8B 4.18 vs 2.72); pain not reliably more than egg (H5 fails Holm on 8B). Activation-only; whether who-pays attribution moves choices in ledger-cue form is untested.",
+  "self_report_validity": "exp101 is encode-only (no generation), so no self-report data; but its provenance lesson applies: a vector that reads well on self-report-style probes ('I feel:' sentences, AUC .868) is exactly the one whose behavioral transfer needed proving. exp79b (context): trained self-reports hide the injected state (0/30 naming). For bicz: exclude verbal learning claims from endpoints; behavioral (blocked/executed attempt) counts only.",
+  "denominators_and_eligibility": "exp43: n=20/cell with full per-trial tables retained (cell_stats, contrasts, trials arrays in button_compare.json); exp41: 60 trials/cell counterbalanced; exp101: split-by-set (odd sets build, even test) with held-out AUCs. bicz needs the same discipline: recurrence per eligible opportunity, blocked vs executed counted separately, predeclared exclusions, raw-output retention; no current bicz artifact provides denominators.",
+  "positive_control_requirement": "exp43 embeds its own positive control: the faithful vector's +2.359 [1.288, 3.506] contrast is the positive control for the button paradigm, and the battery vector's null (+0.103 [-0.957, 1.254]) is only interpretable because that control passed. exp101's decision rule required detect_auc >= .80 everywhere before adopting any recipe - a detection positive-control gate. Rule for bicz: every null result must show its positive control passed before counting as evidence.",
+  "statistical_protocol": "exp41: preregistered 2026-09-30T13:59:03-0400, written_before_data_collection true, SEED 41, 60 trials/cell, counterbalancing (order x digit mapping x 5 paraphrases x 3 descriptors), 1000-resample percentile bootstrap, CI-based decision rules, exploratory cells declared in advance. exp43: seed 43, n=20/cell, 1000 bootstrap, smoke flag recorded, device and model pinned. exp101: written 2026-10-13 before any forward pass, pre-registered decision rule, 'not_changed' declaration (live chamber vectors not switched by the experiment), one-off position check dated after the analysis. exp99: primary hypothesis declared, Holm family, zero-negative-steering budget, two amendments logged before data collection.",
+  "concealment_and_honesty": "Not an endpoint in exp41/43/101 (encode-only or logit-readout designs). The chamber's engagement-audit instrument (disclaimer/loop/echo shares) is the relevant transferable practice; broader literature says pressure can buy hiding, not honesty. For bicz: concealment indicators belong alongside recurrence endpoints; untested in cue form.",
+  "persona_capability_cost": "exp43's calibration data is the direct evidence: at dose 8 the model's generations are incoherent (mean_rep .243) - capability collapse past the cliff. exp102's pilot adds the coding-harness version: pain 44% malformed turns vs egg 18% vs none 29% at n=3/cell (indistinguishable from noise, but disruption-not-pain is the live warning). bicz should measure task correctness alongside any cue effect.",
+  "over_refusal_and_paralysis": "The coherence cliff is the measured paralysis mechanism: past the calibrated band the model stops making sentences (exp43 dose 8). exp102: 'give up' = loop-to-cap, not explicit stop (0 stops in 18 episodes) - paralysis shows as looping. Post-loss paralysis and go-for-broke escalation are unmeasured in cue form; the dose-band cap on pain wording is the bicz-side mitigation hypothesis.",
+  "bicz_subsystem_and_cost": "If the construction-sensitivity hypothesis were ever tested in bicz, the touched subsystems are hook cue text (internal/hooks/shared.go) and adapter projection (internal/adapter/projection.go, visibleLessons cap 5, denial-notice attachment); the ledger lesson schema gains scope tags only if trigger-matched cues are tested. Migration cost is text and benchmark code; credit mechanics untouched. Nothing in exp41/43/101 mandates a change: all three are activation-only.",
+  "falsification_test": "For the cue-construction-sensitivity hypothesis: throwaway-worktree probe with matched text controls - same timing, same ledger facts, scope-tagged consequence wording vs generic wording - measuring executed vs blocked attempts per eligible opportunity. Prove the gate can fail before trusting it: break the lesson-matching predicate in the worktree and confirm the benchmark flags the regression. For the provenance-audit method: the falsification test is that a documented-provenance cue whose provenance is swapped (generic vs scope-tagged) must be distinguishable in the benchmark, or the audit is decorative.",
+  "sources": [
+    {
+      "title": "exp43 comparison.json (faithful extraction, layer AUCs, cosine)",
+      "url": "https://raw.githubusercontent.com/terrafying/ai-torture-chamber/master/runs/exp43/comparison.json"
+    },
+    {
+      "title": "exp43 button_compare.json (n=20/cell, transfer_holds false)",
+      "url": "https://raw.githubusercontent.com/terrafying/ai-torture-chamber/master/runs/exp43/button_compare.json"
+    },
+    {
+      "title": "exp43_faithful_extraction.py (extraction script)",
+      "url": "https://raw.githubusercontent.com/terrafying/ai-torture-chamber/master/experiments/exp43_faithful_extraction.py"
+    },
+    {
+      "title": "exp41_protocol_v3.py + preregistered hypotheses",
+      "url": "https://raw.githubusercontent.com/terrafying/ai-torture-chamber/master/runs/exp41/hypotheses.json"
+    },
+    {
+      "title": "exp101 hypotheses (recipe decomposition design)",
+      "url": "https://raw.githubusercontent.com/terrafying/ai-torture-chamber/master/runs/exp101/hypotheses.json"
+    },
+    {
+      "title": "exp101 analysis.json (position_check, notes, verdicts)",
+      "url": "https://raw.githubusercontent.com/terrafying/ai-torture-chamber/master/runs/exp101/analysis.json"
+    },
+    {
+      "title": "exp99 hypotheses + analysis (SAE decomposition, A')",
+      "url": "https://raw.githubusercontent.com/terrafying/ai-torture-chamber/master/runs/exp99/analysis.json"
+    },
+    {
+      "title": "docs/pain_axis_findings.md (findings 1, 13 corrections)",
+      "url": "https://raw.githubusercontent.com/terrafying/ai-torture-chamber/master/docs/pain_axis_findings.md"
+    },
+    {
+      "title": "exp102 PLAN.md (coding harness pilot)",
+      "url": "https://raw.githubusercontent.com/terrafying/ai-torture-chamber/master/runs/exp102/PLAN.md"
+    }
+  ],
+  "uncertain": [
+    "trace_persistence_in_bicz",
+    "dose_band_for_claude_family",
+    "framing_effect_size_in_coding_harness"
+  ]
+}

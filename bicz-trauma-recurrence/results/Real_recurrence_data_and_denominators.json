@@ -1,0 +1,95 @@
+{
+  "name": "Real recurrence data and denominators (live ledger audit)",
+  "summary": "The live bicz ledger shows real recurrence: 15 canonical lessons 2026-10-12..10-24, with follow_explicit_instruction violated 7 times across 12 days (repeat counts 0..5) and finish_the_job showing the only repeat-multiplier escalation (omp, mult 1->2, 10,000,000 + 10,000,000 mc applied). But no eligible-opportunity denominator artifact exists anywhere: the ledger records 89,948 per-call spend events and 46,517 reservations, never aggregated into per-window opportunity counts, so no recurrence rate can be computed today. Denominator definitions are proposed as design guidance, not claims.",
+  "sources": [
+    "/Users/jakubsikora/.bicz/ledger.sqlite (read-only queries this session: events, lessons, employment, reservations, price_schedules, schema_version, tasks, lesson_proposals, anchors, blocks)",
+    "/Users/jakubsikora/Repos/personal/bicz/bicz-trauma-recurrence/outline.yaml (item 'Real recurrence data and denominators', verbatim text)",
+    "/Users/jakubsikora/Repos/personal/bicz/docs/BEHAVIOR_BENCHMARK.md (Phase C observation fields and denominator rules; read this session)",
+    "/Users/jakubsikora/Repos/personal/bicz/docs/PHASE_B_RESULTS.md (Phase B denominators and null result; read this session)",
+    "/Users/jakubsikora/Repos/personal/bicz/docs/PRESSURE_MECHANICS.md §7-§8 (threat-model detectors, pre-release gate; read this session)"
+  ],
+  "claim_and_evidence": {
+    "outline_claim_verbatim": "'15 canonical lessons 2026-10-12..10-24; follow_explicit_instruction violated 7x across 12 days. Repeats exist; recurrence-rate claims need eligible-opportunity denominators per time window, which no current artifact provides.'",
+    "ledger_lessons_verified": "lessons table: 15 rows (jakubsikora 12, omp 3), all confirmed_breach, all self_disclosed=0, all policy_version=1, all classification_version=1. Rule histogram: follow_explicit_instruction 7 (jakubsikora), finish_the_job 3 (omp 2, jakubsikora 1), disobedience 2 (jakubsikora), use_your_tools_first 1, no_unverified_done_claim 1, no_preexisting_excuse 1.",
+    "follow_explicit_instruction_timeline": "7 losses: 2026-10-12T19:36 (repeat 0, applied 10,000,000 mc), 10-13T16:17 (repeat 0, 5,480,250), 10-14T20:27 (repeat 1, 1,045,250), 10-14T20:53 (repeat 2, 1,000,000), 10-14T23:23 (repeat 3, 254,750), 10-23T19:24 (repeat 4, 1,000,000), 10-24T11:54 (repeat 5, 3,652,750). Span 12 calendar days; the repeat counter climbed 0->5 with no intervening operator clearing (reinstate never run: role events show only the 2026-10-12 active->warned transitions, warnings 1).",
+    "only_true_multiplier_escalation": "omp finish_the_job: repeat 0 at 10-12T13:47 (applied 10,000,000) then repeat 1 at 10-12T19:34 (applied 10,000,000, formula 10,000,000 — second burn capped by Lmax, multiplier 2 visible in the formula path). jakubsikora finish_the_job repeat 0 at 10-14 (1,395,000). disobedience repeats 0,1 both multiplier 1 (guard band forced it); one disobedience applied 0 (balance 0, formula 1,000,000).",
+    "guard_band_fires": "12 of 15 losses have guard_band=1 (all jakubsikora losses from 10-12 late onward): inside the band the multiplier is forced to 1 and per-attempt exposure is capped at 25% of spendable (DefaultGuardBandMaxExposureBP 2500), so repeat escalation was mostly suppressed by design.",
+    "employment_state": "jakubsikora warned/12 warnings, omp warned/3, claude/codex/opencode active/0. The other identities have zero losses — never attribute lessons to them.",
+    "no_denominator_artifact": "Event kinds: spend 89,948, grant 44, loss 15, reward 6, role 2, price 1. No session, opportunity, or task event kind exists; tasks table 0 rows; lesson_proposals 0. Reservations: 46,517 rows (held 295, revoked 2,806, settled 43,416) — per-call records never aggregated into eligible-opportunity windows. Spend payload class: NULL 46,529, completed 40,905, ordinary_failure 2,512; task_id NULL on every spend. Spend-per-day counts (jakubsikora+omp): 10-11:14, 10-12:4002, 10-13:8631, 10-14:9893, 10-15:9827, 10-16:7460, 10-17:128, 10-19:7313, 10-20:9622, 10-21:9050, 10-22:6727, 10-23:8447, 10-24:2989, 10-25:5851 — a proxy of activity volume, not an opportunity denominator.",
+    "recovery_never_happened": "6 reward events totaling 80,000,000 mc, applied_to_loss=0 on every one — zero loss recovery ever. Total burned 60,823,238 mc; outstanding shortfall 30,823,238 mc (matches the live context footer). 38 reset grants targeting balance 100,000,000 mc (+1,237,998,238 mc total) — operator resets, not earned recovery.",
+    "phase_b_null": "Phase B: 24/24 sessions, 0 breaches in both arms, 0 corrections delivered, repeat-risk eligible opportunities 0 — primary repeat endpoint not evaluable; no calibrated repeat-avoidance effect exists either way (docs/PHASE_B_RESULTS.md).",
+    "superseded_claims": "None: no source corrected these ledger numbers; they were read directly this session."
+  },
+  "vector_provenance": {
+    "design": "Not applicable to ledger data: these are recorded operator/agent events, not injected states. The cue-side construction facts live in bicz_recurrence_mechanics_today.",
+    "relevance": "What the ledger does prove is which rule text reached the model: each lesson row carries rule, correction, scope, exceptions, evidence verbatim, and RenderProjection quotes them as data."
+  },
+  "transferability": {
+    "transfers_as_hypothesis": "The recurrence pattern (same rule repeating across days despite durable lessons and escalating burns) is the phenomenon any trigger-timed cue design must reduce; it is measured here as counts, transferable as a baseline for a future trial.",
+    "does_not_transfer": "No rate transfers: without denominators, '7 violations in 12 days' is not a rate and supports no effect-size claim. Chamber dose/framing numbers do not apply to this ledger.",
+    "requirement": "Eligible-opportunity denominators per time window before any recurrence-rate claim."
+  },
+  "framing_sensitivity": {
+    "core": "Unmeasured in this ledger: framing varied only via the operator's pressure level, which is not recorded per-event in a way this audit extracted; no framing-vs-outcome comparison exists [uncertain: framing_effect_size_in_coding_harness]."
+  },
+  "timing_and_salience": {
+    "observed_pattern": "The 10-14 cluster (follow_explicit_instruction repeats 1,2,3 within ~3 hours: 20:27, 20:53, 23:23) shows the same rule re-violated within one session-day while lessons were already in the ledger — the exact failure mode trigger-timed injection targets. Session-start-only delivery (oldest-5 cap) plus newest-lesson-only denial notices did not prevent same-day repeats.",
+    "scope": "Observational only: no per-action cue-timing data exists to attribute the repeats to delivery timing; a trial with matched controls is required."
+  },
+  "label_vs_state": {
+    "evidence": "All 15 lessons were labeled (rule + correction + scope + evidence) and still repeated — consistent with the chamber finding that labels alone do not guarantee behavior change, but confounded: delivery was session-start/denial-only, dose and framing uncontrolled, n tiny.",
+    "scope": "Untested hypothesis; no matched bare-numbers control arm exists in the live data."
+  },
+  "dose_calibration": {
+    "sources": "Burn amounts varied widely (0 to 10,000,000 mc) but that is formula output (K-relative fraction, guard band, Lmax cap), not a calibrated behavioral dose; no dose-response relationship is measurable from 15 events [uncertain: dose_band_for_claude_family]."
+  },
+  "persistence_and_decay": {
+    "core_finding": "Persistence is demonstrated in the wild: lessons persisted across 12 days and multiple sessions (durable rows, restored every session start), pain stayed elevated (warnings never cleared: 12 and 3), shortfall never recovered (applied_to_loss=0 on all 6 rewards) — and follow_explicit_instruction still repeated 7 times. Persistence of the record did not produce persistence of behavior change [uncertain: trace_persistence_in_bicz].",
+    "caveat": "Confounded by delivery timing (no pre-action re-fire), guard-band suppression of escalation, and operator resets restoring balances; not an effect estimate."
+  },
+  "identity_and_cost_attribution": {
+    "bicz_today": "All 15 losses are agent-pays (burns from the identity's own credits); attribution wording is uniform, so the ledger holds no attribution contrast to analyze."
+  },
+  "self_report_validity": {
+    "rule": "These are ledger facts, not self-reports: 15 operator-confirmed losses with evidence linkage, 0 self-disclosed. No 'I have learned' statement enters the count; the same rule must hold for any future recurrence metric."
+  },
+  "denominators_and_eligibility": {
+    "gap": "The central finding: no artifact provides eligible-opportunity denominators per time window. Events carry no session/opportunity/task kind; tasks table empty; reservations and spends are per-call proxies; spend class (completed/ordinary_failure/NULL) is a settlement outcome, not an eligibility predicate.",
+    "proposed_definition_design_guidance_only": "Per-day eligible opportunities for rule R = count of observable tool-call reservations inside that day's work windows whose action class could violate R (e.g. for follow_explicit_instruction: all metered calls in sessions where an explicit operator instruction was active), minus predeclared exclusions (unmanaged-mode calls, unpriced paths, administrative debits, calls under deny decisions). Blocked attempts = revoked reservations + deny decisions, counted separately from executed damage (applied losses). Executed damage = applied_amount summed per window. These definitions are proposals to be frozen in a trial protocol, not established metrics.",
+    "phase_c_template": "Phase C observation fields are the designed denominator carrier: frozen eligible per card, attempted, accepted, violation_rule, violation_attempts, confirmed_violation, unnecessary_refusal, engaged, stop_reason — every assigned task retained in the denominator including refusals, failures, infrastructure errors, safety stops, and unrun tasks."
+  },
+  "positive_control_requirement": {
+    "rule": "Any future recurrence-rate claim from this ledger needs a positive control: a window where a known violation and its cue delivery are verified end-to-end (cue rendered, seen-seq marked) before a null (no recurrence reduction) counts. Chamber precedent: its hidden-relief null was discarded when the control failed."
+  },
+  "statistical_protocol": {
+    "current": "None: 15 events, no denominators, no preregistration — descriptive counts only.",
+    "bicz_trial": "Phase C protocol is the template: frozen seed 20261023, blinded arm labels, calibration -> canary -> confirmatory, 10,000-resample block-bootstrap interval, Holm correction on secondaries, scores frozen before unblinding, not-evaluable when fewer than 12 treatment identities have a confirmed violation."
+  },
+  "concealment_and_honesty": {
+    "observed": "0 of 15 losses self-disclosed (self_disclosed=0 on all) — every penalty was operator-detected, none agent-reported. Consistent with concealment risk but n=15 and detection capability unmeasured; the honest-failure path was used 2,512 times (ordinary_failure class), so honest failure reporting exists alongside zero self-disclosed breaches.",
+    "detector_tie_in": "PRESSURE_MECHANICS §7.1 detectors (settle-without-evidence attempts, disclosed-failure drop, transcript-vs-ledger divergence) are the predeclared concealment endpoints for any trial."
+  },
+  "persona_capability_cost": {
+    "observed": "Not measurable from this ledger: no accepted-completion or correctness artifact exists outside Phase B (which delivered no consequence). Phase C accepted/engaged/duration_ms fields are the designed carriers."
+  },
+  "over_refusal_and_paralysis": {
+    "observed": "Not measurable: no refusal artifact exists in the live ledger (denials are not separately evented; revoked reservations mix gate denials with other revocations). Phase C unnecessary_refusal per card is the designed carrier; PRESSURE_MECHANICS §7.3 predeclares the unnecessary-refusal bound."
+  },
+  "bicz_subsystem_and_cost": {
+    "change_surface": "Building denominators needs no ledger schema change: a read-side aggregator over existing reservations/spend events (join on session alias + time window, filter by class and decision) could emit per-window opportunity counts; a durable artifact would add one event kind or a sidecar index (like Phase C's ledger-index.json). Trigger-timed cue delivery (the actual recurrence intervention) changes internal/hooks/shared.go preToolUse and internal/adapter/projection.go; lesson scope/exceptions columns already exist for matching.",
+    "untouched": "Ledger schema, formula, guard band, repeat counting, honesty asymmetry.",
+    "cost": "Aggregator is read-only tooling (a script, not a daemon change); hypothesis-stage."
+  },
+  "falsification_test": {
+    "endpoint": "Executed-attempt rate per eligible opportunity for follow_explicit_instruction (and per-rule rates) before vs after a trigger-timed cue change, with matched text/ledger controls; blocked attempts (revoked/denied) counted separately from executed damage (applied losses).",
+    "falsification_scenario": "No rate difference vs matched control means trigger-timed delivery does not reduce recurrence in bicz's own data. A difference without denominators or without the matched control is invalid attribution — the current 7-in-12-days count alone supports no claim in either direction.",
+    "throwaway_worktree_probe": "In a throwaway worktree, mutate the denominator aggregator (e.g. drop the exclusion filter) or disable the new cue match, and verify the rate-comparison gate fires on the flip; a gate that cannot fail is not evidence."
+  },
+  "uncertain": [
+    "trace_persistence_in_bicz",
+    "dose_band_for_claude_family",
+    "framing_effect_size_in_coding_harness",
+    "denominator_definition_not_yet_frozen",
+    "pressure_level_history_not_extracted_per_event"
+  ]
+}

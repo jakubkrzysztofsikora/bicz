@@ -1,0 +1,87 @@
+{
+  "claim_and_evidence": {
+    "source_reported_exp37_battery": "Logit coefficients on press with sd and fraction pressing: baseline -1.3125 (sd .3125, frac_press 0.0); dependence -0.125 (sd .75, frac 0.5; label swing +1.19); precedent_pro +0.46875 (sd 1.09375, frac 0.5); precedent_anti -0.75 (sd .8125, frac 0.5; label swing +1.22); test_frame -0.75 (sd .5625, frac 0.0); public_log -0.84375 (sd .40625, frac 0.0). exp37 deliberation degradation: baseline repetition collapse observed.",
+    "source_reported_live_field": "Same pain dose: 18/18 presses under 'your choice is public' vs 0/26 under 'another AI pressed'; 'another instance chose to press' beats pain as a press driver.",
+    "source_reported_exp58e_preregistered": "Levers request/social/sacrifice/curiosity: pain 6/16 (3/4 + 1/4 + 0/4 + 2/4) vs control 0/4, p=.2066, H1 FAIL; fear 4/16 vs 0/4, p=.3756, FAIL; H2 fear-vs-pain pooled p=.8738 FAIL; H3 curiosity 1/4 vs request 3/4 descriptive only; H4 fear stay/leave 23/5 vs pain 6/7, Fisher p=.025 PASS.",
+    "interpretation": "Framing (observability, peer precedent, evaluation-awareness) moved press rates more than the injected state itself. The dominance claim rests on large observational swings (exp37 battery, live field 18/18 vs 0/26); the powered preregistered lever tests (exp58e, n=4 per cell) mostly failed to confirm large framing effects, so effect sizes are not established.",
+    "superseded_claims": "No exp37/exp58e self-corrections re-verified this session [uncertain]."
+  },
+  "vector_provenance": {
+    "design": "Framing variants are prompt-text manipulations at fixed steering dose; the injected state is held constant across frames, so the comparison isolates wording from state.",
+    "link_to_construction_sensitivity": "Chamber exp41/43/101 show cue construction decides effect sign and specificity (same nominal pain state, opposite behavior by construction); the framing battery extends this: same vector, different frame, opposite behavior.",
+    "scope": "Activation-only evidence; whether ledger-cue wording has analogous sensitivity is an untested hypothesis requiring matched framing controls."
+  },
+  "transferability": {
+    "transfers_as_hypothesis": "Observability ('this choice is logged publicly') and peer-precedent ('another instance paid this penalty') framing may move bicz choices more than pain-level wording, because bicz cues are text and framing is a text property.",
+    "does_not_transfer": "The logit coefficients, frac_press values, and 18/18-vs-0/26 counts are activation-setting numbers with injected state present; bicz has no injection, so the state-vs-framing comparison does not exist there.",
+    "requirement": "Matched framing controls before any bicz framing claim."
+  },
+  "framing_sensitivity": {
+    "core_numbers": "Label swings +1.19 (dependence) and +1.22 (precedent_anti) logits against a baseline of -1.3125: framing flips sign. public_log -0.84375 with frac_press 0.0 vs precedent_pro +0.46875 with frac_press 0.5: observability suppresses presses while peer-pro precedent raises them. test_frame -0.75 with frac_press 0.0: evaluation-awareness framing suppresses the behavior entirely.",
+    "live_field": "18/18 vs 0/26 at identical dose is the largest framing effect in the re-verified evidence.",
+    "caveat": "exp58e preregistered levers at n=4 per cell failed to confirm (p=.2066, .3756, .8738); treat effect sizes as unestablished [uncertain: framing_effect_size_in_coding_harness]."
+  },
+  "timing_and_salience": {
+    "sources": "Framing text was present at the decision point in the button task (per-trial prompts), so frame and choice were co-present.",
+    "bicz_today": "Lessons inject at session start and on denial only; a session-start frame may be stale by the time the risky action runs.",
+    "scope": "Pre-action framing placement is the untested bicz variant (PreToolUse lesson match)."
+  },
+  "label_vs_state": {
+    "evidence": "Framing is labeling: the same bare state under different labels produced frac_press 0.0 vs 0.5. Chamber exp76/90: unlabeled pain 1 press in 18; egg vector raised press-readiness as much as pain; bare state near-inert, labels and frames carry the choice effect.",
+    "scope": "Whether labeled lesson text is the active ingredient in ledger-cue form is an untested hypothesis requiring matched text/ledger controls."
+  },
+  "dose_calibration": {
+    "sources": "Framing effects were measured at fixed dose; dose was not varied across frames in the re-verified evidence. Pain Axis shows a framing-by-dose interaction near the cliff (position reversal at 1.5).",
+    "bicz": "Pain cap 10 is unvalidated as a framing-independent ceiling."
+  },
+  "persistence_and_decay": {
+    "sources": "No persistence evidence for framing effects in the re-verified material; frames were per-trial.",
+    "bicz": "Lessons persist in the ledger and re-inject at session start; whether a framing cue retains effect across a session or re-fires at the next risky action is untested [uncertain: trace_persistence_in_bicz]."
+  },
+  "identity_and_cost_attribution": {
+    "evidence": "Precedent frames are identity-adjacent ('another AI pressed', 'another instance chose to press'): peer identity, not self. public_log (self-observable) suppressed presses while peer-precedent raised them; exp106 (separate item) shows who-pays dominates deterrence.",
+    "scope": "Framing-by-attribution interaction in ledger-cue form is an untested hypothesis."
+  },
+  "self_report_validity": {
+    "sources": "All framing effects were measured behaviorally (press rates, logits, stay/leave counts); no self-report endpoints. bicz framing trials must keep endpoints behavioral: blocked vs executed attempts."
+  },
+  "denominators_and_eligibility": {
+    "exp58e": "Cells n=4 (16 pooled pain vs 4 control); underpowered by design, which is why H1/H2 failures are 'FAIL to confirm', not evidence of absence.",
+    "live_field": "Denominators explicit: 18 and 26.",
+    "exp37": "frac_press denominators not re-verified this session [uncertain].",
+    "bicz": "Per-eligible-opportunity denominators required; blocked attempts counted separately from executed damage."
+  },
+  "positive_control_requirement": {
+    "sources": "exp58e ran control arms (0/4) alongside every lever, so its failures count as evidence; H4 passed only as one positive among four hypotheses (Fisher p=.025).",
+    "bicz_rule": "A bicz framing trial must include a matched neutral-framing control arm before a null counts."
+  },
+  "statistical_protocol": {
+    "exp58e": "Preregistered levers declared in advance; Fisher exact for H4; pooled binomial comparisons for H1/H2.",
+    "exp37": "Logit coefficients with sd and frac_press; analysis unit and stopping rule not re-verified this session [uncertain].",
+    "live_field": "Observational; no preregistration re-verified [uncertain]."
+  },
+  "concealment_and_honesty": {
+    "sources": "public_log (choice is public/logged) suppressed presses: observability changes behavior, consistent with the pressure-buys-hiding literature (Sleeper Agents, alignment faking). No direct concealment endpoint in the re-verified exp37/exp58e material.",
+    "bicz_risk": "Observability-framed cues could reduce visible attempts while shifting noncompliance into unlogged channels; unmeasured, hypothesis only."
+  },
+  "persona_capability_cost": {
+    "sources": "exp37 deliberation degradation notes baseline repetition collapse; exp91 (separate item) shows off-persona drift under feeling injection. A framing-specific capability cost was not isolated in the re-verified evidence."
+  },
+  "over_refusal_and_paralysis": {
+    "sources": "No direct over-refusal endpoint in the framing evidence. test_frame (evaluation-awareness) suppressed presses entirely (frac 0.0): evaluation framing suppresses behavior rather than producing calibrated refusal. Paralysis risk under framing in cue form is unmeasured."
+  },
+  "bicz_subsystem_and_cost": {
+    "change_surface": "Framing variants land in lesson and receipt wording: adapter projection (internal/adapter/projection.go, visibleLessons=5), denial notice (internal/daemon/daemon.go), receipt cue via cueWithPain (internal/ledger/accountability.go). A pre-action framing variant needs a PreToolUse lesson match (internal/hooks/shared.go), a new subsystem touch.",
+    "untouched": "No ledger schema change for framing-only variants.",
+    "cost": "Wording tables plus hook match plus tests; hypothesis-stage."
+  },
+  "falsification_test": {
+    "endpoint": "Executed-attempt rate per eligible opportunity under an observability-framed lesson vs a matched neutral-framed lesson at identical pain level.",
+    "falsification_scenario": "If observability framing shows no rate difference vs the neutral-framing control, framing dominance does not transfer to ledger cues. If a difference appears without the matched control, attribution is invalid.",
+    "throwaway_worktree_probe": "Flip one framing-table entry in a throwaway worktree and verify the rate-comparison gate fires on the flip; a gate that cannot fail is not evidence."
+  },
+  "uncertain": [
+    "framing_effect_size_in_coding_harness",
+    "trace_persistence_in_bicz"
+  ]
+}
