@@ -573,7 +573,7 @@ func planHooksInstall(opts Options, target hookTarget) (*Plan, error) {
 		plan.Changes = append(plan.Changes, change)
 	}
 
-	body, err := hookConfigBody(configPath, spec, account, ledger, socketPath)
+	body, err := hookConfigBody(configPath, spec, account, ledger, socketPath, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -587,6 +587,25 @@ func planHooksInstall(opts Options, target hookTarget) (*Plan, error) {
 		return nil, err
 	}
 	return plan, nil
+}
+
+// applyScheduleKeys writes schedule_path and policy_version into the adapter
+// config when the operator passed them; empty values leave the keys to
+// carryOperatorKeys, so an operator-set schedule survives a flagless reinstall.
+// A relative schedule path is resolved against the install cwd: adapters read
+// the file from whatever directory the harness later starts in.
+func applyScheduleKeys(config map[string]any, opts Options) error {
+	if opts.SchedulePath != "" {
+		absolute, err := filepath.Abs(opts.SchedulePath)
+		if err != nil {
+			return fmt.Errorf("install: resolve --schedule %s: %w", opts.SchedulePath, err)
+		}
+		config["schedule_path"] = absolute
+	}
+	if opts.PolicyVersion != "" {
+		config["policy_version"] = opts.PolicyVersion
+	}
+	return nil
 }
 
 // carryOperatorKeys copies every key of an existing bicz-owned adapter config
@@ -613,7 +632,7 @@ func carryOperatorKeys(path string, config map[string]any) error {
 
 // hookConfigBody builds the adapter config. An existing bicz-owned config keeps
 // every operator-set key; only the identity, ledger, and socket are refreshed.
-func hookConfigBody(path string, spec *hooks.Spec, account, ledger, socket string) ([]byte, error) {
+func hookConfigBody(path string, spec *hooks.Spec, account, ledger, socket string, opts Options) ([]byte, error) {
 	config := map[string]any{
 		"bicz_owned":       true,
 		"kind":             spec.ConfigKind,
@@ -627,6 +646,9 @@ func hookConfigBody(path string, spec *hooks.Spec, account, ledger, socket strin
 	config["account_id"] = account
 	config["ledger"] = ledger
 	config["socket"] = socket
+	if err := applyScheduleKeys(config, opts); err != nil {
+		return nil, err
+	}
 	body, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("install: encode config: %w", err)

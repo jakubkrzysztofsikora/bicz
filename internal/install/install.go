@@ -55,6 +55,12 @@ type Options struct {
 	// Generation selects the OpenCode plugin generation ("1" or "2"); empty
 	// detects the installed OpenCode binary.
 	Generation string
+	// SchedulePath is the operator's published schedule document written as
+	// schedule_path in the adapter config. Empty leaves the key untouched.
+	SchedulePath string
+	// PolicyVersion is the published schedule version written as
+	// policy_version in the adapter config. Empty leaves the key untouched.
+	PolicyVersion string
 }
 
 // ChangeKind is the kind of one planned change.
@@ -256,6 +262,9 @@ func PlanInstall(opts Options) (*Plan, error) {
 		return nil, err
 	}
 	fields["account_id"], fields["ledger"], fields["socket"] = account, ledger, socketPath
+	if err := applyScheduleKeys(fields, opts); err != nil {
+		return nil, err
+	}
 	if err := addSlashExecutable(fields, opts); err != nil {
 		return nil, err
 	}

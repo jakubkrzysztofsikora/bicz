@@ -82,9 +82,10 @@ bicz price --db $DB --version 1 --policy docs/schedule.example.json --reason "pu
 bicz install --harness claude --account alice --ledger $DB --dry-run
 bicz install --harness claude --account alice --ledger $DB
 
-# 3. Point the adapter at the schedule (see "Schedule").
-CFG="${BICZ_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/bicz}/claude.json"
-jq --arg p "$PWD/docs/schedule.example.json" '.schedule_path=$p | .policy_version="1"' "$CFG" > "$CFG.new" && mv "$CFG.new" "$CFG"
+# 3. Point the adapter at the schedule. `bicz install --schedule FILE --policy-version V`
+#    writes schedule_path and policy_version into the adapter config; a flagless
+#    reinstall keeps whatever is already set.
+bicz install --harness claude --account alice --ledger $DB --schedule "$PWD/docs/schedule.example.json" --policy-version 1
 
 # 4. Run the supervisor (foreground) and look at the state.
 bicz serve  --db $DB &
@@ -133,7 +134,8 @@ change anyone's credit**. Credit effects start only when both of these are true:
 1. An operator publishes a schedule: `bicz price --db DB --version 1 --policy FILE.json --reason "..."`.
 2. The adapter config (`claude.json`, `codex.json`, `omp.json`, `opencode.json` in the bicz config
    dir) has `schedule_path` pointing at that same file and `policy_version` set to the published
-   version.
+   version. `bicz install --schedule FILE --policy-version V` writes both keys in one step; a
+   flagless reinstall keeps whatever is already set.
 
 `docs/schedule.example.json` is a working schedule (per-tool `tool_max_cost_mc` such as Bash 50000,
 Read 5000; a `default_max_cost_mc` for unlisted tools; a `max_cost_cap_mc` ceiling). Its **numbers are

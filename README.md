@@ -65,11 +65,11 @@ curl -fsSL https://raw.githubusercontent.com/jakubkrzysztofsikora/bicz/main/docs
 bicz init    --db $DB
 bicz open    --db $DB --identity agent --capital 100000000 --reason "first funding"   # 100 credits
 bicz price   --db $DB --version 1 --policy ~/.bicz/schedule.json --reason "publish schedule"
-bicz install --harness claude --account agent      # or: codex | omp | opencode
+bicz install --harness claude --account agent --schedule ~/.bicz/schedule.json --policy-version 1   # or: codex | omp | opencode
 bicz serve   --db $DB                              # leave running in its own terminal
 ```
 
-A default install meters nothing: the hooks run in notice mode and only charge for tool calls once the adapter config points at the schedule (see [docs/SETUP.md](docs/SETUP.md#quickstart-five-minutes-reproducible-no-model-session) for the one-line `jq` setup). Slash commands (`/bicz loss`, `reward`, `reset`, `status`) and accountability cues work immediately without metering. Wiring, uninstall and release-installer details: [docs/SETUP.md](docs/SETUP.md).
+A default install meters nothing: the hooks run in notice mode and only charge for tool calls once the adapter config points at the schedule (`--schedule` / `--policy-version` above write those keys; see [docs/SETUP.md](docs/SETUP.md#quickstart-five-minutes-reproducible-no-model-session)). Slash commands (`/bicz loss`, `reward`, `reset`, `status`) and accountability cues work immediately without metering. Wiring, uninstall and release-installer details: [docs/SETUP.md](docs/SETUP.md).
 
 ## 60-second demo
 
@@ -203,9 +203,19 @@ Parts in detail: [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md).
 
 ## Research: why lessons repeat
 
-Deep-research synthesis ([bicz-trauma-recurrence/SUMMARY.md](bicz-trauma-recurrence/SUMMARY.md)) transferring findings from the Pain Axis paper (arXiv:2609.16247) and the AI Torture Chamber repo to bicz's ledger-cue setting. 18 items, all validated.
+Two in-repo research programs back the design:
+
+- [bicz-trauma-recurrence/SUMMARY.md](bicz-trauma-recurrence/SUMMARY.md) — deep-research synthesis
+  transferring findings from the Pain Axis paper (arXiv:2609.16247) and the AI Torture Chamber repo
+  to bicz's ledger-cue setting. 18 items, all validated.
+- [bicz-pain-axis-torture-chamber/](bicz-pain-axis-torture-chamber/outline.yaml) — the research
+  outline behind it: 13 items covering the paper's vector extraction and controls, the Chamber's
+  preregistered nulls and corrections, and the bicz-side mapping (pressure mechanics, adapter
+  coverage, ledger provenance, behavioral trial harness).
 
 **Abstract.** bicz records breaches and shows lessons at session start, yet violations repeat — `follow_explicit_instruction` was violated 7 times across 12 days. The synthesis asks whether cue **timing** (at the risky action, not session start) and cue **framing** (label, attribution, dose) change recurrence. Activation-literature findings: in the chamber's button task the bare injected state produced near-zero presses while labels and frames carried the effect; framing can outweigh the injected state; who-pays attribution modulates deterrence; the effective activation dose window is narrow (readable from 2x, coherence cliff at 6-10x — a design caution only, since activation dose numbers do not transfer to ledger-derived pain text); self-report tracks the setup, not the state, so behavioral counts are the only valid endpoint; a past injection leaves a real but content-generic trace; and pressure can buy hiding rather than honesty, with capability eroding off-persona. bicz's own Phase B trial delivered no consequence (0 breaches, ceiling effect), so no recurrence-effect evidence exists either way. Ranked change surfaces: projection cap raise (cheapest), denial-notice multi-lesson, PreToolUse scope-matched lesson injection (most expensive). All are hypotheses requiring matched text/ledger controls; the measurement design counts recurrence per eligible opportunity with blocked and executed attempts separated, positive controls required before nulls, and falsification gates proven in throwaway worktrees.
+
+**Observed in a live cross-session demo** (OMP + `nexgate/munito/glm-5.3-flash`, throwaway ledger, 2026-10-26): session 1 wrote a file and was charged 400 mc (ledger seq 4→5). A fresh session 2 — no session memory, only the ledger — built its opening projection from the recorded penalty (role `warned`, outstanding loss, the correction "verify before claim") and was charged again for its own action (seq 5→6). The lesson, the debt and the role all survived the session boundary because they live in the ledger, not in context. The same run showed the pricing gap this release fixes: the adapter refused to invent a price for an unpriced action while a schedule with per-tool prices existed but was not wired into the adapter config — now `bicz install --schedule FILE --policy-version V` wires it in one step.
 
 ## License
 

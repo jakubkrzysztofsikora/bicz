@@ -84,6 +84,9 @@ func PlanOpenCodeInstall(opts Options, generation int) (*Plan, error) {
 		return nil, err
 	}
 	fields["account_id"], fields["ledger"], fields["socket"] = account, ledger, socket
+	if err := applyScheduleKeys(fields, opts); err != nil {
+		return nil, err
+	}
 	if err := addSlashExecutable(fields, opts); err != nil {
 		return nil, err
 	}

@@ -403,6 +403,80 @@ func TestClaudeCodeAliasInstallsTheClaudeAdapter(t *testing.T) {
 	}
 }
 
+func TestInstallScheduleFlagsWriteConfigKeys(t *testing.T) {
+	_, exe := hookEnv(t)
+	plan, err := PlanInstall(Options{Harness: "claude", Account: "alice", Executable: exe,
+		SchedulePath: "/somewhere/schedule.json", PolicyVersion: "1"})
+	mustApply(t, plan, err)
+	cfg := decode(t, mustRead(t, ConfigPath("claude")))
+	if cfg["schedule_path"] != "/somewhere/schedule.json" || cfg["policy_version"] != "1" {
+		t.Fatalf("schedule flags must land in the config, got %v", cfg)
+	}
+
+	// A flagless reinstall keeps the operator's schedule keys.
+	plan, err = PlanInstall(Options{Harness: "claude", Account: "alice", Executable: exe})
+	mustApply(t, plan, err)
+	cfg = decode(t, mustRead(t, ConfigPath("claude")))
+	if cfg["schedule_path"] != "/somewhere/schedule.json" || cfg["policy_version"] != "1" {
+		t.Fatalf("flagless reinstall must keep schedule keys, got %v", cfg)
+	}
+
+	// An explicit flag wins over the stored value.
+	plan, err = PlanInstall(Options{Harness: "claude", Account: "alice", Executable: exe, PolicyVersion: "2"})
+	mustApply(t, plan, err)
+	cfg = decode(t, mustRead(t, ConfigPath("claude")))
+	if cfg["policy_version"] != "2" {
+		t.Fatalf("explicit flag must override stored policy_version, got %v", cfg)
+	}
+}
+
+// A relative --schedule must be stored absolute: the adapter reads the file
+// from whatever directory the harness later starts in, so a cwd-relative path
+// silently unmeters every session started elsewhere.
+func TestInstallScheduleRelativePathResolvedAgainstCwd(t *testing.T) {
+	home := testEnv(t)
+	schedule := filepath.Join(home, "schedule.json")
+	_ = os.WriteFile(schedule, []byte(`{"initial_capital_mc":1}`), 0o644)
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(cwd) })
+	if err := os.Chdir(home); err != nil {
+		t.Fatal(err)
+	}
+
+	plan, err := PlanInstall(Options{Harness: "omp", Account: "alice", SchedulePath: "schedule.json", PolicyVersion: "1"})
+	mustApply(t, plan, err)
+	cfg := decode(t, mustRead(t, ConfigPath("omp")))
+	// macOS reports /tmp as /private/tmp; compare resolved paths, not strings.
+	stored := cfg["schedule_path"].(string)
+	want, err := filepath.EvalSymlinks(schedule)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := filepath.EvalSymlinks(stored)
+	if err != nil {
+		t.Fatalf("stored schedule_path %q is not a readable file: %v", stored, err)
+	}
+	if got != want {
+		t.Fatalf("relative --schedule must be stored absolute (%s), got %s", want, got)
+	}
+	if cfg["policy_version"] != "1" {
+		t.Fatalf("policy_version missing: %v", cfg)
+	}
+}
+
+func TestOpenCodeInstallScheduleFlagsWriteConfigKeys(t *testing.T) {
+	testEnv(t)
+	plan, err := PlanOpenCodeInstall(Options{SchedulePath: "/somewhere/schedule.json", PolicyVersion: "1"}, 2)
+	mustApply(t, plan, err)
+	cfg := decode(t, mustRead(t, OpenCodeConfigPath()))
+	if cfg["schedule_path"] != "/somewhere/schedule.json" || cfg["policy_version"] != "1" {
+		t.Fatalf("schedule flags must land in the OpenCode config, got %v", cfg)
+	}
+}
+
 func mustRead(t *testing.T, path string) []byte {
 	t.Helper()
 	raw, err := os.ReadFile(path)

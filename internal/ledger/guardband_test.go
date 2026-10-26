@@ -386,3 +386,58 @@ func TestCapsNeverBrickAnIdentity(t *testing.T) {
 		t.Fatal("a large attempt is still refused inside the band")
 	}
 }
+
+// The published body must carry the operating-price fields verbatim, so an
+// adapter reading the schedule body prices actions exactly as published.
+func TestPriceScheduleCarriesOperatingPrices(t *testing.T) {
+	ctx := context0(t)
+	handle := newLedger(t)
+	published := policy()
+	published.DefaultMaxCostMC = 25_000
+	published.MaxCostCapMC = 500_000
+	published.ToolMaxCostMC = map[string]int64{"Bash": 50_000, "Read": 5_000}
+	if err := handle.PublishPriceSchedule(ctx, "1", published); err != nil {
+		t.Fatalf("PublishPriceSchedule: %v", err)
+	}
+	got, err := handle.PriceSchedule(ctx, "1")
+	if err != nil {
+		t.Fatalf("PriceSchedule: %v", err)
+	}
+	if got.DefaultMaxCostMC != 25_000 || got.MaxCostCapMC != 500_000 {
+		t.Fatalf("bounds lost in publish/read: default=%d cap=%d", got.DefaultMaxCostMC, got.MaxCostCapMC)
+	}
+	if got.ToolMaxCostMC["Bash"] != 50_000 || got.ToolMaxCostMC["Read"] != 5_000 {
+		t.Fatalf("per-tool prices lost in publish/read: %v", got.ToolMaxCostMC)
+	}
+
+	// Republishing the identical body is a no-op; a different body conflicts.
+	if err := handle.PublishPriceSchedule(ctx, "1", published); err != nil {
+		t.Fatalf("republish identical: %v", err)
+	}
+	changed := published
+	changed.ToolMaxCostMC = map[string]int64{"Bash": 60_000}
+	wantCode(t, handle.PublishPriceSchedule(ctx, "1", changed), ErrPayloadConflict, "republish different body")
+}
+
+// The ledger never invents prices, but it also never accepts a negative one.
+func TestPriceScheduleRejectsNegativePrices(t *testing.T) {
+	ctx := context0(t)
+	handle := newLedger(t)
+	negative := policy()
+	negative.DefaultMaxCostMC = -1
+	wantCode(t, handle.PublishPriceSchedule(ctx, "1", negative), ErrInvalidArgument, "negative default_max_cost_mc")
+
+	negative = policy()
+	negative.ToolMaxCostMC = map[string]int64{"Bash": -5}
+	wantCode(t, handle.PublishPriceSchedule(ctx, "1", negative), ErrInvalidArgument, "negative tool price")
+
+	negative = policy()
+	negative.ToolMaxCostMC = map[string]int64{" ": 5}
+	wantCode(t, handle.PublishPriceSchedule(ctx, "1", negative), ErrInvalidArgument, "empty tool name")
+
+	// All-zero operating prices stay publishable (no schedule is first-class).
+	zero := policy()
+	if err := handle.PublishPriceSchedule(ctx, "1", zero); err != nil {
+		t.Fatalf("all-zero schedule must publish: %v", err)
+	}
+}

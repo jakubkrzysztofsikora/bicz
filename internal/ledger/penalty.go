@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jakubkrzysztofsikora/bicz/internal/canonical"
@@ -50,6 +51,15 @@ type Policy struct {
 	AnchorEventThreshold int64                  `json:"anchor_event_threshold"`
 	DefaultRule          PenaltyRule            `json:"default_penalty"`
 	Rules                map[string]PenaltyRule `json:"penalties"`
+	// DefaultMaxCostMC is the per-action bound applied when ToolMaxCostMC has
+	// no entry for the tool in question (docs/CONTRACTS.md §9.3). Zero means
+	// no default bound; adapters then treat the action as unpriced.
+	DefaultMaxCostMC int64 `json:"default_max_cost_mc"`
+	// MaxCostCapMC is the hard ceiling on any single reservation an adapter
+	// may request under this schedule. Zero means no schedule-level ceiling.
+	MaxCostCapMC int64 `json:"max_cost_cap_mc"`
+	// ToolMaxCostMC maps tool names to their per-action bound.
+	ToolMaxCostMC map[string]int64 `json:"tool_max_cost_mc"`
 }
 
 // Documented anchoring cadence, used when a schedule does not state one.
@@ -202,6 +212,44 @@ func (p Policy) formula(rule string, balance int64, repeats int64) (amount, mult
 	return amount, multiplier, band
 }
 
+// negativePriceProblems names every negative money value in a schedule. The
+// ledger never invents prices, but it also never accepts a negative one; all
+// zero amounts stay publishable (no schedule is a first-class state).
+func (p Policy) negativePriceProblems() []string {
+	var problems []string
+	check := func(name string, value int64) {
+		if value < 0 {
+			problems = append(problems, fmt.Sprintf("%s=%d", name, value))
+		}
+	}
+	check("initial_capital_mc", p.InitialCapital)
+	check("guard_band_bp", p.GuardBandBP)
+	check("guard_band_max_exposure_bp", p.GuardBandMaxExposureBP)
+	check("anchor_cadence_hours", p.AnchorCadenceHours)
+	check("anchor_event_threshold", p.AnchorEventThreshold)
+	check("repeat_multiplier_cap", p.RepeatCap)
+	check("minimum_attempt_mc", p.MinimumAttemptMC)
+	check("default_penalty.floor_mc", p.DefaultRule.Floor)
+	check("default_penalty.fraction_bp", p.DefaultRule.FractionBP)
+	check("default_penalty.lmax_mc", p.DefaultRule.Max)
+	check("default_max_cost_mc", p.DefaultMaxCostMC)
+	check("max_cost_cap_mc", p.MaxCostCapMC)
+	for tool, price := range p.ToolMaxCostMC {
+		if price < 0 {
+			problems = append(problems, fmt.Sprintf("tool_max_cost_mc[%q]=%d", tool, price))
+		}
+		if strings.TrimSpace(tool) == "" {
+			problems = append(problems, "tool_max_cost_mc has an empty tool name")
+		}
+	}
+	for rule, ruleParams := range p.Rules {
+		if ruleParams.Floor < 0 || ruleParams.FractionBP < 0 || ruleParams.Max < 0 {
+			problems = append(problems, fmt.Sprintf("penalties[%q] has a negative value", rule))
+		}
+	}
+	return problems
+}
+
 // PublishPriceSchedule records a new price schedule version.
 //
 // Prices change prospectively only: an existing version is immutable. Republishing
@@ -211,6 +259,9 @@ func (p Policy) formula(rule string, balance int64, repeats int64) (amount, mult
 func (l *Ledger) PublishPriceSchedule(ctx context.Context, version string, policy Policy) error {
 	if version == "" {
 		return errf(ErrInvalidArgument, "price schedule version is empty")
+	}
+	if problems := policy.negativePriceProblems(); len(problems) > 0 {
+		return errf(ErrInvalidArgument, "price schedule %s: %s", version, strings.Join(problems, ", "))
 	}
 	body, err := canonical.Marshal(policy)
 	if err != nil {

@@ -972,14 +972,18 @@ func runInstall(ctx context.Context, args []string) error {
 	ledger := fs.String("ledger", "", "ledger the supervisor meters into (default: $BICZ_LEDGER or $HOME/.bicz/ledger.sqlite)")
 	dryRun := fs.Bool("dry-run", false, "print the exact diff and make no changes")
 	generation := fs.String("generation", "", "OpenCode plugin generation, 1 or 2 (default: detect the installed opencode)")
+	schedule := fs.String("schedule", "", "schedule document written as schedule_path in the adapter config (default: leave any existing value)")
+	policyVersion := fs.String("policy-version", "", "published schedule version written as policy_version (default: leave any existing value)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	plan, err := install.PlanInstall(install.Options{
-		Harness:    *harness,
-		Account:    *account,
-		LedgerPath: *ledger,
-		Generation: *generation,
+		Harness:       *harness,
+		Account:       *account,
+		LedgerPath:    *ledger,
+		Generation:    *generation,
+		SchedulePath:  *schedule,
+		PolicyVersion: *policyVersion,
 	})
 	if err != nil {
 		return err

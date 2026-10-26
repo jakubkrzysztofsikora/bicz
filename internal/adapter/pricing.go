@@ -30,12 +30,10 @@ type PenaltyRule struct {
 //
 // The fixed fields mirror internal/ledger.Policy (same JSON names, fixed by
 // price_schedules.body, docs/SCHEMA.md). The operating-price fields
-// (DefaultMaxCostMC, MaxCostCapMC, ToolMaxCostMC) are the adapter-facing
-// extension of the same document: the ledger's canonical body does not yet
-// carry per-action operating prices (docs/CONTRACTS.md §9.3), so an adapter
-// reads them from the operator's published schedule document when present and
-// degrades to the states below when absent. All amounts are integer
-// microcredits.
+// (DefaultMaxCostMC, MaxCostCapMC, ToolMaxCostMC) are part of the same
+// document: the ledger's canonical body carries them (ledger.Policy), so an
+// adapter reads the published schedule body directly and degrades to the
+// states below when they are absent. All amounts are integer microcredits.
 type Schedule struct {
 	InitialCapital int64 `json:"initial_capital_mc"`
 	GuardBandBP    int64 `json:"guard_band_bp"`

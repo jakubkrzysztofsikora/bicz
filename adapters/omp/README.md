@@ -94,11 +94,13 @@ invented amount, and it is disclosed as unrecorded instead.
 
 A reservation's `max_cost` is derived only from the published price schedule
 (`schedule_path` in `omp.json` — the operator's `bicz price` policy document,
-optionally extended with `tool_max_cost_mc`, `default_max_cost_mc`,
-`max_cost_cap_mc`). Without a schedule, no amount is invented: the action is
-disclosed as not metered (`no_schedule_mode`). Settlement charges the quoted
-operating price as observed usage — bicz does not yet meter real CPU/token
-usage (docs/CONTRACTS.md §9.3), which is disclosed here rather than claimed.
+which carries `tool_max_cost_mc`, `default_max_cost_mc`, `max_cost_cap_mc` as
+part of the published body). `bicz install --schedule FILE --policy-version V`
+writes both keys; a flagless reinstall keeps them. Without a schedule, no
+amount is invented: the action is disclosed as not metered
+(`no_schedule_mode`). Settlement charges the quoted operating price as
+observed usage — bicz does not yet meter real CPU/token usage
+(docs/CONTRACTS.md §9.3), which is disclosed here rather than claimed.
 
 ## Wire calls
 
